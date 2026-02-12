@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuthStore } from '../store/authStore'
 import { supabase } from '../lib/supabase'
 import { loadSession } from '../lib/loadSession'
-
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -11,6 +11,18 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
+  const { user, profile } = useAuthStore()
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user && profile) {
+      if (profile.role === 'admin') {
+        navigate('/admin')
+      } else if (profile.role === 'clinician') {
+        navigate('/clinician')
+      }
+    }
+  }, [user, profile, navigate])
 
   async function handleLogin(e) {
     e.preventDefault()
@@ -23,15 +35,13 @@ export default function Login() {
     })
 
     if (error) {
-      console.error('Supabase login error:', error)   // 👈 debug log
-      // setError('Invalid email or password. Please try again.')
+      console.error('Supabase login error:', error)
       setError(error.message || 'An unexpected error occurred. Please try again.')
       setLoading(false)
       return
     }
 
     await loadSession()
-    navigate('/')
   }
 
   return (
