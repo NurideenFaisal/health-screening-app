@@ -76,7 +76,7 @@ export default function Screening_data() {
         {filtered.map(p => (
           <div
             key={p.id}
-            onClick={() => navigate(`/patient/${p.id}`)}  // 🔹 Click navigates to Form
+            onClick={() => navigate(`/patient/${p.id}`)}
             className="flex items-center justify-between p-5 rounded-xl border
                        border-gray-200 hover:border-emerald-400 hover:shadow-sm
                        transition cursor-pointer"

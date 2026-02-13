@@ -6,6 +6,7 @@ import Login from './pages/Login'
 import AdminDashboard from './pages/AdminSide/AdminDashboard'
 import ClinicianDashboard from './pages/ClinicianSide/ClinicianDashboard'
 import RoleRoute from './components/RoleRoute'
+import ScreeningForm from './pages/ScreeningForm'
 
 function App() {
   const { user, profile, loading } = useAuthStore()
@@ -14,6 +15,7 @@ function App() {
     loadSession()
   }, [])
 
+  // Show loading spinner while auth is initializing
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -30,36 +32,38 @@ function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
 
-        {/* Admin Dashboard */}
+        {/* Admin Routes */}
         <Route
-          path="/admin"
+          path="/admin/*"
           element={
-            <RoleRoute requiredRole="admin">
+            <RoleRoute requiredRole="admin" user={user} profile={profile}>
               <AdminDashboard />
             </RoleRoute>
           }
         />
 
-        {/* Clinician Dashboard */}
+        {/* Clinician Routes */}
         <Route
-          path="/clinician"
+          path="/clinician/*"
           element={
-            <RoleRoute requiredRole="clinician">
+            <RoleRoute requiredRole="clinician" user={user} profile={profile}>
               <ClinicianDashboard />
             </RoleRoute>
           }
         />
 
-        {/* Root redirect */}
+        {/* Patient Screening Form - accessible by admin & clinician */}
         <Route
-          path="/"
+          path="/patient/:id"
           element={
-            user
-              ? <Navigate to={profile?.role === 'admin' ? '/admin' : '/clinician'} />
-              : <Navigate to="/login" />
+            <RoleRoute requiredRole={['clinician', 'admin']} user={user} profile={profile}>
+              <ScreeningForm />
+            </RoleRoute>
           }
         />
 
+
+        <Route path="/" element={user ? <Navigate to={profile?.role === 'admin' ? '/admin' : '/clinician'} /> : <Navigate to="/login" />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>
@@ -67,3 +71,4 @@ function App() {
 }
 
 export default App
+
