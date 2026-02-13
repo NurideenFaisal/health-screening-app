@@ -7,7 +7,6 @@ export default function AdminDashboard() {
     const { profile, user } = useAuthStore()
     const navigate = useNavigate()
 
-    // Redirect to login when user is fully logged out (user === null)
     useEffect(() => {
         if (user === null) {
             navigate('/login', { replace: true })
@@ -25,10 +24,6 @@ export default function AdminDashboard() {
         )
     }
 
-    return (
-        <div className="flex min-h-screen bg-gray-50">
-            <AdminSidebar />
-
-        </div>
-    )
+    // ✅ Let AdminSidebar control full layout
+    return <AdminSidebar />
 }

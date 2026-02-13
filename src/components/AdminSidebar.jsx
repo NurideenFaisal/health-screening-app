@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { supabase } from '../lib/supabase'
 
+import Screening_data from '../pages/Screening_Data'
+
 export default function AdminSidebar() {
   const navigate = useNavigate()
   const { profile, user, clearAuth } = useAuthStore()
@@ -22,7 +24,7 @@ export default function AdminSidebar() {
     { name: 'Dashboard', component: <div className="p-8">Welcome to the Dashboard</div> },
     { name: 'Role Management', component: <div className="p-8">Role Management Page</div> },
     { name: 'Patient Data', component: <div className="p-8">Patient Data Page</div> },
-    { name: 'Screening Data', component: <div className="p-8">Screening Data Page</div> },
+    { name: 'Screening Data', component:  <Screening_data /> },
     { name: 'Reports', component: <div className="p-8">Reports Page</div> },
   ]
 
