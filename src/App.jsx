@@ -3,8 +3,8 @@ import { useEffect } from 'react'
 import { useAuthStore } from './store/authStore'
 import { loadSession } from './lib/loadSession'
 import Login from './pages/Login'
-import AdminDashboard from './pages/AdminDashboard'
-import ClinicianDashboard from './pages/ClinicianDashboard'
+import AdminDashboard from './pages/AdminSide/AdminDashboard'
+import ClinicianDashboard from './pages/ClinicianSide/ClinicianDashboard'
 import RoleRoute from './components/RoleRoute'
 
 function App() {
