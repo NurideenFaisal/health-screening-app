@@ -7,6 +7,7 @@ import AdminDashboard from './pages/AdminSide/AdminDashboard'
 import ClinicianDashboard from './pages/ClinicianSide/ClinicianDashboard'
 import RoleRoute from './components/RoleRoute'
 import ScreeningForm from './pages/ScreeningForm'
+import Screening_data from './pages/Screening_Data'
 
 function App() {
   const { user, profile, loading } = useAuthStore()
@@ -15,7 +16,6 @@ function App() {
     loadSession()
   }, [])
 
-  // Show loading spinner while auth is initializing
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -33,35 +33,25 @@ function App() {
         <Route path="/login" element={<Login />} />
 
         {/* Admin Routes */}
-        <Route
-          path="/admin/*"
-          element={
-            <RoleRoute requiredRole="admin" user={user} profile={profile}>
-              <AdminDashboard />
-            </RoleRoute>
-          }
-        />
+        <Route path="/admin/*" element={
+          <RoleRoute requiredRole="admin" user={user} profile={profile}>
+            <AdminDashboard />
+          </RoleRoute>
+        }>
+          <Route index element={<div>Welcome to the Dashboard</div>} />
+          <Route path="role-management" element={<div>Role Management Page</div>} />
+          <Route path="patient-data" element={<div>Patient Data Page</div>} />
+          <Route path="screening-data" element={<Screening_data />} />
+          <Route path="patient/:id" element={<ScreeningForm />} />
+          <Route path="reports" element={<div>Reports Page</div>} />
+        </Route>
 
         {/* Clinician Routes */}
-        <Route
-          path="/clinician/*"
-          element={
-            <RoleRoute requiredRole="clinician" user={user} profile={profile}>
-              <ClinicianDashboard />
-            </RoleRoute>
-          }
-        />
-
-        {/* Patient Screening Form - accessible by admin & clinician */}
-        <Route
-          path="/patient/:id"
-          element={
-            <RoleRoute requiredRole={['clinician', 'admin']} user={user} profile={profile}>
-              <ScreeningForm />
-            </RoleRoute>
-          }
-        />
-
+        <Route path="/clinician/*" element={
+          <RoleRoute requiredRole="clinician" user={user} profile={profile}>
+            <ClinicianDashboard />
+          </RoleRoute>
+        }/>
 
         <Route path="/" element={user ? <Navigate to={profile?.role === 'admin' ? '/admin' : '/clinician'} /> : <Navigate to="/login" />} />
         <Route path="*" element={<Navigate to="/" />} />
@@ -71,4 +61,3 @@ function App() {
 }
 
 export default App
-

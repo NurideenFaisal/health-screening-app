@@ -76,7 +76,8 @@ export default function Screening_data() {
         {filtered.map(p => (
           <div
             key={p.id}
-            onClick={() => navigate(`/patient/${p.id}`)}
+            onClick={() => navigate(`/admin/patient/${p.id}`)}
+
             className="flex items-center justify-between p-5 rounded-xl border
                        border-gray-200 hover:border-emerald-400 hover:shadow-sm
                        transition cursor-pointer"
@@ -92,7 +93,7 @@ export default function Screening_data() {
                 <p className="font-semibold text-gray-900 text-lg">
                   {p.name}
                 </p>
-
+          
                 <p className="text-sm text-gray-500">
                   ID: {p.id} • {p.gender} • {p.age} years old
                 </p>
