@@ -8,6 +8,7 @@ import ClinicianDashboard from './pages/ClinicianSide/ClinicianDashboard'
 import RoleRoute from './components/RoleRoute'
 import ScreeningForm from './pages/ScreeningForm'
 import Screening_data from './pages/Screening_Data'
+import DashboardStats from './pages/AdminSide/DashboardStats'
 
 function App() {
   const { user, profile, loading } = useAuthStore()
@@ -38,7 +39,7 @@ function App() {
             <AdminDashboard />
           </RoleRoute>
         }>
-          <Route index element={<div>Welcome to the Dashboard</div>} />
+          <Route index element={<DashboardStats />} />
           <Route path="role-management" element={<div>Role Management Page</div>} />
           <Route path="patient-data" element={<div>Patient Data Page</div>} />
           <Route path="screening-data" element={<Screening_data />} />
