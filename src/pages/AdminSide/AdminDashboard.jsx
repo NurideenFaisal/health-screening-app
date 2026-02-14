@@ -16,7 +16,7 @@ export default function AdminDashboard() {
 
   if (!profile || !user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading dashboard...</p>
@@ -26,10 +26,11 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-100 overflow-hidden">
       <AdminSidebar />
-      <div className="flex-1 p-8">
-        {/* Render the route component here */}
+
+      {/* IMPORTANT: min-w-0 prevents flex reflow jumping */}
+      <div className="flex-1 p-8 overflow-y-auto min-w-0">
         <Outlet />
       </div>
     </div>

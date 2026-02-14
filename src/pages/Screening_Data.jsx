@@ -5,6 +5,19 @@ export default function Screening_data() {
   const [query, setQuery] = useState('')
   const navigate = useNavigate()
 
+  const SIZE = {
+    containerSpacing: "space-y-5",
+    cardPadding: "p-4",
+    innerPadding: "p-4",
+    avatar: "w-9 h-9",
+    headerIcon: "w-9 h-9",
+    title: "text-lg",
+    subtitle: "text-xs",
+    name: "text-sm",
+    meta: "text-xs"
+  }
+
+
   const patients = [
     { id: 'GH0987-001', name: 'Kwame Mensah', gender: 'Male', age: 6 },
     { id: 'GH0987-002', name: 'Ama Asante', gender: 'Female', age: 5 },
@@ -27,23 +40,25 @@ export default function Screening_data() {
   }
 
   return (
-    <div className="w-full space-y-8">
+    <div className={`w-full ${SIZE.containerSpacing}`}>
 
       {/* SEARCH CARD */}
-      <div className="bg-white rounded-2xl shadow p-7 space-y-6">
+      <div className={`bg-white rounded-xl shadow ${SIZE.cardPadding} space-y-5`}>
 
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 bg-emerald-500 rounded-xl flex items-center justify-center shadow">
-            <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="flex items-center gap-3">
+          <div className={`${SIZE.headerIcon} bg-emerald-500 rounded-lg flex items-center justify-center`}>
+            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
                 d="M21 21l-4.3-4.3m1.3-5.2A7 7 0 1110 3a7 7 0 018 8z" />
             </svg>
           </div>
 
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Find Patient</h2>
-            <p className="text-gray-500 text-sm">
-              Search by name or ID to begin screening
+            <h2 className={`${SIZE.title} font-bold text-gray-900`}>
+              Find Patient
+            </h2>
+            <p className={`text-gray-500 ${SIZE.subtitle}`}>
+              Search by name or ID
             </p>
           </div>
         </div>
@@ -52,12 +67,12 @@ export default function Screening_data() {
           <input
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Search by patient name or ID..."
-            className="w-full pl-12 pr-4 py-4 rounded-xl border border-gray-200 
+            placeholder="Search patient..."
+            className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-200 
                        focus:ring-2 focus:ring-emerald-500 focus:outline-none text-gray-700"
           />
 
-          <svg className="w-5 h-5 text-gray-400 absolute left-4 top-4.5"
+          <svg className="w-4 h-4 text-gray-400 absolute left-3 top-3.5"
             fill="none" stroke="currentColor" viewBox="0 0 20 20">
             <path strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
               d="M21 21l-4.3-4.3m1.3-5.2A7 7 0 1110 3a7 7 0 018 8z" />
@@ -67,40 +82,43 @@ export default function Screening_data() {
       </div>
 
       {/* RESULTS */}
-      <div className="bg-white rounded-2xl shadow p-6 space-y-4">
+      <div className={`bg-white rounded-xl shadow ${SIZE.innerPadding} space-y-3`}>
 
-        <h3 className="text-lg font-semibold text-gray-800">
-          {filtered.length} Patients Found
+        <h3 className="text-sm font-semibold text-gray-700">
+          {filtered.length} Patients
         </h3>
 
         {filtered.map(p => (
           <div
             key={p.id}
             onClick={() => navigate(`/admin/patient/${p.id}`)}
-
-            className="flex items-center justify-between p-5 rounded-xl border
-                       border-gray-200 hover:border-emerald-400 hover:shadow-sm
+            className="flex items-center justify-between p-3 rounded-lg border
+                       border-gray-200 hover:border-emerald-400
                        transition cursor-pointer"
           >
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
 
-              <div className="w-14 h-14 rounded-xl bg-emerald-500 text-white
-                              flex items-center justify-center font-bold text-lg">
+              <div
+                className={`${SIZE.avatar} rounded-lg 
+              ${p.gender === 'Male' ? 'bg-blue-400' : p.gender === 'Female' ? 'bg-pink-400' : 'bg-gray-400'} 
+              text-white flex items-center justify-center font-semibold`}
+              >
                 {initials(p.name)}
               </div>
 
+
               <div>
-                <p className="font-semibold text-gray-900 text-lg">
+                <p className={`font-semibold text-gray-900 ${SIZE.name}`}>
                   {p.name}
                 </p>
-          
-                <p className="text-sm text-gray-500">
-                  ID: {p.id} • {p.gender} • {p.age} years old
+
+                <p className={`text-gray-500 ${SIZE.meta}`}>
+                  {p.id} • {p.gender} • {p.age} yrs
                 </p>
               </div>
             </div>
 
-            <svg className="w-6 h-6 text-emerald-600"
+            <svg className="w-4 h-4 text-emerald-600"
               fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
                 d="M9 5l7 7-7 7" />
@@ -109,7 +127,7 @@ export default function Screening_data() {
         ))}
 
         {filtered.length === 0 && (
-          <div className="text-center text-gray-500 py-8">
+          <div className="text-center text-gray-500 py-6 text-sm">
             No patients match your search
           </div>
         )}
