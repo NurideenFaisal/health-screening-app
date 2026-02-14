@@ -10,6 +10,7 @@ import ScreeningForm from './pages/ScreeningForm'
 import Screening_data from './pages/Screening_Data'
 import DashboardStats from './pages/AdminSide/DashboardStats'
 import PatientData from './pages/AdminSide/PeopleData'
+import RoleManagement from './pages/AdminSide/RoleManagement'
 
 function App() {
   const { user, profile, loading } = useAuthStore()
@@ -41,7 +42,7 @@ function App() {
           </RoleRoute>
         }>
           <Route index element={<DashboardStats />} />
-          <Route path="role-management" element={<div>Role Management Page</div>} />
+          <Route path="role-management" element={<RoleManagement />} />
           <Route path="patient-data" element={<PatientData />} />
           <Route path="screening-data" element={<Screening_data />} />
           <Route path="patient/:id" element={<ScreeningForm />} />
