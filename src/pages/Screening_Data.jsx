@@ -32,11 +32,7 @@ export default function Screening_data() {
   )
 
   function initials(name) {
-    return name
-      .split(' ')
-      .map(n => n[0])
-      .join('')
-      .toUpperCase()
+    return name[0].toUpperCase()
   }
 
   return (
