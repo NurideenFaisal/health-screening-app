@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ChevronLeft, User } from "lucide-react";
-import Section1 from "../components/ScreeningSection1";
-import Section2 from "../components/ScreeningSection2";
-import Section3 from "../components/ScreeningSection3";
+import Section1 from "../../components/ScreeningSection1";
+import Section2 from "../../components/ScreeningSection2";
+import Section3 from "../../components/ScreeningSection3";
 
 export default function ScreeningForm() {
   const { id } = useParams();

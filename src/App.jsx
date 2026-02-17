@@ -6,11 +6,17 @@ import Login from './pages/Login'
 import AdminDashboard from './pages/AdminSide/AdminDashboard'
 import ClinicianDashboard from './pages/ClinicianSide/ClinicianDashboard'
 import RoleRoute from './components/RoleRoute'
-import ScreeningForm from './pages/ScreeningForm'
-import Screening_data from './pages/Screening_Data'
+import ScreeningForm from './pages/AdminSide/ScreeningForm'
+import Screening_data from './pages/AdminSide/Screening_Data'
 import DashboardStats from './pages/AdminSide/DashboardStats'
 import PatientData from './pages/AdminSide/PeopleData'
 import RoleManagement from './pages/AdminSide/RoleManagement'
+import ClinicianDashboardStats from './pages/ClinicianSide/ClinicianDashboardStats'
+import ClinicianScreeningData from './pages/ClinicianSide/ClinicianScreeningData'
+import ClinicianScreeningForm from './pages/ClinicianSide/ClinicianScreeningForm'
+import ClinicianPatientData from './pages/ClinicianSide/ClinicianPatientData'
+
+
 
 function App() {
   const { user, profile, loading } = useAuthStore()
@@ -54,7 +60,12 @@ function App() {
           <RoleRoute requiredRole="clinician" user={user} profile={profile}>
             <ClinicianDashboard />
           </RoleRoute>
-        } />
+        }>
+          <Route index element={<ClinicianDashboardStats />} />
+          <Route path="patient-data" element={<ClinicianPatientData />} />
+          <Route path="screening-data" element={<ClinicianScreeningData />} />
+          <Route path="patient/:id" element={<ClinicianScreeningForm />} />
+        </Route>
 
         <Route path="/" element={user ? <Navigate to={profile?.role === 'admin' ? '/admin' : '/clinician'} /> : <Navigate to="/login" />} />
         <Route path="*" element={<Navigate to="/" />} />
