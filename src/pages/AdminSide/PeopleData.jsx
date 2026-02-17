@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react'
-import { Upload, Download, Trash2, SlidersHorizontal, Search, Plus, Edit2, X, Clock } from 'lucide-react'
+import React, { useState, useEffect, useRef } from 'react'
+import { Upload, Download, Trash2, SlidersHorizontal, Search, Plus, Edit2, X, Clock, AlertCircle } from 'lucide-react'
 
 // --- Reusable Components ---
 const Button = ({ children, className = '', ...props }) => (
@@ -41,23 +41,150 @@ const Input = ({ label, error, ...props }) => (
   </div>
 )
 
+// Autocomplete Input Component
+const AutocompleteInput = ({ label, error, value, onChange, suggestions = [], ...props }) => {
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [filteredSuggestions, setFilteredSuggestions] = useState([])
+  const inputRef = useRef(null)
+  const dropdownRef = useRef(null)
+
+  useEffect(() => {
+    if (value && suggestions.length > 0) {
+      const filtered = suggestions.filter(s => 
+        s.toLowerCase().includes(value.toLowerCase())
+      )
+      setFilteredSuggestions(filtered)
+      setShowSuggestions(filtered.length > 0)
+    } else if (!value && suggestions.length > 0) {
+      setFilteredSuggestions(suggestions)
+      setShowSuggestions(false)
+    } else {
+      setShowSuggestions(false)
+    }
+  }, [value, suggestions])
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        inputRef.current && 
+        !inputRef.current.contains(event.target) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target)
+      ) {
+        setShowSuggestions(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const handleInputChange = (e) => {
+    onChange(e)
+    if (e.target.value) {
+      setShowSuggestions(true)
+    }
+  }
+
+  const handleSuggestionClick = (suggestion) => {
+    onChange({ target: { value: suggestion } })
+    setShowSuggestions(false)
+  }
+
+  return (
+    <div className="relative">
+      {label && <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>}
+      <input
+        ref={inputRef}
+        value={value}
+        onChange={handleInputChange}
+        onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+        className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 text-sm
+          ${error ? 'border-red-500 focus:ring-red-500' : 'border-slate-200 focus:ring-emerald-500/20 focus:border-emerald-500'}`}
+        {...props}
+      />
+      {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+      
+      {showSuggestions && filteredSuggestions.length > 0 && (
+        <div 
+          ref={dropdownRef}
+          className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto"
+        >
+          {filteredSuggestions.map((suggestion, idx) => (
+            <div
+              key={idx}
+              onClick={() => handleSuggestionClick(suggestion)}
+              className="px-3 py-2 text-sm hover:bg-emerald-50 cursor-pointer transition"
+            >
+              {suggestion}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Error Modal Component
+const ErrorModal = ({ show, onClose, errors }) => {
+  if (!show) return null
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4">
+        <div className="flex items-start gap-3">
+          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+            <AlertCircle className="text-red-600" size={20} />
+          </div>
+          <div className="flex-1">
+            <h2 className="text-lg font-semibold text-slate-800 mb-1">Import Failed</h2>
+            <p className="text-sm text-slate-600 mb-3">The imported file has the following issues:</p>
+            <ul className="space-y-1 text-sm text-slate-700">
+              {errors.map((error, idx) => (
+                <li key={idx} className="flex items-start gap-2">
+                  <span className="text-red-500 font-bold">•</span>
+                  <span>{error}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+        <div className="flex justify-end pt-2">
+          <Button 
+            className="bg-slate-600 text-white hover:bg-slate-700"
+            onClick={onClose}
+          >
+            Close
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // --- Main Component ---
 export default function PeopleData() {
   const [selectedRows, setSelectedRows] = useState(new Set())
   const [searchQuery, setSearchQuery] = useState('')
   const [editingPerson, setEditingPerson] = useState(null)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [showErrorModal, setShowErrorModal] = useState(false)
+  const [importErrors, setImportErrors] = useState([])
+  const fileInputRef = useRef(null)
+  
   const [people, setPeople] = useState([
-    { id: 1, firstName: 'Kwame', lastName: 'Mensah', dob: '2017-02-15', childId: 'GH0001', sex: 'M', screenCount: 3 },
-    { id: 2, firstName: 'Ama', lastName: 'Asante', dob: '2016-03-20', childId: 'GH0002', sex: 'F', screenCount: 5 },
-    { id: 3, firstName: 'Kofi', lastName: 'Owusu', dob: '2019-06-05', childId: 'GH0003', sex: 'M', screenCount: 2 },
-    { id: 4, firstName: 'Akua', lastName: 'Boateng', dob: '2013-10-10', childId: 'GH0004', sex: 'F', screenCount: 7 },
-    { id: 5, firstName: 'Yaw', lastName: 'Osei', dob: '2012-12-17', childId: 'GH0005', sex: 'M', screenCount: 4 },
-    { id: 6, firstName: 'Abena', lastName: 'Appiah', dob: '2012-07-23', childId: 'GH0006', sex: 'F', screenCount: 1 }
+    { id: 1, firstName: 'Kwame', lastName: 'Mensah', community: 'Asokwa', dob: '2017-02-15', childId: 'GH0001', sex: 'M', screenCount: 3 },
+    { id: 2, firstName: 'Ama', lastName: 'Asante', community: 'Bantama', dob: '2016-03-20', childId: 'GH0002', sex: 'F', screenCount: 5 },
+    { id: 3, firstName: 'Kofi', lastName: 'Owusu', community: 'Asokwa', dob: '2019-06-05', childId: 'GH0003', sex: 'M', screenCount: 2 },
+    { id: 4, firstName: 'Akua', lastName: 'Boateng', community: 'Adum', dob: '2013-10-10', childId: 'GH0004', sex: 'F', screenCount: 7 },
+    { id: 5, firstName: 'Yaw', lastName: 'Osei', community: 'Bantama', dob: '2012-12-17', childId: 'GH0005', sex: 'M', screenCount: 4 },
+    { id: 6, firstName: 'Abena', lastName: 'Appiah', community: 'Adum', dob: '2012-07-23', childId: 'GH0006', sex: 'F', screenCount: 1 }
   ])
 
-  const [newPatient, setNewPatient] = useState({ firstName: '', lastName: '', dob: '', childId: 'GH', sex: '' })
+  const [newPatient, setNewPatient] = useState({ firstName: '', lastName: '', community: '', dob: '', childId: 'GH', sex: '' })
   const [errors, setErrors] = useState({})
+
+  // Get unique communities for autocomplete
+  const uniqueCommunities = [...new Set(people.map(p => p.community).filter(Boolean))]
 
   // --- Utilities ---
   const calculateAge = dobString => {
@@ -79,6 +206,7 @@ export default function PeopleData() {
 
   const getInitials = firstName => firstName?.charAt(0).toUpperCase() || '?'
 
+  // Search only works for Child ID + Name
   const filtered = people.filter(
     p => p.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
          p.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -99,6 +227,7 @@ export default function PeopleData() {
     const errs = {}
     if (!patient.firstName) errs.firstName = 'Required'
     if (!patient.lastName) errs.lastName = 'Required'
+    if (!patient.community) errs.community = 'Required'
     if (!patient.childId) errs.childId = 'Required'
     if (!patient.dob) errs.dob = 'Required'
     else if (isNaN(new Date(patient.dob))) errs.dob = 'Invalid date'
@@ -112,7 +241,7 @@ export default function PeopleData() {
     if (Object.keys(errs).length > 0) return
     const newId = Math.max(...people.map(p => p.id), 0) + 1
     setPeople([...people, { ...newPatient, id: newId, screenCount: 0 }])
-    setNewPatient({ firstName: '', lastName: '', dob: '', childId: 'GH', sex: '' })
+    setNewPatient({ firstName: '', lastName: '', community: '', dob: '', childId: 'GH', sex: '' })
     setShowAddModal(false)
     setErrors({})
   }
@@ -133,126 +262,263 @@ export default function PeopleData() {
 
   const getSexColor = sex => sex === 'M' ? 'bg-blue-300 text-white' : 'bg-pink-400 text-white'
 
-  return (
-    <div className="w-full p-6 space-y-6">
+  // Export functionality
+  const handleExport = () => {
+    const headers = ['childId', 'firstName', 'lastName', 'community', 'dob', 'sex', 'screenCount']
+    const csvContent = [
+      headers.join(','),
+      ...people.map(p => headers.map(h => p[h]).join(','))
+    ].join('\n')
+    
+    const blob = new Blob([csvContent], { type: 'text/csv' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'patients_export.csv'
+    a.click()
+    window.URL.revokeObjectURL(url)
+  }
 
-      {/* --- Top Toolbar --- */}
-      <div className="flex flex-wrap justify-between gap-3 items-center">
-        <div className="flex gap-2 flex-wrap">
-          <Button className="bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"><Upload size={16} /> Export</Button>
-          <Button className="bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"><Download size={16} /> Import</Button>
-          {selectedRows.size > 0 && (
-            <Button className="bg-red-500 text-white hover:bg-red-600" onClick={deleteSelected}>
-              <Trash2 size={16} /> Delete ({selectedRows.size})
+  // Import with strict validation
+  const handleImport = (event) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const text = e.target?.result
+      if (typeof text !== 'string') return
+
+      const lines = text.split('\n').filter(line => line.trim())
+      if (lines.length < 2) {
+        setImportErrors(['File is empty or has no data rows'])
+        setShowErrorModal(true)
+        return
+      }
+
+      const requiredHeaders = ['childId', 'firstName', 'lastName', 'community', 'dob', 'sex', 'screenCount']
+      const headers = lines[0].split(',').map(h => h.trim())
+      
+      // Validate headers
+      const errors = []
+      const missingHeaders = requiredHeaders.filter(h => !headers.includes(h))
+      if (missingHeaders.length > 0) {
+        errors.push(`Missing required columns: ${missingHeaders.join(', ')}`)
+      }
+
+      // Validate each row
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',').map(v => v.trim())
+        if (values.length !== headers.length) {
+          errors.push(`Row ${i}: Column count mismatch (expected ${headers.length}, got ${values.length})`)
+          continue
+        }
+
+        const row = {}
+        headers.forEach((h, idx) => {
+          row[h] = values[idx]
+        })
+
+        // Validate required fields
+        if (!row.firstName) errors.push(`Row ${i}: Missing firstName`)
+        if (!row.lastName) errors.push(`Row ${i}: Missing lastName`)
+        if (!row.community) errors.push(`Row ${i}: Missing community`)
+        if (!row.childId) errors.push(`Row ${i}: Missing childId`)
+        if (!row.dob) errors.push(`Row ${i}: Missing dob`)
+        else if (isNaN(new Date(row.dob))) errors.push(`Row ${i}: Invalid date format for dob`)
+        if (!['M', 'F'].includes(row.sex)) errors.push(`Row ${i}: Invalid sex (must be M or F)`)
+        if (row.screenCount && isNaN(parseInt(row.screenCount))) errors.push(`Row ${i}: Invalid screenCount (must be a number)`)
+      }
+
+      if (errors.length > 0) {
+        setImportErrors(errors)
+        setShowErrorModal(true)
+        event.target.value = '' // Reset file input
+        return
+      }
+
+      // If validation passes, import the data
+      const newPeople = []
+      let maxId = Math.max(...people.map(p => p.id), 0)
+      
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',').map(v => v.trim())
+        const row = {}
+        headers.forEach((h, idx) => {
+          row[h] = values[idx]
+        })
+
+        maxId++
+        newPeople.push({
+          id: maxId,
+          firstName: row.firstName,
+          lastName: row.lastName,
+          community: row.community,
+          dob: row.dob,
+          childId: row.childId,
+          sex: row.sex,
+          screenCount: parseInt(row.screenCount) || 0
+        })
+      }
+
+      setPeople([...people, ...newPeople])
+      event.target.value = '' // Reset file input
+    }
+
+    reader.readAsText(file)
+  }
+
+  return (
+    <div className="w-full h-screen flex flex-col bg-slate-50">
+      
+      {/* --- Fixed Top Toolbar --- */}
+      <div className="flex-shrink-0 bg-white border-b border-slate-200 p-6">
+        <div className="flex flex-wrap justify-between gap-3 items-center">
+          <div className="flex gap-2 flex-wrap">
+            <Button 
+              className="bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
+              onClick={handleExport}
+            >
+              <Upload size={16} /> Export
             </Button>
-          )}
-        </div>
-        <div className="flex gap-2 flex-wrap items-center">
-          <Button className="bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"><SlidersHorizontal size={16} /> Sort</Button>
-          <div className="relative">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+            <Button 
+              className="bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Download size={16} /> Import
+            </Button>
             <input
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search..."
-              className="pl-8 pr-3 py-1.5 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 w-48"
+              ref={fileInputRef}
+              type="file"
+              accept=".csv"
+              onChange={handleImport}
+              className="hidden"
             />
+            {selectedRows.size > 0 && (
+              <Button className="bg-red-500 text-white hover:bg-red-600" onClick={deleteSelected}>
+                <Trash2 size={16} /> Delete ({selectedRows.size})
+              </Button>
+            )}
           </div>
-          <Button
-            className="bg-emerald-600 text-white hover:bg-emerald-700"
-            onClick={() => setShowAddModal(true)}
-          >
-            <Plus size={16} /> Add
-          </Button>
+          <div className="flex gap-2 flex-wrap items-center">
+            <Button className="bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"><SlidersHorizontal size={16} /> Sort</Button>
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search by Name or Child ID..."
+                className="pl-8 pr-3 py-1.5 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 w-64"
+              />
+            </div>
+            <Button
+              className="bg-emerald-600 text-white hover:bg-emerald-700"
+              onClick={() => setShowAddModal(true)}
+            >
+              <Plus size={16} /> Add
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* --- Table --- */}
-      <div className="bg-white rounded-xl shadow border border-slate-200 overflow-x-auto max-h-[600px]">
-        <table className="table-auto border-collapse w-full relative">
-          <thead className="bg-slate-50 sticky top-0 z-30">
-            <tr className="border-b border-slate-200">
-              {[
-                { key: 'select', label: '', stickyLeft: true },
-                { key: 'name', label: 'Name', minW: 200 },
-                { key: 'childId', label: 'Child ID', minW: 120 },
-                { key: 'dob', label: 'DOB', minW: 130 },
-                { key: 'age', label: 'Age', minW: 80 },
-                { key: 'sex', label: 'Sex', minW: 80 },
-                { key: 'screenCount', label: 'Screen No', minW: 120 },
-                { key: 'actions', label: 'Actions', stickyRight: true, minW: 100 }
-              ].map(col => (
-                <th
-                  key={col.key}
-                  className={`text-left p-3 text-sm font-semibold text-slate-700 whitespace-nowrap ${col.stickyLeft ? 'sticky left-0 bg-slate-50 z-30' : ''} ${col.stickyRight ? 'sticky right-0 bg-slate-50 z-30 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.1)]' : ''}`}
-                  style={{ minWidth: col.minW ? `${col.minW}px` : 'auto' }}
-                >
-                  {col.key === 'select' ? (
-                    <input
-                      type="checkbox"
-                      checked={selectedRows.size === filtered.length && filtered.length > 0}
-                      onChange={toggleAll}
-                      className="w-4 h-4 rounded border-slate-300 text-emerald-600 cursor-pointer"
-                    />
-                  ) : col.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map(person => (
-              <tr
-                key={person.id}
-                onClick={() => toggleRow(person.id)}
-                className={`border-b border-slate-100 text-sm transition-colors duration-150 cursor-pointer
-                  ${selectedRows.has(person.id) ? 'bg-emerald-50 hover:bg-emerald-100/70' : 'bg-white hover:bg-slate-50'}`}
-              >
-                <td className="p-3 sticky left-0 z-20 bg-inherit" onClick={e => e.stopPropagation()}>
-                  <input
-                    type="checkbox"
-                    checked={selectedRows.has(person.id)}
-                    onChange={() => toggleRow(person.id)}
-                    className="w-4 h-4 rounded border-slate-300 text-emerald-600 cursor-pointer"
-                  />
-                </td>
-                <td className="p-3 whitespace-nowrap">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-8 h-8 rounded-full ${getSexColor(person.sex)} flex items-center justify-center text-white text-sm font-semibold flex-shrink-0`}>
-                      {getInitials(person.firstName)}
-                    </div>
-                    <span>{person.firstName} {person.lastName}</span>
-                  </div>
-                </td>
-                <td className="p-3 whitespace-nowrap font-mono text-slate-600">{person.childId}</td>
-                <td className="p-3 whitespace-nowrap">{formatDOB(person.dob)}</td>
-                <td className="p-3 whitespace-nowrap">{calculateAge(person.dob)}</td>
-                <td className="p-3 whitespace-nowrap">
-                  <span className={`px-2 py-1 rounded-md text-xs font-medium ${getSexColor(person.sex)}`}>{person.sex}</span>
-                </td>
-                <td className="p-3 whitespace-nowrap" onClick={e => e.stopPropagation()}>
-                  <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition cursor-pointer">
-                    <Clock size={14} />
-                    <span className="font-semibold">{person.screenCount}</span>
-                  </div>
-                </td>
-                <td className={`p-3 whitespace-nowrap sticky right-0 z-20 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.1)] ${selectedRows.has(person.id) ? 'bg-emerald-50' : 'bg-white'}`} onClick={e => e.stopPropagation()}>
-                  <Button className="text-blue-500 hover:text-blue-600 hover:bg-blue-50 p-1.5" onClick={() => setEditingPerson(person)}><Edit2 size={16} /></Button>
-                </td>
-              </tr>
-            ))}
-            {filtered.length === 0 && <tr><td colSpan={8} className="text-center p-4 text-slate-500">No data found</td></tr>}
-          </tbody>
-        </table>
+      {/* --- Scrollable Table Container --- */}
+      <div className="flex-1 overflow-hidden p-6 pt-3">
+        <div className="bg-white rounded-xl shadow border border-slate-200 h-full flex flex-col overflow-hidden">
+          <div className="overflow-auto flex-1">
+            <table className="table-auto border-collapse w-full relative">
+              <thead className="bg-slate-50 sticky top-0 z-30">
+                <tr className="border-b border-slate-200">
+                  {[
+                    { key: 'select', label: '', stickyLeft: true, minW: 60 },
+                    { key: 'name', label: 'Name', minW: 200 },
+                    { key: 'community', label: 'Community', minW: 150 },
+                    { key: 'childId', label: 'Child ID', minW: 120 },
+                    { key: 'dob', label: 'DOB', minW: 130 },
+                    { key: 'age', label: 'Age', minW: 80 },
+                    { key: 'sex', label: 'Sex', minW: 80 },
+                    { key: 'screenCount', label: 'Screen No', minW: 120 },
+                    { key: 'actions', label: 'Actions', stickyRight: true, minW: 100 }
+                  ].map(col => (
+                    <th
+                      key={col.key}
+                      className={`text-left p-3 text-sm font-semibold text-slate-700 whitespace-nowrap ${col.stickyLeft ? 'sticky left-0 bg-slate-50 z-30' : ''} ${col.stickyRight ? 'sticky right-0 bg-slate-50 z-30 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.1)]' : ''}`}
+                      style={{ minWidth: col.minW ? `${col.minW}px` : 'auto' }}
+                    >
+                      {col.key === 'select' ? (
+                        <input
+                          type="checkbox"
+                          checked={selectedRows.size === filtered.length && filtered.length > 0}
+                          onChange={toggleAll}
+                          className="w-4 h-4 rounded border-slate-300 text-emerald-600 cursor-pointer"
+                        />
+                      ) : col.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(person => (
+                  <tr
+                    key={person.id}
+                    onClick={() => toggleRow(person.id)}
+                    className={`border-b border-slate-100 text-sm transition-colors duration-150 cursor-pointer
+                      ${selectedRows.has(person.id) ? 'bg-emerald-50 hover:bg-emerald-100/70' : 'bg-white hover:bg-slate-50'}`}
+                  >
+                    <td className="p-3 sticky left-0 z-20 bg-inherit" onClick={e => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selectedRows.has(person.id)}
+                        onChange={() => toggleRow(person.id)}
+                        className="w-4 h-4 rounded border-slate-300 text-emerald-600 cursor-pointer"
+                      />
+                    </td>
+                    <td className="p-3 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-8 h-8 rounded-full ${getSexColor(person.sex)} flex items-center justify-center text-white text-sm font-semibold flex-shrink-0`}>
+                          {getInitials(person.firstName)}
+                        </div>
+                        <span>{person.firstName} {person.lastName}</span>
+                      </div>
+                    </td>
+                    <td className="p-3 whitespace-nowrap text-slate-600">{person.community}</td>
+                    <td className="p-3 whitespace-nowrap font-mono text-slate-600">{person.childId}</td>
+                    <td className="p-3 whitespace-nowrap">{formatDOB(person.dob)}</td>
+                    <td className="p-3 whitespace-nowrap">{calculateAge(person.dob)}</td>
+                    <td className="p-3 whitespace-nowrap">
+                      <span className={`px-2 py-1 rounded-md text-xs font-medium ${getSexColor(person.sex)}`}>{person.sex}</span>
+                    </td>
+                    <td className="p-3 whitespace-nowrap" onClick={e => e.stopPropagation()}>
+                      <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition cursor-pointer">
+                        <Clock size={14} />
+                        <span className="font-semibold">{person.screenCount}</span>
+                      </div>
+                    </td>
+                    <td className={`p-3 whitespace-nowrap sticky right-0 z-20 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.1)] ${selectedRows.has(person.id) ? 'bg-emerald-50' : 'bg-white'}`} onClick={e => e.stopPropagation()}>
+                      <Button className="text-blue-500 hover:text-blue-600 hover:bg-blue-50 p-1.5" onClick={() => setEditingPerson(person)}><Edit2 size={16} /></Button>
+                    </td>
+                  </tr>
+                ))}
+                {filtered.length === 0 && <tr><td colSpan={9} className="text-center p-4 text-slate-500">No data found</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       {/* --- Add Modal --- */}
       <Modal
         show={showAddModal}
-        onClose={() => setShowAddModal(false)}
+        onClose={() => {
+          setShowAddModal(false)
+          setErrors({})
+        }}
         title="Add New Patient"
         actions={[
-          <Button key="cancel" className="flex-1 bg-slate-100 text-slate-700 hover:bg-slate-200" onClick={() => setShowAddModal(false)}>Cancel</Button>,
+          <Button key="cancel" className="flex-1 bg-slate-100 text-slate-700 hover:bg-slate-200" onClick={() => {
+            setShowAddModal(false)
+            setErrors({})
+          }}>Cancel</Button>,
           <Button
             key="add"
             className={`flex-1 bg-emerald-600 text-white hover:bg-emerald-700 ${Object.keys(validatePatient(newPatient)).length > 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -286,6 +552,15 @@ export default function PeopleData() {
             error={errors.lastName}
           />
         </div>
+        <AutocompleteInput
+          label="Community *"
+          required
+          value={newPatient.community}
+          onChange={e => setNewPatient({ ...newPatient, community: e.target.value })}
+          suggestions={uniqueCommunities}
+          error={errors.community}
+          placeholder="Type or select community"
+        />
         <div className="flex flex-col">
           <label className="text-sm font-medium text-slate-700 mb-1">Birthdate *</label>
           <input
@@ -321,10 +596,16 @@ export default function PeopleData() {
       {/* --- Edit Modal --- */}
       <Modal
         show={!!editingPerson}
-        onClose={() => setEditingPerson(null)}
+        onClose={() => {
+          setEditingPerson(null)
+          setErrors({})
+        }}
         title="Edit Patient"
         actions={[
-          <Button key="cancel" className="flex-1 bg-slate-100 text-slate-700 hover:bg-slate-200" onClick={() => setEditingPerson(null)}>Cancel</Button>,
+          <Button key="cancel" className="flex-1 bg-slate-100 text-slate-700 hover:bg-slate-200" onClick={() => {
+            setEditingPerson(null)
+            setErrors({})
+          }}>Cancel</Button>,
           <Button
             key="save"
             className={`flex-1 bg-emerald-600 text-white hover:bg-emerald-700 ${editingPerson && Object.keys(validatePatient(editingPerson)).length > 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -360,6 +641,15 @@ export default function PeopleData() {
                 error={errors.lastName}
               />
             </div>
+            <AutocompleteInput
+              label="Community *"
+              required
+              value={editingPerson.community}
+              onChange={e => setEditingPerson({ ...editingPerson, community: e.target.value })}
+              suggestions={uniqueCommunities}
+              error={errors.community}
+              placeholder="Type or select community"
+            />
             <div className="flex flex-col">
               <label className="text-sm font-medium text-slate-700 mb-1">Birthdate *</label>
               <input
@@ -393,6 +683,13 @@ export default function PeopleData() {
           </>
         )}
       </Modal>
+
+      {/* --- Error Modal --- */}
+      <ErrorModal 
+        show={showErrorModal}
+        onClose={() => setShowErrorModal(false)}
+        errors={importErrors}
+      />
     </div>
   )
 }

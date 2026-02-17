@@ -55,16 +55,33 @@ export default function RoleManagement() {
   const [showPasswordModal, setShowPasswordModal] = useState(false)
 
   const [users, setUsers] = useState([
-    { id: 1, firstName: 'Kwame', lastName: 'Mensah', email: 'kwame@site.com', password: 'Admin123!', role: 'Admin' },
-    { id: 2, firstName: 'Ama', lastName: 'Asante', email: 'ama@site.com', password: 'Clinician1', role: 'Clinician' },
+    { id: 1, firstName: 'Kwame', lastName: 'Mensah', email: 'kwame@site.com', password: 'Admin123!', role: 'Admin', assignedSection: null },
+    { id: 2, firstName: 'Ama', lastName: 'Asante', email: 'ama@site.com', password: 'Clinician1', role: 'Clinician', assignedSection: '1' },
+    { id: 3, firstName: 'Kofi', lastName: 'Owusu', email: 'kofi@site.com', password: 'Clinician2', role: 'Clinician', assignedSection: '2' },
+    { id: 4, firstName: 'Akua', lastName: 'Boateng', email: 'akua@site.com', password: 'Clinician3', role: 'Clinician', assignedSection: '3' },
   ])
 
-  const [newUser, setNewUser] = useState({ firstName: '', lastName: '', email: '', password: '', role: 'Clinician' })
+  const [newUser, setNewUser] = useState({ firstName: '', lastName: '', email: '', password: '', role: 'Clinician', assignedSection: '1' })
   const [errors, setErrors] = useState({})
+
+  // --- Section Configuration ---
+  const sections = [
+    { value: '1', label: 'Section 1 (Vital/Immunize/Development)', color: 'bg-emerald-400 text-white' },
+    { value: '2', label: 'Section 2 (Laboratory)', color: 'bg-blue-400 text-white' },
+    { value: '3', label: 'Section 3 (Summary & Diagnosis)', color: 'bg-purple-400 text-white' },
+  ]
 
   // --- Utilities ---
   const getInitial = firstName => firstName?.charAt(0).toUpperCase() || '?'
-  const getRoleColor = role => role === 'Admin' ? 'bg-emerald-400 text-white' : 'bg-blue-400 text-white'
+  const getRoleColor = role => role === 'Admin' ? 'bg-emerald-500 text-white' : 'bg-blue-500 text-white'
+  const getSectionColor = section => {
+    const sectionConfig = sections.find(s => s.value === section)
+    return sectionConfig ? sectionConfig.color : 'bg-slate-400 text-white'
+  }
+  const getSectionLabel = section => {
+    const sectionConfig = sections.find(s => s.value === section)
+    return sectionConfig ? `Section ${section}` : 'Unknown'
+  }
 
   const toggleRow = id => {
     const newSelected = new Set(selectedRows)
@@ -87,6 +104,10 @@ export default function RoleManagement() {
     if (!user.email) errs.email = 'Required'
     if (!user.password) errs.password = 'Required'
     if (!['Admin', 'Clinician'].includes(user.role)) errs.role = 'Select role'
+    // Clinicians MUST have an assigned section
+    if (user.role === 'Clinician' && !user.assignedSection) {
+      errs.assignedSection = 'Clinicians must be assigned to a section'
+    }
     return errs
   }
 
@@ -95,8 +116,14 @@ export default function RoleManagement() {
     setErrors(errs)
     if (Object.keys(errs).length > 0) return
     const newId = Math.max(...users.map(u => u.id), 0) + 1
-    setUsers([...users, { ...newUser, id: newId }])
-    setNewUser({ firstName: '', lastName: '', email: '', password: '', role: 'Clinician' })
+    // Clear assignedSection if Admin
+    const userToAdd = {
+      ...newUser,
+      id: newId,
+      assignedSection: newUser.role === 'Admin' ? null : newUser.assignedSection
+    }
+    setUsers([...users, userToAdd])
+    setNewUser({ firstName: '', lastName: '', email: '', password: '', role: 'Clinician', assignedSection: '1' })
     setShowAddModal(false)
     setErrors({})
     setShowPasswordModal(false)
@@ -106,7 +133,12 @@ export default function RoleManagement() {
     const errs = validateUser(editingUser)
     setErrors(errs)
     if (Object.keys(errs).length > 0) return
-    setUsers(users.map(u => u.id === editingUser.id ? editingUser : u))
+    // Clear assignedSection if Admin
+    const userToSave = {
+      ...editingUser,
+      assignedSection: editingUser.role === 'Admin' ? null : editingUser.assignedSection
+    }
+    setUsers(users.map(u => u.id === userToSave.id ? userToSave : u))
     setEditingUser(null)
     setErrors({})
     setShowPasswordModal(false)
@@ -122,6 +154,23 @@ export default function RoleManagement() {
          u.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
          u.email.toLowerCase().includes(searchQuery.toLowerCase())
   )
+
+  // Handle role change in modals
+  const handleRoleChange = (role, isEdit = false) => {
+    if (isEdit) {
+      setEditingUser({
+        ...editingUser,
+        role,
+        assignedSection: role === 'Clinician' ? (editingUser.assignedSection || '1') : null
+      })
+    } else {
+      setNewUser({
+        ...newUser,
+        role,
+        assignedSection: role === 'Clinician' ? (newUser.assignedSection || '1') : null
+      })
+    }
+  }
 
   // --- JSX ---
   return (
@@ -159,7 +208,15 @@ export default function RoleManagement() {
         <table className="table-auto border-collapse w-full relative">
           <thead className="bg-slate-50 sticky top-0 z-30">
             <tr className="border-b border-slate-200">
-              {[{key:'select',label:''},{key:'name',label:'Name',minW:200},{key:'email',label:'Email',minW:180},{key:'password',label:'Password',minW:120},{key:'role',label:'Role',minW:120},{key:'actions',label:'Actions',stickyRight:true,minW:100}].map(col=>(
+              {[
+                {key:'select',label:''},
+                {key:'name',label:'Name',minW:200},
+                {key:'email',label:'Email',minW:180},
+                {key:'password',label:'Password',minW:120},
+                {key:'role',label:'Role',minW:100},
+                {key:'section',label:'Section',minW:180},
+                {key:'actions',label:'Actions',stickyRight:true,minW:100}
+              ].map(col=>(
                 <th
                   key={col.key}
                   className={`text-left p-3 text-sm font-semibold text-slate-700 whitespace-nowrap ${col.stickyLeft?'sticky left-0 bg-slate-50 z-30':''} ${col.stickyRight?'sticky right-0 bg-slate-50 z-30 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.1)]':''}`}
@@ -198,12 +255,21 @@ export default function RoleManagement() {
                 <td className="p-3 whitespace-nowrap">
                   <span className={`px-2 py-1 rounded-md text-xs font-medium ${getRoleColor(user.role)}`}>{user.role}</span>
                 </td>
+                <td className="p-3 whitespace-nowrap">
+                  {user.role === 'Admin' ? (
+                    <span className="px-2 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-600">Full Access</span>
+                  ) : (
+                    <span className={`px-2 py-1 rounded-md text-xs font-medium ${getSectionColor(user.assignedSection)}`}>
+                      {getSectionLabel(user.assignedSection)}
+                    </span>
+                  )}
+                </td>
                 <td className={`p-3 whitespace-nowrap sticky right-0 z-20 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.1)] ${selectedRows.has(user.id)?'bg-emerald-50':'bg-white'}`} onClick={e=>e.stopPropagation()}>
-                  <Button className="text-blue-500 hover:text-blue-600 hover:bg-blue-50 p-1.5" onClick={()=>setEditingUser(user)}><Edit2 size={16}/></Button>
+                  <Button className="text-blue-500 hover:text-blue-600 hover:bg-blue-50 p-1.5" onClick={()=>{setEditingUser(user); setShowPasswordModal(false)}}><Edit2 size={16}/></Button>
                 </td>
               </tr>
             ))}
-            {filtered.length===0 && <tr><td colSpan={6} className="text-center p-4 text-slate-500">No users found</td></tr>}
+            {filtered.length===0 && <tr><td colSpan={7} className="text-center p-4 text-slate-500">No users found</td></tr>}
           </tbody>
         </table>
       </div>
@@ -211,10 +277,10 @@ export default function RoleManagement() {
       {/* Add Modal */}
       <Modal
         show={showAddModal}
-        onClose={()=>setShowAddModal(false)}
+        onClose={()=>{setShowAddModal(false); setErrors({})}}
         title="Add New User"
         actions={[
-          <Button key="cancel" className="flex-1 bg-slate-100 text-slate-700 hover:bg-slate-200" onClick={()=>setShowAddModal(false)}>Cancel</Button>,
+          <Button key="cancel" className="flex-1 bg-slate-100 text-slate-700 hover:bg-slate-200" onClick={()=>{setShowAddModal(false); setErrors({})}}>Cancel</Button>,
           <Button
             key="add"
             className={`flex-1 bg-emerald-600 text-white hover:bg-emerald-700 ${Object.keys(validateUser(newUser)).length>0?'opacity-50 cursor-not-allowed':''}`}
@@ -237,21 +303,36 @@ export default function RoleManagement() {
         </Input>
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">Role *</label>
-          <select value={newUser.role} onChange={e=>setNewUser({...newUser, role:e.target.value})} className="w-full border px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500">
+          <select value={newUser.role} onChange={e=>handleRoleChange(e.target.value, false)} className="w-full border px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 border-slate-200">
             <option value="Admin">Admin</option>
             <option value="Clinician">Clinician</option>
           </select>
           {errors.role && <p className="text-xs text-red-500 mt-1">{errors.role}</p>}
         </div>
+        {newUser.role === 'Clinician' && (
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Assigned Section *</label>
+            <select 
+              value={newUser.assignedSection || '1'} 
+              onChange={e=>setNewUser({...newUser, assignedSection:e.target.value})} 
+              className={`w-full border px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 ${errors.assignedSection ? 'border-red-500' : 'border-slate-200'}`}
+            >
+              {sections.map(section => (
+                <option key={section.value} value={section.value}>{section.label}</option>
+              ))}
+            </select>
+            {errors.assignedSection && <p className="text-xs text-red-500 mt-1">{errors.assignedSection}</p>}
+          </div>
+        )}
       </Modal>
 
       {/* Edit Modal */}
       <Modal
         show={!!editingUser}
-        onClose={()=>setEditingUser(null)}
+        onClose={()=>{setEditingUser(null); setErrors({})}}
         title="Edit User"
         actions={[
-          <Button key="cancel" className="flex-1 bg-slate-100 text-slate-700 hover:bg-slate-200" onClick={()=>setEditingUser(null)}>Cancel</Button>,
+          <Button key="cancel" className="flex-1 bg-slate-100 text-slate-700 hover:bg-slate-200" onClick={()=>{setEditingUser(null); setErrors({})}}>Cancel</Button>,
           <Button
             key="save"
             className={`flex-1 bg-emerald-600 text-white hover:bg-emerald-700 ${editingUser && Object.keys(validateUser(editingUser)).length>0?'opacity-50 cursor-not-allowed':''}`}
@@ -276,12 +357,27 @@ export default function RoleManagement() {
             </Input>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Role *</label>
-              <select value={editingUser.role} onChange={e=>setEditingUser({...editingUser, role:e.target.value})} className="w-full border px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500">
+              <select value={editingUser.role} onChange={e=>handleRoleChange(e.target.value, true)} className="w-full border px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 border-slate-200">
                 <option value="Admin">Admin</option>
                 <option value="Clinician">Clinician</option>
               </select>
               {errors.role && <p className="text-xs text-red-500 mt-1">{errors.role}</p>}
             </div>
+            {editingUser.role === 'Clinician' && (
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Assigned Section *</label>
+                <select 
+                  value={editingUser.assignedSection || '1'} 
+                  onChange={e=>setEditingUser({...editingUser, assignedSection:e.target.value})} 
+                  className={`w-full border px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 ${errors.assignedSection ? 'border-red-500' : 'border-slate-200'}`}
+                >
+                  {sections.map(section => (
+                    <option key={section.value} value={section.value}>{section.label}</option>
+                  ))}
+                </select>
+                {errors.assignedSection && <p className="text-xs text-red-500 mt-1">{errors.assignedSection}</p>}
+              </div>
+            )}
           </>
         )}
       </Modal>
