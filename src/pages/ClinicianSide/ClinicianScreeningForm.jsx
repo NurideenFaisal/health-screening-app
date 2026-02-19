@@ -1,10 +1,24 @@
-import React from "react";
+import { useParams } from 'react-router-dom'
+import { useAuthStore } from '../../store/authStore'
+import ScreeningSection1 from '../../components/ScreeningSection1'
+import ScreeningSection2 from '../../components/ScreeningSection2'
+import ScreeningSection3 from '../../components/ScreeningSection3'
 
-export default function ClinicianScreeningForm () {
+export default function ClinicianScreeningForm() {
+  const { id } = useParams() // patient id from route
+  const { profile } = useAuthStore()
+
+  const section = profile?.section   //  from Supabase
+
+  if (!section) {
+    return <div>No section assigned to this clinician.</div>
+  }
+
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <h2 className="text-2xl font-semibold mb-4">Screening Form</h2>
-      <p className="text-gray-600">This is where the screening form will go. You can view and edit patient screening data here.</p>
+    <div className="p-6">
+      {section === '1' && <ScreeningSection1 patientId={id} />}
+      {section === '2' && <ScreeningSection2 patientId={id} />}
+      {section === '3' && <ScreeningSection3 patientId={id} />}
     </div>
   )
 }

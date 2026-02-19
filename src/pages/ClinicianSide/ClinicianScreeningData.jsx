@@ -2,246 +2,171 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../store/authStore'
 
+const patients = [
+  { id: 'GH0987-001', name: 'Kwame Mensah',  gender: 'Male',   age: 6, section1Complete: true,  section2Complete: true,  section3Complete: false },
+  { id: 'GH0987-002', name: 'Ama Asante',    gender: 'Female', age: 5, section1Complete: true,  section2Complete: false, section3Complete: false },
+  { id: 'GH0987-003', name: 'Kofi Owusu',    gender: 'Male',   age: 4, section1Complete: false, section2Complete: false, section3Complete: false },
+  { id: 'GH0987-004', name: 'Akua Boateng',  gender: 'Female', age: 7, section1Complete: true,  section2Complete: true,  section3Complete: true  },
+  { id: 'GH0987-005', name: 'Yaw Osei',      gender: 'Male',   age: 6, section1Complete: false, section2Complete: false, section3Complete: false },
+]
+
+const SECTION_LABELS = {
+  '1': 'Vitals / Immunization / Development',
+  '2': 'Laboratory',
+  '3': 'Summary & Diagnosis',
+}
+
+const STATUS_ORDER = { ready: 0, waiting: 1, completed: 2 }
+
+function getStatus(patient, section) {
+  const { section1Complete, section2Complete, section3Complete } = patient
+  if (section === '1') return section1Complete ? 'completed' : 'ready'
+  if (section === '2') return section2Complete ? 'completed' : !section1Complete ? 'waiting' : 'ready'
+  if (section === '3') return section3Complete ? 'completed' : !section2Complete ? 'waiting' : 'ready'
+  return 'waiting'
+}
+
+const STATUS_META = {
+  ready:     { label: s => `Ready · Section ${s}`, clickable: true  },
+  waiting:   { label: _  => 'Awaiting previous section', clickable: false },
+  completed: { label: _  => 'Complete',             clickable: false },
+}
+
 export default function ClinicianScreening_Data() {
   const [query, setQuery] = useState('')
   const navigate = useNavigate()
   const { profile } = useAuthStore()
-
-  // ─── Section from profile ─────────────────────────────────────────────────
-  // profile.assignedSection = '1' | '2' | '3'
   const section = profile?.assignedSection ?? '1'
 
-  const SIZE = {
-    containerSpacing: "space-y-5",
-    cardPadding: "p-4",
-    innerPadding: "p-4",
-    avatar: "w-9 h-9",
-    headerIcon: "w-9 h-9",
-    title: "text-lg",
-    subtitle: "text-xs",
-    name: "text-sm",
-    meta: "text-xs"
-  }
-
-  // ─── Dummy data — swap with supabase query later ──────────────────────────
-  const patients = [
-    { id: 'GH0987-001', name: 'Kwame Mensah', gender: 'Male', age: 6, section1Complete: true,  section2Complete: true,  section3Complete: false },
-    { id: 'GH0987-002', name: 'Ama Asante',   gender: 'Female', age: 5, section1Complete: true,  section2Complete: false, section3Complete: false },
-    { id: 'GH0987-003', name: 'Kofi Owusu',   gender: 'Male', age: 4, section1Complete: false, section2Complete: false, section3Complete: false },
-    { id: 'GH0987-004', name: 'Akua Boateng', gender: 'Female', age: 7, section1Complete: true,  section2Complete: true,  section3Complete: true  },
-    { id: 'GH0987-005', name: 'Yaw Osei',     gender: 'Male', age: 6, section1Complete: false, section2Complete: false, section3Complete: false },
-  ]
-
-  // ─── Status logic per section ─────────────────────────────────────────────
-  function getStatus(patient) {
-    const { section1Complete, section2Complete, section3Complete } = patient
-
-    if (section === '1') {
-      if (section1Complete) return 'completed'
-      return 'ready'
-    }
-    if (section === '2') {
-      if (section2Complete) return 'completed'
-      if (!section1Complete) return 'waiting'
-      return 'ready'
-    }
-    if (section === '3') {
-      if (section3Complete) return 'completed'
-      if (!section2Complete) return 'waiting'
-      return 'ready'
-    }
-    return 'waiting'
-  }
-
-  // ─── Status display config ────────────────────────────────────────────────
-  const STATUS_CONFIG = {
-    ready: {
-      label: `Ready for Section ${section}`,
-      badge: 'bg-blue-100 text-blue-700',
-      dot: 'bg-blue-500',
-      order: 0,
-      clickable: true
-    },
-    waiting: {
-      label: 'Waiting for previous section',
-      badge: 'bg-amber-100 text-amber-700',
-      dot: 'bg-amber-400',
-      order: 1,
-      clickable: false
-    },
-    completed: {
-      label: 'Section complete',
-      badge: 'bg-emerald-100 text-emerald-700',
-      dot: 'bg-emerald-500',
-      order: 2,
-      clickable: false
-    }
-  }
-
-  // ─── Filter → attach status → sort ───────────────────────────────────────
-  const processedPatients = patients
+  const processed = patients
     .filter(p =>
       p.name.toLowerCase().includes(query.toLowerCase()) ||
       p.id.toLowerCase().includes(query.toLowerCase())
     )
-    .map(p => ({ ...p, status: getStatus(p) }))
-    .sort((a, b) => STATUS_CONFIG[a.status].order - STATUS_CONFIG[b.status].order)
+    .map(p => ({ ...p, status: getStatus(p, section) }))
+    .sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status])
 
-  // ─── Click: only ready patients navigate ─────────────────────────────────
-  function handlePatientClick(patient) {
-    if (!STATUS_CONFIG[patient.status].clickable) return
-    navigate(`/clinician/patient/${patient.id}`)
-  }
-
-  function initials(name) {
-    return name[0].toUpperCase()
-  }
-
-  const counts = processedPatients.reduce((acc, p) => {
+  const counts = processed.reduce((acc, p) => {
     acc[p.status] = (acc[p.status] || 0) + 1
     return acc
   }, {})
 
-  const SECTION_LABELS = {
-    '1': 'Vitals / Immunization / Development',
-    '2': 'Laboratory',
-    '3': 'Summary & Diagnosis'
-  }
-
   return (
-    <div className={`w-full ${SIZE.containerSpacing}`}>
+    // sm: centered card  |  mobile: full bleed with tiny padding
+    <div className="min-h-screen bg-gray-100 p-3 sm:p-6 lg:p-10 font-sans">
+      <div className="bg-white rounded-2xl shadow-sm overflow-hidden w-full sm:max-w-lg sm:mx-auto lg:max-w-2xl">
 
-      {/* ── SEARCH CARD ───────────────────────────────────────────── */}
-      <div className={`bg-white rounded-xl shadow ${SIZE.cardPadding} space-y-4`}>
+        {/* ── Header ── */}
+        <div className="px-4 pt-4 pb-3 sm:px-6 sm:pt-6 sm:pb-4 border-b border-gray-100 space-y-3 sm:space-y-4">
 
-        <div className="flex items-center gap-3">
-          <div className={`${SIZE.headerIcon} bg-emerald-500 rounded-lg flex items-center justify-center flex-shrink-0`}>
-            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
-                d="M21 21l-4.3-4.3m1.3-5.2A7 7 0 1110 3a7 7 0 018 8z" />
-            </svg>
-          </div>
-
-          <div className="min-w-0">
-            <h2 className={`${SIZE.title} font-bold text-gray-900`}>
-              Screening Queue
-            </h2>
-            <p className={`text-gray-500 ${SIZE.subtitle} truncate`}>
-              Section {section} — {SECTION_LABELS[section]}
-            </p>
-          </div>
-        </div>
-
-        <div className="relative">
-          <input
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            placeholder="Search by name or ID..."
-            className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-200
-                       focus:ring-2 focus:ring-emerald-500 focus:outline-none text-gray-700 text-sm"
-          />
-          <svg className="w-4 h-4 text-gray-400 absolute left-3 top-3.5"
-            fill="none" stroke="currentColor" viewBox="0 0 20 20">
-            <path strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
-              d="M21 21l-4.3-4.3m1.3-5.2A7 7 0 1110 3a7 7 0 018 8z" />
-          </svg>
-        </div>
-
-        {/* Queue summary pills */}
-        <div className="flex gap-2 flex-wrap">
-          {counts.ready > 0 && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 inline-block" />
-              {counts.ready} Ready
-            </span>
-          )}
-          {counts.waiting > 0 && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
-              {counts.waiting} Waiting
-            </span>
-          )}
-          {counts.completed > 0 && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
-              {counts.completed} Done
-            </span>
-          )}
-        </div>
-
-      </div>
-
-      {/* ── PATIENT LIST ──────────────────────────────────────────── */}
-      <div className={`bg-white rounded-xl shadow ${SIZE.innerPadding} space-y-3`}>
-
-        <h3 className="text-sm font-semibold text-gray-700">
-          {processedPatients.length} Patients
-        </h3>
-
-        {processedPatients.map(p => {
-          const config = STATUS_CONFIG[p.status]
-
-          return (
-            <div
-              key={p.id}
-              onClick={() => handlePatientClick(p)}
-              className={`
-                flex items-center justify-between p-3 rounded-lg border transition
-                ${config.clickable
-                  ? 'border-gray-200 hover:border-emerald-400 hover:shadow-sm cursor-pointer'
-                  : 'border-gray-100 bg-gray-50 cursor-not-allowed opacity-60'
-                }
-              `}
-            >
-              <div className="flex items-center gap-3 min-w-0">
-
-                {/* Avatar */}
-                <div className={`
-                  ${SIZE.avatar} rounded-lg flex items-center justify-center font-semibold text-white flex-shrink-0
-                  ${p.gender === 'Male' ? 'bg-blue-400' : p.gender === 'Female' ? 'bg-pink-400' : 'bg-gray-400'}
-                `}>
-                  {initials(p.name)}
-                </div>
-
-                {/* Info */}
-                <div className="min-w-0">
-                  <p className={`font-semibold text-gray-900 ${SIZE.name} truncate`}>
-                    {p.name}
-                  </p>
-                  <p className={`text-gray-500 ${SIZE.meta}`}>
-                    {p.id} • {p.gender} • {p.age} yrs
-                  </p>
-                  <span className={`inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-xs font-medium ${config.badge}`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${config.dot} inline-block flex-shrink-0`} />
-                    {config.label}
-                  </span>
-                </div>
-              </div>
-
-              {/* Right icon */}
-              {config.clickable ? (
-                <svg className="w-4 h-4 text-emerald-600 flex-shrink-0 ml-2"
-                  fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                </svg>
-              ) : (
-                <svg className="w-4 h-4 text-gray-300 flex-shrink-0 ml-2"
-                  fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" d="M18 12H6" />
-                </svg>
-              )}
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <h2 className="text-sm sm:text-base font-bold text-gray-900 tracking-tight">
+                Screening Queue
+              </h2>
+              <p className="text-xs text-gray-400 mt-0.5 truncate">
+                Section {section} — {SECTION_LABELS[section]}
+              </p>
             </div>
-          )
-        })}
-
-        {processedPatients.length === 0 && (
-          <div className="text-center text-gray-500 py-6 text-sm">
-            No patients match your search
+            <span className="text-xs font-medium text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full whitespace-nowrap shrink-0">
+              {processed.length} patients
+            </span>
           </div>
-        )}
+
+          {/* Search */}
+          <label className="flex items-center gap-2 bg-gray-100 rounded-xl px-3 py-2 sm:py-2.5">
+            <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor"
+              strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+              <circle cx="11" cy="11" r="7" /><path d="M21 21l-4.35-4.35" />
+            </svg>
+            <input
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Name or patient ID…"
+              className="flex-1 bg-transparent text-sm text-gray-700 placeholder-gray-400 outline-none min-w-0"
+            />
+            {query && (
+              <button onClick={() => setQuery('')} className="text-gray-400 hover:text-gray-600 transition text-xs shrink-0">
+                ✕
+              </button>
+            )}
+          </label>
+
+          {/* Count summary */}
+          <p className="text-xs text-gray-400">
+            {counts.ready ?? 0} ready
+            {counts.waiting   ? ` · ${counts.waiting} waiting`   : ''}
+            {counts.completed ? ` · ${counts.completed} complete` : ''}
+          </p>
+        </div>
+
+        {/* ── Patient list ── */}
+        <ul>
+          {processed.map((p, i) => {
+            const meta = STATUS_META[p.status]
+            return (
+              <li key={p.id}>
+                <button
+                  onClick={() => meta.clickable && navigate(`/clinician/patient/${p.id}`)}
+                  disabled={!meta.clickable}
+                  className={`
+                    w-full flex items-center gap-3 text-left transition group
+                    px-4 py-3 sm:px-6 sm:py-3.5
+                    ${meta.clickable ? 'hover:bg-gray-50 cursor-pointer' : 'cursor-default'}
+                  `}
+                >
+                  {/* Avatar */}
+                  <div className={`
+                    w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center
+                    text-white text-sm font-bold shrink-0
+                    ${p.gender === 'Female' ? 'bg-pink-400' : 'bg-blue-400'}
+                    ${!meta.clickable ? 'opacity-30' : ''}
+                  `}>
+                    {p.name[0]}
+                  </div>
+
+                  {/* Name + meta */}
+                  <div className={`flex-1 min-w-0 ${!meta.clickable ? 'opacity-40' : ''}`}>
+                    <p className="text-sm font-semibold text-gray-900 truncate">{p.name}</p>
+                    <p className="text-xs text-gray-400 truncate">
+                      {p.id} · {p.gender} · {p.age} yrs · {meta.label(section)}
+                    </p>
+                  </div>
+
+                  {/* Chevron — only for ready rows */}
+                  {meta.clickable ? (
+                    <svg className="w-4 h-4 text-gray-300 group-hover:text-emerald-500 transition shrink-0"
+                      fill="none" stroke="currentColor" strokeWidth={2}
+                      strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                      <path d="M9 5l7 7-7 7" />
+                    </svg>
+                  ) : (
+                    <div className="w-4 h-4 shrink-0" />
+                  )}
+                </button>
+
+                {i < processed.length - 1 && (
+                  <div className="mx-4 sm:mx-6 border-t border-gray-100" />
+                )}
+              </li>
+            )
+          })}
+
+          {processed.length === 0 && (
+            <li className="py-10 sm:py-12 text-center text-sm text-gray-400">
+              No patients match <span className="font-medium text-gray-600">"{query}"</span>
+            </li>
+          )}
+        </ul>
+
+        {/* ── Footer ── */}
+        <div className="px-4 sm:px-6 py-3 bg-gray-50 border-t border-gray-100">
+          <p className="text-xs text-gray-400 text-center">
+            Tap a patient to begin their screening
+          </p>
+        </div>
 
       </div>
-
     </div>
   )
 }

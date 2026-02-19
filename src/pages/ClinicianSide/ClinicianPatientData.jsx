@@ -1,438 +1,227 @@
-import React, { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useAuthStore } from '../../store/authStore'
-import {
-  Search, Plus, Edit2, X, Clock,
-  ChevronRight, CheckCircle2, Circle
-} from 'lucide-react'
+import React, { useState } from 'react'
 
-const Button = ({ children, className = '', ...props }) => (
-  <button
-    className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm transition ${className}`}
-    {...props}
-  >
-    {children}
-  </button>
-)
+const existingPatients = [
+  { childId: 'GH0001', firstName: 'Kwame',  lastName: 'Mensah',  sex: 'M', dob: '2017-02-15', community: 'Adabraka' },
+  { childId: 'GH0002', firstName: 'Ama',    lastName: 'Asante',  sex: 'F', dob: '2016-03-20', community: 'Osu' },
+  { childId: 'GH0003', firstName: 'Kofi',   lastName: 'Owusu',   sex: 'M', dob: '2019-06-05', community: 'Labone' },
+  { childId: 'GH0004', firstName: 'Akua',   lastName: 'Boateng', sex: 'F', dob: '2013-10-10', community: 'Dansoman' },
+  { childId: 'GH0005', firstName: 'Yaw',    lastName: 'Osei',    sex: 'M', dob: '2012-12-17', community: 'Tesano' },
+  { childId: 'GH0006', firstName: 'Abena',  lastName: 'Appiah',  sex: 'F', dob: '2012-07-23', community: 'Cantonments' },
+]
 
-const Modal = ({ show, onClose, title, children, actions }) => {
-  if (!show) return null
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-slate-800">{title}</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition">
-            <X size={20} />
-          </button>
-        </div>
-        <div className="space-y-4">{children}</div>
-        {actions && <div className="flex gap-2 pt-2">{actions}</div>}
-      </div>
-    </div>
-  )
+function calcAge(dob) {
+  if (!dob) return ''
+  const birth = new Date(dob)
+  const today = new Date()
+  let age = today.getFullYear() - birth.getFullYear()
+  const m = today.getMonth() - birth.getMonth()
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--
+  return age
 }
 
-const Input = ({ label, error, ...props }) => (
-  <div>
-    {label && <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>}
-    <input
-      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 text-sm ${error ? 'border-red-500 focus:ring-red-500' : 'border-slate-200 focus:ring-emerald-500/20 focus:border-emerald-500'}`}
-      {...props}
-    />
-    {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
-  </div>
-)
+const EMPTY_FORM = { firstName: '', lastName: '', community: '', dob: '', childId: '', sex: '' }
 
-const AutocompleteInput = ({ label, error, value, onChange, suggestions = [], ...props }) => {
-  const [showSuggestions, setShowSuggestions] = useState(false)
-  const [filteredSuggestions, setFilteredSuggestions] = useState([])
-  const inputRef = useRef(null)
-  const dropdownRef = useRef(null)
+export default function PatientSearch() {
+  const [query, setQuery]       = useState('')
+  const [patients, setPatients] = useState(existingPatients)
+  const [enrolling, setEnrolling] = useState(false)
+  const [form, setForm]         = useState(EMPTY_FORM)
+  const [errors, setErrors]     = useState({})
 
-  useEffect(() => {
-    if (value && suggestions.length > 0) {
-      const filtered = suggestions.filter(s => s.toLowerCase().includes(value.toLowerCase()))
-      setFilteredSuggestions(filtered)
-      setShowSuggestions(filtered.length > 0)
-    } else {
-      setShowSuggestions(false)
-    }
-  }, [value, suggestions])
+  const filtered = query.trim()
+    ? patients.filter(p =>
+        `${p.firstName} ${p.lastName}`.toLowerCase().includes(query.toLowerCase()) ||
+        p.childId.toLowerCase().includes(query.toLowerCase())
+      )
+    : patients
 
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (
-        inputRef.current && !inputRef.current.contains(e.target) &&
-        dropdownRef.current && !dropdownRef.current.contains(e.target)
-      ) setShowSuggestions(false)
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+  function validate(f) {
+    const e = {}
+    if (!f.firstName.trim()) e.firstName = 'Required'
+    if (!f.lastName.trim())  e.lastName  = 'Required'
+    if (!f.childId.trim())   e.childId   = 'Required'
+    if (!f.dob)              e.dob       = 'Required'
+    if (!f.sex)              e.sex       = 'Required'
+    if (!f.community.trim())  e.community = 'Required'
+    return e
+  }
 
-  return (
-    <div className="relative">
-      {label && <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>}
+  function handleEnroll() {
+    const e = validate(form)
+    setErrors(e)
+    if (Object.keys(e).length) return
+    setPatients(prev => [...prev, form])
+    setEnrolling(false)
+    setForm(EMPTY_FORM)
+    setErrors({})
+    setQuery('')
+  }
+
+  function cancelEnroll() {
+    setEnrolling(false)
+    setForm(EMPTY_FORM)
+    setErrors({})
+  }
+
+  const field = (key, label, type = 'text', placeholder = '') => (
+    <div>
+      <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>
       <input
-        ref={inputRef}
-        value={value}
-        onChange={e => { onChange(e); setShowSuggestions(true) }}
-        onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
-        className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 text-sm ${error ? 'border-red-500 focus:ring-red-500' : 'border-slate-200 focus:ring-emerald-500/20 focus:border-emerald-500'}`}
-        {...props}
+        type={type}
+        value={form[key]}
+        onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+        placeholder={placeholder}
+        className={`w-full bg-gray-100 rounded-xl px-3 py-2.5 text-sm text-gray-700
+          placeholder-gray-400 outline-none focus:ring-2 focus:ring-emerald-400 transition
+          ${errors[key] ? 'ring-2 ring-red-400' : ''}`}
       />
-      {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
-      {showSuggestions && filteredSuggestions.length > 0 && (
-        <div
-          ref={dropdownRef}
-          className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto"
-        >
-          {filteredSuggestions.map((s, i) => (
-            <div
-              key={i}
-              onClick={() => { onChange({ target: { value: s } }); setShowSuggestions(false) }}
-              className="px-3 py-2 text-sm hover:bg-emerald-50 cursor-pointer transition"
-            >
-              {s}
-            </div>
-          ))}
-        </div>
-      )}
+      {errors[key] && <p className="text-xs text-red-400 mt-0.5">{errors[key]}</p>}
     </div>
-  )
-}
-
-const SectionProgress = ({ s1, s2, s3 }) => {
-  const sections = [
-    { label: 'S1', done: s1 },
-    { label: 'S2', done: s2 },
-    { label: 'S3', done: s3 },
-  ]
-  return (
-    <div className="flex items-center gap-1">
-      {sections.map((s, i) => (
-        <React.Fragment key={s.label}>
-          <div className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-medium ${s.done ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'}`}>
-            {s.done
-              ? <CheckCircle2 size={10} className="flex-shrink-0" />
-              : <Circle size={10} className="flex-shrink-0" />
-            }
-            <span>{s.label}</span>
-          </div>
-          {i < 2 && <div className={`w-3 h-px ${s.done ? 'bg-emerald-300' : 'bg-slate-200'}`} />}
-        </React.Fragment>
-      ))}
-    </div>
-  )
-}
-
-export default function ClinicianPatientData() {
-  const navigate = useNavigate()
-  const { profile } = useAuthStore()
-  const section = profile?.section ?? null
-
-  const [searchQuery, setSearchQuery] = useState('')
-  const [showAddModal, setShowAddModal] = useState(false)
-  const [editingPerson, setEditingPerson] = useState(null)
-  const [errors, setErrors] = useState({})
-
-  const [people, setPeople] = useState([
-    { id: 1, firstName: 'Kwame',  lastName: 'Mensah',  community: 'Asokwa',  dob: '2017-02-15', childId: 'GH0001', sex: 'M', screenCount: 3, section1Complete: true,  section2Complete: true,  section3Complete: false },
-    { id: 2, firstName: 'Ama',    lastName: 'Asante',  community: 'Bantama', dob: '2016-03-20', childId: 'GH0002', sex: 'F', screenCount: 5, section1Complete: true,  section2Complete: false, section3Complete: false },
-    { id: 3, firstName: 'Kofi',   lastName: 'Owusu',   community: 'Asokwa',  dob: '2019-06-05', childId: 'GH0003', sex: 'M', screenCount: 2, section1Complete: false, section2Complete: false, section3Complete: false },
-    { id: 4, firstName: 'Akua',   lastName: 'Boateng', community: 'Adum',    dob: '2013-10-10', childId: 'GH0004', sex: 'F', screenCount: 7, section1Complete: true,  section2Complete: true,  section3Complete: true  },
-    { id: 5, firstName: 'Yaw',    lastName: 'Osei',    community: 'Bantama', dob: '2012-12-17', childId: 'GH0005', sex: 'M', screenCount: 4, section1Complete: false, section2Complete: false, section3Complete: false },
-    { id: 6, firstName: 'Abena',  lastName: 'Appiah',  community: 'Adum',    dob: '2012-07-23', childId: 'GH0006', sex: 'F', screenCount: 1, section1Complete: true,  section2Complete: false, section3Complete: false },
-  ])
-
-  const [newPatient, setNewPatient] = useState({
-    firstName: '', lastName: '', community: '', dob: '', childId: 'GH', sex: ''
-  })
-
-  const uniqueCommunities = [...new Set(people.map(p => p.community).filter(Boolean))]
-
-  const calculateAge = dob => {
-    if (!dob) return ''
-    const birth = new Date(dob)
-    const today = new Date()
-    let age = today.getFullYear() - birth.getFullYear()
-    const m = today.getMonth() - birth.getMonth()
-    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--
-    return age
-  }
-
-  const getInitials = name => name?.charAt(0).toUpperCase() || '?'
-  const getSexColor = sex => sex === 'M' ? 'bg-blue-300' : 'bg-pink-400'
-
-  const getSectionStatus = (person) => {
-    if (!section) return null
-    if (section === '1') return person.section1Complete ? 'done' : 'ready'
-    if (section === '2') {
-      if (person.section2Complete) return 'done'
-      if (!person.section1Complete) return 'blocked'
-      return 'ready'
-    }
-    if (section === '3') {
-      if (person.section3Complete) return 'done'
-      if (!person.section2Complete) return 'blocked'
-      return 'ready'
-    }
-    return null
-  }
-
-  const STATUS_CHIP = {
-    ready:   { label: `Ready — Sec ${section}`, cls: 'bg-blue-100 text-blue-700' },
-    done:    { label: 'Completed',               cls: 'bg-emerald-100 text-emerald-700' },
-    blocked: { label: 'Awaiting prev. section',  cls: 'bg-amber-100 text-amber-700' },
-  }
-
-  const filtered = people.filter(p =>
-    p.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.childId.toLowerCase().includes(searchQuery.toLowerCase())
-  )
-
-  const validate = patient => {
-    const errs = {}
-    if (!patient.firstName) errs.firstName = 'Required'
-    if (!patient.lastName)  errs.lastName  = 'Required'
-    if (!patient.community) errs.community = 'Required'
-    if (!patient.childId)   errs.childId   = 'Required'
-    if (!patient.dob)       errs.dob       = 'Required'
-    else if (isNaN(new Date(patient.dob))) errs.dob = 'Invalid date'
-    if (!['M', 'F'].includes(patient.sex)) errs.sex = 'Select gender'
-    return errs
-  }
-
-  const handleAdd = () => {
-    const errs = validate(newPatient)
-    setErrors(errs)
-    if (Object.keys(errs).length) return
-    const newId = Math.max(...people.map(p => p.id), 0) + 1
-    setPeople([...people, {
-      ...newPatient, id: newId, screenCount: 0,
-      section1Complete: false, section2Complete: false, section3Complete: false
-    }])
-    setNewPatient({ firstName: '', lastName: '', community: '', dob: '', childId: 'GH', sex: '' })
-    setShowAddModal(false)
-    setErrors({})
-  }
-
-  const handleSaveEdit = () => {
-    const errs = validate(editingPerson)
-    setErrors(errs)
-    if (Object.keys(errs).length) return
-    setPeople(people.map(p => p.id === editingPerson.id ? editingPerson : p))
-    setEditingPerson(null)
-    setErrors({})
-  }
-
-  const handleRowClick = (person) => {
-    const status = getSectionStatus(person)
-    if (status === 'ready') navigate(`/clinician/patient/${person.childId}`)
-  }
-
-  const renderFormFields = (data, setData) => (
-    <>
-      <Input
-        label="Child ID *"
-        value={data.childId}
-        onChange={e => setData({ ...data, childId: e.target.value })}
-        error={errors.childId}
-      />
-      <div className="grid grid-cols-2 gap-3">
-        <Input
-          label="First Name *"
-          value={data.firstName}
-          onChange={e => setData({ ...data, firstName: e.target.value })}
-          error={errors.firstName}
-        />
-        <Input
-          label="Last Name *"
-          value={data.lastName}
-          onChange={e => setData({ ...data, lastName: e.target.value })}
-          error={errors.lastName}
-        />
-      </div>
-      <AutocompleteInput
-        label="Community *"
-        value={data.community}
-        onChange={e => setData({ ...data, community: e.target.value })}
-        suggestions={uniqueCommunities}
-        error={errors.community}
-        placeholder="Type or select community"
-      />
-      <div className="flex flex-col">
-        <label className="text-sm font-medium text-slate-700 mb-1">Birthdate *</label>
-        <input
-          type="date"
-          value={data.dob}
-          onChange={e => setData({ ...data, dob: e.target.value })}
-          className={`border rounded-lg px-3 py-2 text-sm focus:ring-2 ${errors.dob ? 'border-red-500 focus:ring-red-500' : 'border-slate-300 focus:ring-emerald-500 focus:border-emerald-500'}`}
-        />
-        {errors.dob && <p className="text-xs text-red-500 mt-1">{errors.dob}</p>}
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-slate-700 mb-2">Gender *</label>
-        <div className="flex gap-4">
-          {['M', 'F'].map(g => (
-            <label key={g} className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                value={g}
-                checked={data.sex === g}
-                onChange={e => setData({ ...data, sex: e.target.value })}
-                className="w-4 h-4"
-              />
-              <span className="text-sm">{g === 'M' ? 'Male' : 'Female'}</span>
-            </label>
-          ))}
-        </div>
-        {errors.sex && <p className="text-xs text-red-500 mt-1">{errors.sex}</p>}
-      </div>
-    </>
   )
 
   return (
-    <div className="w-full h-screen flex flex-col bg-slate-50">
+    <div className="min-h-screen bg-gray-100 p-3 sm:p-6 lg:p-10 font-sans">
+      <div className="bg-white rounded-2xl shadow-sm overflow-hidden w-full sm:max-w-lg sm:mx-auto lg:max-w-2xl">
 
-      {/* Toolbar */}
-      <div className="flex-shrink-0 bg-white border-b border-slate-200 px-6 py-4">
-        <div className="flex flex-wrap justify-between gap-3 items-center">
-          <div>
-            <h1 className="text-base font-bold text-slate-800">Patient Data</h1>
-            <p className="text-xs text-slate-500">
-              {filtered.length} patient{filtered.length !== 1 ? 's' : ''} found
-              {section && <span className="ml-1">· Section {section} view</span>}
-            </p>
-          </div>
-          <div className="flex gap-2 flex-wrap items-center">
-            <div className="relative">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search by Name or Child ID..."
-                className="pl-8 pr-3 py-1.5 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 w-56 lg:w-72"
-              />
+        {/* ── Header ── */}
+        <div className="px-4 pt-4 pb-3 sm:px-6 sm:pt-6 sm:pb-4 border-b border-gray-100 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm sm:text-base font-bold text-gray-900 tracking-tight">Patients</h2>
+              <p className="text-xs text-gray-400 mt-0.5">{filtered.length} found</p>
             </div>
-            <Button
-              className="bg-emerald-600 text-white hover:bg-emerald-700"
-              onClick={() => setShowAddModal(true)}
-            >
-              <Plus size={16} /> Add Patient
-            </Button>
+            {!enrolling && (
+              <button
+                onClick={() => setEnrolling(true)}
+                className="flex items-center gap-1.5 text-xs font-medium text-white
+                           bg-emerald-500 hover:bg-emerald-600 transition
+                           px-3 py-1.5 rounded-xl"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5}
+                  strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                Enroll Patient
+              </button>
+            )}
           </div>
+
+          {/* Search */}
+          <label className="flex items-center gap-2 bg-gray-100 rounded-xl px-3 py-2 sm:py-2.5">
+            <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor"
+              strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+              <circle cx="11" cy="11" r="7" /><path d="M21 21l-4.35-4.35" />
+            </svg>
+            <input
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Name or patient ID…"
+              className="flex-1 bg-transparent text-sm text-gray-700 placeholder-gray-400 outline-none min-w-0"
+            />
+            {query && (
+              <button onClick={() => setQuery('')} className="text-gray-400 hover:text-gray-600 transition text-xs shrink-0">✕</button>
+            )}
+          </label>
         </div>
-      </div>
 
-      {/* Patient Cards */}
-      <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-2">
-        {filtered.map(person => {
-          const status = getSectionStatus(person)
-          const chip = status ? STATUS_CHIP[status] : null
-          const isReady = status === 'ready'
+        {/* ── Enroll form ── */}
+        {enrolling && (
+          <div className="px-4 sm:px-6 py-4 border-b border-gray-100 space-y-3 bg-gray-50">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">New Patient</p>
 
-          return (
-            <div
-              key={person.id}
-              onClick={() => handleRowClick(person)}
-              className={`bg-white rounded-xl border p-4 flex items-center justify-between gap-3 transition hover:shadow-md hover:border-emerald-300 hover:-translate-y-0.5 ${isReady ? 'cursor-pointer border-slate-200' : 'cursor-default border-slate-100'}`}
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className={`w-10 h-10 rounded-full ${getSexColor(person.sex)} flex items-center justify-center text-white text-sm font-bold flex-shrink-0`}>
-                  {getInitials(person.firstName)}
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm font-semibold text-slate-800 truncate">
-                      {person.firstName} {person.lastName}
-                    </p>
-                    {chip && (
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${chip.cls}`}>
-                        {chip.label}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    {person.childId} · {person.community} · {person.sex === 'M' ? 'Male' : 'Female'} · {calculateAge(person.dob)} yrs
-                  </p>
-                  <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-                    <SectionProgress
-                      s1={person.section1Complete}
-                      s2={person.section2Complete}
-                      s3={person.section3Complete}
-                    />
-                    <div className="flex items-center gap-1 text-xs text-blue-600 font-medium">
-                      <Clock size={11} />
-                      <span>{person.screenCount} screen{person.screenCount !== 1 ? 's' : ''}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-1 flex-shrink-0">
-                <button
-                  onClick={e => { e.stopPropagation(); setEditingPerson(person); setErrors({}) }}
-                  className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition"
-                >
-                  <Edit2 size={15} />
-                </button>
-                {isReady
-                  ? <ChevronRight size={18} className="text-emerald-500" />
-                  : <div className="w-[18px]" />
-                }
-              </div>
+            <div className="grid grid-cols-2 gap-3">
+              {field('firstName', 'First name', 'text', 'Kwame')}
+              {field('lastName',  'Last name',  'text', 'Mensah')}
             </div>
-          )
-        })}
 
-        {filtered.length === 0 && (
-          <div className="text-center py-16 text-slate-400 text-sm">
-            No patients match your search
+            {field('childId',   'Patient ID',    'text', 'GH0007')}
+            {field('community', 'Community',     'text', '')}
+            {field('dob',       'Date of birth', 'date')}
+
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Sex</label>
+              <div className="flex gap-3">
+                {['M', 'F'].map(g => (
+                  <label key={g} className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-sm cursor-pointer transition
+                    ${form.sex === g ? 'bg-emerald-100 text-emerald-700 font-semibold' : 'bg-gray-100 text-gray-500'}`}>
+                    <input type="radio" value={g} checked={form.sex === g}
+                      onChange={e => setForm(f => ({ ...f, sex: e.target.value }))}
+                      className="sr-only" />
+                    {g === 'M' ? 'Male' : 'Female'}
+                  </label>
+                ))}
+              </div>
+              {errors.sex && <p className="text-xs text-red-400 mt-0.5">{errors.sex}</p>}
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <button onClick={cancelEnroll}
+                className="flex-1 py-2 rounded-xl text-sm text-gray-500 bg-gray-100 hover:bg-gray-200 transition font-medium">
+                Cancel
+              </button>
+              <button onClick={handleEnroll}
+                className="flex-1 py-2 rounded-xl text-sm text-white bg-emerald-500 hover:bg-emerald-600 transition font-medium">
+                Enroll
+              </button>
+            </div>
           </div>
         )}
+
+        {/* ── Patient list ── */}
+        <ul>
+          {filtered.map((p, i) => (
+            <li key={p.childId}
+              className="flex items-center gap-3 px-4 py-3 sm:px-6 sm:py-3.5"
+            >
+              <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center
+                text-white text-sm font-bold shrink-0
+                ${p.sex === 'F' ? 'bg-pink-400' : 'bg-blue-400'}`}>
+                {p.firstName[0]}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-900 truncate">
+                  {p.firstName} {p.lastName}
+                </p>
+                <p className="text-xs text-gray-400 truncate">
+                  {p.childId} · {p.sex === 'M' ? 'Male' : 'Female'} · {calcAge(p.dob)} yrs · {p.community}  
+                </p>
+              </div>
+              {i < filtered.length - 1 && <div className="absolute" />}
+            </li>
+          ))}
+
+          {/* Dividers between rows */}
+          {filtered.map((_, i) =>
+            i < filtered.length - 1 ? (
+              <div key={`div-${i}`} className="mx-4 sm:mx-6 border-t border-gray-100" />
+            ) : null
+          )}
+
+          {filtered.length === 0 && (
+            <li className="py-10 sm:py-12 text-center space-y-3">
+              <p className="text-sm text-gray-400">
+                No patient found for <span className="font-medium text-gray-600">"{query}"</span>
+              </p>
+              {!enrolling && (
+                <button
+                  onClick={() => setEnrolling(true)}
+                  className="text-xs font-medium text-emerald-600 hover:text-emerald-700 transition underline underline-offset-2"
+                >
+                  Enroll as new patient
+                </button>
+              )}
+            </li>
+          )}
+        </ul>
+
+        {/* ── Footer ── */}
+        <div className="px-4 sm:px-6 py-3 bg-gray-50 border-t border-gray-100">
+          <p className="text-xs text-gray-400 text-center">
+            Can't find a patient? Enroll them above.
+          </p>
+        </div>
+
       </div>
-
-      {/* Add Modal */}
-      <Modal
-        show={showAddModal}
-        onClose={() => { setShowAddModal(false); setErrors({}) }}
-        title="Add New Patient"
-        actions={[
-          <Button key="cancel" className="flex-1 bg-slate-100 text-slate-700 hover:bg-slate-200"
-            onClick={() => { setShowAddModal(false); setErrors({}) }}>
-            Cancel
-          </Button>,
-          <Button key="add" className="flex-1 bg-emerald-600 text-white hover:bg-emerald-700"
-            onClick={handleAdd}>
-            Add Patient
-          </Button>
-        ]}
-      >
-        {renderFormFields(newPatient, setNewPatient)}
-      </Modal>
-
-      {/* Edit Modal */}
-      <Modal
-        show={!!editingPerson}
-        onClose={() => { setEditingPerson(null); setErrors({}) }}
-        title="Edit Patient"
-        actions={[
-          <Button key="cancel" className="flex-1 bg-slate-100 text-slate-700 hover:bg-slate-200"
-            onClick={() => { setEditingPerson(null); setErrors({}) }}>
-            Cancel
-          </Button>,
-          <Button key="save" className="flex-1 bg-emerald-600 text-white hover:bg-emerald-700"
-            onClick={handleSaveEdit}>
-            Save Changes
-          </Button>
-        ]}
-      >
-        {editingPerson && renderFormFields(editingPerson, setEditingPerson)}
-      </Modal>
-
     </div>
   )
 }

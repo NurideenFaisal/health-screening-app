@@ -1,459 +1,176 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 
-export default function Section2({ patientId, patient }) {
+const ImmunizationSection = () => {
+  // Updated immunization list without JAP, TYP, VAR
+  const immunizationList = [
+    { code: 'BCG', name: 'Bacillus Calmette-Guérin' },
+    { code: 'HepB', name: 'Hepatitis B' },
+    { code: 'DTP', name: 'Diphtheria, Tetanus, Pertussis' },
+    { code: 'OPV', name: 'Oral Polio Vaccine' },
+    { code: 'IPV', name: 'Inactivated Polio Vaccine' },
+    { code: 'Hib', name: 'Haemophilus influenzae type b' },
+    { code: 'PCV', name: 'Pneumococcal Conjugate Vaccine' },
+    { code: 'RV', name: 'Rotavirus Vaccine' },
+    { code: 'MMR', name: 'Measles, Mumps, Rubella' },
+    { code: 'MR', name: 'Measles, Rubella' },
+    { code: 'HPV', name: 'Human Papillomavirus' },
+    { code: 'TD', name: 'Tetanus, Diphtheria' }
+  ];
+
+  const timeOptions = [
+    { label: '6 months ago', value: '6_months' },
+    { label: '1 year ago', value: '1_year' },
+    { label: '2 years ago', value: '2_years' },
+    { label: '5 years ago', value: '5_years' }
+  ];
+
   const [formData, setFormData] = useState({
-    // Hematology
-    hemoglobin: '',
-    hematocrit: '',
-    wbcCount: '',
-    rbcCount: '',
-    plateletCount: '',
-    
-    // Blood Chemistry
-    bloodGlucose: '',
-    bloodUrea: '',
-    creatinine: '',
-    sodium: '',
-    potassium: '',
-    calcium: '',
-    
-    // Liver Function
-    alt: '',
-    ast: '',
-    alkalinePhosphatase: '',
-    totalBilirubin: '',
-    
-    // Urinalysis
-    urineColor: '',
-    urineClarity: '',
-    urineProtein: '',
-    urineGlucose: '',
-    urineBlood: '',
-    urinePH: '',
-    
-    // Other Tests
-    malariaTest: '',
-    hivTest: '',
-    tuberculosisTest: '',
-    stoolExam: '',
-    
-    labNotes: '',
+    immunizations: immunizationList.reduce((acc, vaccine) => {
+      acc[vaccine.code] = { received: false };
+      return acc;
+    }, {}),
+    childhoodImmunizationComplete: false,
+    vitaminA: '',
+    deworming: ''
   });
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  const updateField = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    console.log('Section 2 Data:', formData);
-    alert('Section 2 saved successfully!');
+  const updateNestedField = (parent, key, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [parent]: {
+        ...prev[parent],
+        [key]: value
+      }
+    }));
+  };
+
+  const handleSelectAll = () => {
+    const allSelected = immunizationList.reduce((acc, vaccine) => {
+      acc[vaccine.code] = { received: true };
+      return acc;
+    }, {});
+    setFormData(prev => ({
+      ...prev,
+      immunizations: allSelected
+    }));
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8">
-      
-      {/* Hematology */}
-      <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b">Hematology</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Hemoglobin (g/dL)</label>
-            <input
-              type="number"
-              step="0.1"
-              name="hemoglobin"
-              value={formData.hemoglobin}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-              placeholder="e.g., 12.5"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Hematocrit (%)</label>
-            <input
-              type="number"
-              step="0.1"
-              name="hematocrit"
-              value={formData.hematocrit}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-              placeholder="e.g., 38.5"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">WBC Count (×10³/μL)</label>
-            <input
-              type="number"
-              step="0.1"
-              name="wbcCount"
-              value={formData.wbcCount}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-              placeholder="e.g., 7.5"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">RBC Count (×10⁶/μL)</label>
-            <input
-              type="number"
-              step="0.01"
-              name="rbcCount"
-              value={formData.rbcCount}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-              placeholder="e.g., 4.50"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Platelet Count (×10³/μL)</label>
-            <input
-              type="number"
-              name="plateletCount"
-              value={formData.plateletCount}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-              placeholder="e.g., 250"
-            />
-          </div>
+    <div className="space-y-6">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
+          <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+          </svg>
+        </div>
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Immunization Record</h2>
+          <p className="text-sm text-gray-600">Vaccination history and supplements</p>
         </div>
       </div>
 
-      {/* Blood Chemistry */}
-      <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b">Blood Chemistry</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Blood Glucose (mg/dL)</label>
-            <input
-              type="number"
-              name="bloodGlucose"
-              value={formData.bloodGlucose}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-              placeholder="e.g., 95"
-            />
-          </div>
+      {/* Immunization Grid */}
+      <div className="bg-emerald-50 rounded-2xl p-5 border border-emerald-100">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-semibold text-gray-900">Vaccines Received</h3>
+          <button
+            onClick={handleSelectAll}
+            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            Select All
+          </button>
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Blood Urea (mg/dL)</label>
-            <input
-              type="number"
-              step="0.1"
-              name="bloodUrea"
-              value={formData.bloodUrea}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-              placeholder="e.g., 25.0"
-            />
-          </div>
+        <div className="grid grid-cols-2 gap-2">
+          {immunizationList.map(vaccine => (
+            <div key={vaccine.code} className="bg-white rounded-lg p-2.5 border border-gray-200">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.immunizations[vaccine.code].received}
+                  onChange={(e) => updateNestedField('immunizations', vaccine.code, {
+                    received: e.target.checked
+                  })}
+                  className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-sm text-gray-900">{vaccine.code}</div>
+                  <div className="text-xs text-gray-600 truncate">{vaccine.name}</div>
+                </div>
+              </label>
+            </div>
+          ))}
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Creatinine (mg/dL)</label>
+        <div className="mt-4 pt-3 border-t border-emerald-200">
+          <label className="flex items-center gap-3 cursor-pointer bg-white rounded-lg p-3 border-2 border-gray-200 hover:border-emerald-300">
             <input
-              type="number"
-              step="0.1"
-              name="creatinine"
-              value={formData.creatinine}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-              placeholder="e.g., 0.8"
+              type="checkbox"
+              checked={formData.childhoodImmunizationComplete}
+              onChange={(e) => updateField('childhoodImmunizationComplete', e.target.checked)}
+              className="w-5 h-5 rounded border-gray-300 text-emerald-600 focus:ring-2 focus:ring-emerald-500 cursor-pointer"
             />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Sodium (mEq/L)</label>
-            <input
-              type="number"
-              step="0.1"
-              name="sodium"
-              value={formData.sodium}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-              placeholder="e.g., 140.0"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Potassium (mEq/L)</label>
-            <input
-              type="number"
-              step="0.1"
-              name="potassium"
-              value={formData.potassium}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-              placeholder="e.g., 4.0"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Calcium (mg/dL)</label>
-            <input
-              type="number"
-              step="0.1"
-              name="calcium"
-              value={formData.calcium}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-              placeholder="e.g., 9.5"
-            />
-          </div>
+            <span className="text-sm font-semibold text-gray-900">Childhood Immunization Up to Date</span>
+          </label>
         </div>
       </div>
 
-      {/* Liver Function Tests */}
-      <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b">Liver Function Tests</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Vitamins & Deworming */}
+      <div className="bg-teal-50 rounded-2xl p-5 border border-teal-100">
+        <h3 className="font-semibold text-gray-900 mb-4">Vitamin & Deworming History</h3>
+        
+        <div className="space-y-4">
+          {/* Vitamin A */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">ALT (U/L)</label>
-            <input
-              type="number"
-              name="alt"
-              value={formData.alt}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-              placeholder="e.g., 30"
-            />
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Vitamin A - Last Dose Received
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {timeOptions.map(option => (
+                <button
+                  key={option.value}
+                  onClick={() => updateField('vitaminA', option.value)}
+                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    formData.vitaminA === option.value
+                      ? 'bg-teal-600 text-white'
+                      : 'bg-white text-gray-700 border border-gray-300 hover:border-teal-400'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
           </div>
 
+          {/* Deworming */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">AST (U/L)</label>
-            <input
-              type="number"
-              name="ast"
-              value={formData.ast}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-              placeholder="e.g., 28"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Alkaline Phosphatase (U/L)</label>
-            <input
-              type="number"
-              name="alkalinePhosphatase"
-              value={formData.alkalinePhosphatase}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-              placeholder="e.g., 80"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Total Bilirubin (mg/dL)</label>
-            <input
-              type="number"
-              step="0.1"
-              name="totalBilirubin"
-              value={formData.totalBilirubin}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-              placeholder="e.g., 0.8"
-            />
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Deworming - Last Dose Received
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {timeOptions.map(option => (
+                <button
+                  key={option.value}
+                  onClick={() => updateField('deworming', option.value)}
+                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    formData.deworming === option.value
+                      ? 'bg-teal-600 text-white'
+                      : 'bg-white text-gray-700 border border-gray-300 hover:border-teal-400'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
-
-      {/* Urinalysis */}
-      <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b">Urinalysis</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
-            <select
-              name="urineColor"
-              value={formData.urineColor}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-            >
-              <option value="">Select...</option>
-              <option value="pale-yellow">Pale Yellow</option>
-              <option value="yellow">Yellow</option>
-              <option value="amber">Amber</option>
-              <option value="dark-yellow">Dark Yellow</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Clarity</label>
-            <select
-              name="urineClarity"
-              value={formData.urineClarity}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-            >
-              <option value="">Select...</option>
-              <option value="clear">Clear</option>
-              <option value="slightly-cloudy">Slightly Cloudy</option>
-              <option value="cloudy">Cloudy</option>
-              <option value="turbid">Turbid</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">pH</label>
-            <input
-              type="number"
-              step="0.1"
-              name="urinePH"
-              value={formData.urinePH}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-              placeholder="e.g., 6.0"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Protein</label>
-            <select
-              name="urineProtein"
-              value={formData.urineProtein}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-            >
-              <option value="">Select...</option>
-              <option value="negative">Negative</option>
-              <option value="trace">Trace</option>
-              <option value="1+">1+</option>
-              <option value="2+">2+</option>
-              <option value="3+">3+</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Glucose</label>
-            <select
-              name="urineGlucose"
-              value={formData.urineGlucose}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-            >
-              <option value="">Select...</option>
-              <option value="negative">Negative</option>
-              <option value="trace">Trace</option>
-              <option value="1+">1+</option>
-              <option value="2+">2+</option>
-              <option value="3+">3+</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Blood</label>
-            <select
-              name="urineBlood"
-              value={formData.urineBlood}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-            >
-              <option value="">Select...</option>
-              <option value="negative">Negative</option>
-              <option value="trace">Trace</option>
-              <option value="1+">1+</option>
-              <option value="2+">2+</option>
-              <option value="3+">3+</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Other Tests */}
-      <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b">Other Laboratory Tests</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Malaria Test</label>
-            <select
-              name="malariaTest"
-              value={formData.malariaTest}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-            >
-              <option value="">Select...</option>
-              <option value="negative">Negative</option>
-              <option value="positive">Positive</option>
-              <option value="not-done">Not Done</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">HIV Test</label>
-            <select
-              name="hivTest"
-              value={formData.hivTest}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-            >
-              <option value="">Select...</option>
-              <option value="negative">Negative</option>
-              <option value="positive">Positive</option>
-              <option value="not-done">Not Done</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Tuberculosis Test</label>
-            <select
-              name="tuberculosisTest"
-              value={formData.tuberculosisTest}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-            >
-              <option value="">Select...</option>
-              <option value="negative">Negative</option>
-              <option value="positive">Positive</option>
-              <option value="not-done">Not Done</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Stool Examination</label>
-            <input
-              type="text"
-              name="stoolExam"
-              value={formData.stoolExam}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-              placeholder="Enter findings..."
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Lab Notes */}
-      <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b">Laboratory Notes</h3>
-        <textarea
-          name="labNotes"
-          value={formData.labNotes}
-          onChange={handleChange}
-          rows="4"
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-          placeholder="Add any additional laboratory notes or observations..."
-        />
-      </div>
-
-      {/* Action Buttons */}
-      <div className="flex gap-3 pt-4 border-t">
-        <button
-          type="submit"
-          className="px-6 py-2.5 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition"
-        >
-          Save Section 2
-        </button>
-        <button
-          type="button"
-          className="px-6 py-2.5 bg-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-300 transition"
-        >
-          Save as Draft
-        </button>
-      </div>
-    </form>
+    </div>
   );
-}
+};
+
+export default ImmunizationSection;

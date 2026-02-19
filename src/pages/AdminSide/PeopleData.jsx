@@ -1,122 +1,83 @@
-import React, { useState, useEffect, useRef } from 'react'
-import { Upload, Download, Trash2, SlidersHorizontal, Search, Plus, Edit2, X, Clock, AlertCircle } from 'lucide-react'
+import React, { useState, useRef, useEffect } from 'react'
 
-// --- Reusable Components ---
-const Button = ({ children, className = '', ...props }) => (
-  <button
-    className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm transition ${className}`}
-    {...props}
-  >
-    {children}
-  </button>
-)
+// ── Utilities ─────────────────────────────────────────────────────────────────
+function calcAge(dob) {
+  if (!dob) return ''
+  const birth = new Date(dob)
+  const today = new Date()
+  let age = today.getFullYear() - birth.getFullYear()
+  const m = today.getMonth() - birth.getMonth()
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--
+  return age
+}
 
-const Modal = ({ show, onClose, title, children, actions }) => {
-  if (!show) return null
+function formatDOB(dob) {
+  if (!dob) return ''
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+  const d = new Date(dob)
+  return `${d.getDate().toString().padStart(2,'0')} ${months[d.getMonth()]} ${d.getFullYear()}`
+}
+
+function validate(p) {
+  const e = {}
+  if (!p.firstName?.trim()) e.firstName = 'Required'
+  if (!p.lastName?.trim())  e.lastName  = 'Required'
+  if (!p.community?.trim()) e.community = 'Required'
+  if (!p.childId?.trim())   e.childId   = 'Required'
+  if (!p.dob)               e.dob       = 'Required'
+  else if (isNaN(new Date(p.dob))) e.dob = 'Invalid date'
+  if (!['M','F'].includes(p.sex)) e.sex = 'Required'
+  return e
+}
+
+const EMPTY = { firstName: '', lastName: '', community: '', dob: '', childId: '', sex: '' }
+
+// ── Form sub-components ───────────────────────────────────────────────────────
+function TextInput({ error, ...props }) {
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-slate-800">{title}</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition">
-            <X size={20} />
-          </button>
-        </div>
-        <div className="space-y-4">{children}</div>
-        {actions && <div className="flex gap-2 pt-2">{actions}</div>}
-      </div>
+    <input
+      className={`w-full bg-gray-100 rounded-xl px-3 py-2.5 text-sm text-gray-700
+        placeholder-gray-400 outline-none focus:ring-2 focus:ring-emerald-400 transition
+        ${error ? 'ring-2 ring-red-400' : ''}`}
+      {...props}
+    />
+  )
+}
+
+function Field({ label, error, children }) {
+  return (
+    <div>
+      {label && <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>}
+      {children}
+      {error && <p className="text-xs text-red-400 mt-0.5">{error}</p>}
     </div>
   )
 }
 
-const Input = ({ label, error, ...props }) => (
-  <div>
-    {label && <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>}
-    <input
-      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 text-sm
-        ${error ? 'border-red-500 focus:ring-red-500' : 'border-slate-200 focus:ring-emerald-500/20 focus:border-emerald-500'}`}
-      {...props}
-    />
-    {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
-  </div>
-)
-
-// Autocomplete Input Component
-const AutocompleteInput = ({ label, error, value, onChange, suggestions = [], ...props }) => {
-  const [showSuggestions, setShowSuggestions] = useState(false)
-  const [filteredSuggestions, setFilteredSuggestions] = useState([])
-  const inputRef = useRef(null)
-  const dropdownRef = useRef(null)
+function AutocompleteInput({ value, onChange, suggestions = [], error, ...props }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  const filtered = value
+    ? suggestions.filter(s => s.toLowerCase().includes(value.toLowerCase()))
+    : suggestions
 
   useEffect(() => {
-    if (value && suggestions.length > 0) {
-      const filtered = suggestions.filter(s => 
-        s.toLowerCase().includes(value.toLowerCase())
-      )
-      setFilteredSuggestions(filtered)
-      setShowSuggestions(filtered.length > 0)
-    } else if (!value && suggestions.length > 0) {
-      setFilteredSuggestions(suggestions)
-      setShowSuggestions(false)
-    } else {
-      setShowSuggestions(false)
-    }
-  }, [value, suggestions])
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (
-        inputRef.current && 
-        !inputRef.current.contains(event.target) &&
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target)
-      ) {
-        setShowSuggestions(false)
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+    const handler = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  const handleInputChange = (e) => {
-    onChange(e)
-    if (e.target.value) {
-      setShowSuggestions(true)
-    }
-  }
-
-  const handleSuggestionClick = (suggestion) => {
-    onChange({ target: { value: suggestion } })
-    setShowSuggestions(false)
-  }
-
   return (
-    <div className="relative">
-      {label && <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>}
-      <input
-        ref={inputRef}
-        value={value}
-        onChange={handleInputChange}
-        onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
-        className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 text-sm
-          ${error ? 'border-red-500 focus:ring-red-500' : 'border-slate-200 focus:ring-emerald-500/20 focus:border-emerald-500'}`}
-        {...props}
-      />
-      {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
-      
-      {showSuggestions && filteredSuggestions.length > 0 && (
-        <div 
-          ref={dropdownRef}
-          className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto"
-        >
-          {filteredSuggestions.map((suggestion, idx) => (
-            <div
-              key={idx}
-              onClick={() => handleSuggestionClick(suggestion)}
-              className="px-3 py-2 text-sm hover:bg-emerald-50 cursor-pointer transition"
-            >
-              {suggestion}
+    <div className="relative" ref={ref}>
+      <TextInput value={value} error={error}
+        onChange={e => { onChange(e); setOpen(true) }}
+        onFocus={() => setOpen(true)} {...props} />
+      {open && filtered.length > 0 && (
+        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-100 rounded-xl shadow-lg max-h-40 overflow-y-auto">
+          {filtered.map((s, i) => (
+            <div key={i} onMouseDown={() => { onChange({ target: { value: s } }); setOpen(false) }}
+              className="px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
+              {s}
             </div>
           ))}
         </div>
@@ -125,571 +86,333 @@ const AutocompleteInput = ({ label, error, value, onChange, suggestions = [], ..
   )
 }
 
-// Error Modal Component
-const ErrorModal = ({ show, onClose, errors }) => {
+// Modal — used for add & edit on the admin/desktop view
+function Modal({ show, onClose, title, children }) {
   if (!show) return null
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4">
-        <div className="flex items-start gap-3">
-          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
-            <AlertCircle className="text-red-600" size={20} />
-          </div>
-          <div className="flex-1">
-            <h2 className="text-lg font-semibold text-slate-800 mb-1">Import Failed</h2>
-            <p className="text-sm text-slate-600 mb-3">The imported file has the following issues:</p>
-            <ul className="space-y-1 text-sm text-slate-700">
-              {errors.map((error, idx) => (
-                <li key={idx} className="flex items-start gap-2">
-                  <span className="text-red-500 font-bold">•</span>
-                  <span>{error}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+        {/* Modal header */}
+        <div className="px-6 pt-5 pb-4 border-b border-gray-100 flex items-center justify-between">
+          <h3 className="text-sm font-bold text-gray-900">{title}</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition text-sm">✕</button>
         </div>
-        <div className="flex justify-end pt-2">
-          <Button 
-            className="bg-slate-600 text-white hover:bg-slate-700"
-            onClick={onClose}
-          >
-            Close
-          </Button>
+        {/* Modal body */}
+        <div className="px-6 py-4 space-y-3 max-h-[70vh] overflow-y-auto">
+          {children}
         </div>
       </div>
     </div>
   )
 }
 
-// --- Main Component ---
-export default function PeopleData() {
-  const [selectedRows, setSelectedRows] = useState(new Set())
-  const [searchQuery, setSearchQuery] = useState('')
-  const [editingPerson, setEditingPerson] = useState(null)
-  const [showAddModal, setShowAddModal] = useState(false)
-  const [showErrorModal, setShowErrorModal] = useState(false)
-  const [importErrors, setImportErrors] = useState([])
-  const fileInputRef = useRef(null)
-  
-  const [people, setPeople] = useState([
-    { id: 1, firstName: 'Kwame', lastName: 'Mensah', community: 'Asokwa', dob: '2017-02-15', childId: 'GH0001', sex: 'M', screenCount: 3 },
-    { id: 2, firstName: 'Ama', lastName: 'Asante', community: 'Bantama', dob: '2016-03-20', childId: 'GH0002', sex: 'F', screenCount: 5 },
-    { id: 3, firstName: 'Kofi', lastName: 'Owusu', community: 'Asokwa', dob: '2019-06-05', childId: 'GH0003', sex: 'M', screenCount: 2 },
-    { id: 4, firstName: 'Akua', lastName: 'Boateng', community: 'Adum', dob: '2013-10-10', childId: 'GH0004', sex: 'F', screenCount: 7 },
-    { id: 5, firstName: 'Yaw', lastName: 'Osei', community: 'Bantama', dob: '2012-12-17', childId: 'GH0005', sex: 'M', screenCount: 4 },
-    { id: 6, firstName: 'Abena', lastName: 'Appiah', community: 'Adum', dob: '2012-07-23', childId: 'GH0006', sex: 'F', screenCount: 1 }
-  ])
-
-  const [newPatient, setNewPatient] = useState({ firstName: '', lastName: '', community: '', dob: '', childId: 'GH', sex: '' })
-  const [errors, setErrors] = useState({})
-
-  // Get unique communities for autocomplete
-  const uniqueCommunities = [...new Set(people.map(p => p.community).filter(Boolean))]
-
-  // --- Utilities ---
-  const calculateAge = dobString => {
-    if (!dobString) return ''
-    const birthDate = new Date(dobString)
-    const today = new Date(2026, 1, 14)
-    let age = today.getFullYear() - birthDate.getFullYear()
-    const monthDiff = today.getMonth() - birthDate.getMonth()
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) age--
-    return age
-  }
-
-  const formatDOB = dobString => {
-    if (!dobString) return ''
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-    const d = new Date(dobString)
-    return `${d.getDate().toString().padStart(2,'0')} ${monthNames[d.getMonth()]} ${d.getFullYear()}`
-  }
-
-  const getInitials = firstName => firstName?.charAt(0).toUpperCase() || '?'
-
-  // Search only works for Child ID + Name
-  const filtered = people.filter(
-    p => p.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-         p.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-         p.childId.toLowerCase().includes(searchQuery.toLowerCase())
+function PatientForm({ data, setData, errors, onSave, onCancel, saveLabel, communities = [] }) {
+  const f = (key, label, type = 'text', placeholder = '') => (
+    <Field label={label} error={errors[key]}>
+      <TextInput type={type} value={data[key]} placeholder={placeholder} error={errors[key]}
+        onChange={e => setData(d => ({ ...d, [key]: e.target.value }))} />
+    </Field>
   )
 
-  const toggleRow = id => {
-    const newSelected = new Set(selectedRows)
-    selectedRows.has(id) ? newSelected.delete(id) : newSelected.add(id)
-    setSelectedRows(newSelected)
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-3">
+        {f('firstName', 'First name', 'text', 'Kwame')}
+        {f('lastName',  'Last name',  'text', 'Mensah')}
+      </div>
+      {f('childId', 'Patient ID', 'text', 'GH0007')}
+      <Field label="Community" error={errors.community}>
+        <AutocompleteInput value={data.community} error={errors.community}
+          onChange={e => setData(d => ({ ...d, community: e.target.value }))}
+          suggestions={communities} placeholder="e.g. Asokwa" />
+      </Field>
+      {f('dob', 'Date of birth', 'date')}
+      <Field label="Sex" error={errors.sex}>
+        <div className="flex gap-2">
+          {['M', 'F'].map(g => (
+            <label key={g} className={`flex-1 flex items-center justify-center py-2 rounded-xl text-sm cursor-pointer transition font-medium
+              ${data.sex === g ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+              <input type="radio" value={g} checked={data.sex === g}
+                onChange={e => setData(d => ({ ...d, sex: e.target.value }))} className="sr-only" />
+              {g === 'M' ? 'Male' : 'Female'}
+            </label>
+          ))}
+        </div>
+      </Field>
+      <div className="flex gap-2 pt-2">
+        <button onClick={onCancel}
+          className="flex-1 py-2.5 rounded-xl text-sm text-gray-500 bg-gray-100 hover:bg-gray-200 transition font-medium">
+          Cancel
+        </button>
+        <button onClick={onSave}
+          className="flex-1 py-2.5 rounded-xl text-sm text-white bg-emerald-500 hover:bg-emerald-600 transition font-medium">
+          {saveLabel}
+        </button>
+      </div>
+    </>
+  )
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
+const INITIAL = [
+  { id: 1, firstName: 'Kwame',  lastName: 'Mensah',  community: 'Asokwa',  dob: '2017-02-15', childId: 'GH0001', sex: 'M', screenCount: 3 },
+  { id: 2, firstName: 'Ama',    lastName: 'Asante',  community: 'Bantama', dob: '2016-03-20', childId: 'GH0002', sex: 'F', screenCount: 5 },
+  { id: 3, firstName: 'Kofi',   lastName: 'Owusu',   community: 'Asokwa',  dob: '2019-06-05', childId: 'GH0003', sex: 'M', screenCount: 2 },
+  { id: 4, firstName: 'Akua',   lastName: 'Boateng', community: 'Adum',    dob: '2013-10-10', childId: 'GH0004', sex: 'F', screenCount: 7 },
+  { id: 5, firstName: 'Yaw',    lastName: 'Osei',    community: 'Bantama', dob: '2012-12-17', childId: 'GH0005', sex: 'M', screenCount: 4 },
+  { id: 6, firstName: 'Abena',  lastName: 'Appiah',  community: 'Adum',    dob: '2012-07-23', childId: 'GH0006', sex: 'F', screenCount: 1 },
+]
+
+const COLS = [
+  { key: 'name',        label: 'Name'       },
+  { key: 'childId',     label: 'Patient ID' },
+  { key: 'community',   label: 'Community'  },
+  { key: 'dob',         label: 'DOB'        },
+  { key: 'age',         label: 'Age'        },
+  { key: 'sex',         label: 'Sex'        },
+  { key: 'screenCount', label: 'Screens'    },
+]
+
+export default function PeopleData() {
+  const [people, setPeople]     = useState(INITIAL)
+  const [query, setQuery]       = useState('')
+  const [selected, setSelected] = useState(new Set())
+  const [showAdd, setShowAdd]   = useState(false)
+  const [editPerson, setEdit]   = useState(null)
+  const [form, setForm]         = useState(EMPTY)
+  const [editForm, setEditForm] = useState(EMPTY)
+  const [errors, setErrors]     = useState({})
+  const [editErrors, setEditErrors] = useState({})
+  const fileRef = useRef(null)
+
+  const communities = [...new Set(people.map(p => p.community).filter(Boolean))]
+
+  const filtered = people.filter(p =>
+    `${p.firstName} ${p.lastName}`.toLowerCase().includes(query.toLowerCase()) ||
+    p.childId.toLowerCase().includes(query.toLowerCase())
+  )
+
+  // Selection
+  const toggleOne = id => setSelected(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
+  const toggleAll = () => setSelected(s => s.size === filtered.length ? new Set() : new Set(filtered.map(p => p.id)))
+  const deleteSelected = () => { setPeople(p => p.filter(x => !selected.has(x.id))); setSelected(new Set()) }
+
+  // Add
+  function handleAdd() {
+    const e = validate(form); setErrors(e)
+    if (Object.keys(e).length) return
+    setPeople(p => [...p, { ...form, id: Math.max(...p.map(x => x.id), 0) + 1, screenCount: 0 }])
+    setShowAdd(false); setForm(EMPTY); setErrors({})
   }
 
-  const toggleAll = () => {
-    setSelectedRows(selectedRows.size === filtered.length ? new Set() : new Set(filtered.map(p => p.id)))
+  // Edit
+  function handleEdit() {
+    const e = validate(editForm); setEditErrors(e)
+    if (Object.keys(e).length) return
+    setPeople(p => p.map(x => x.id === editPerson.id ? { ...editForm, id: x.id, screenCount: x.screenCount } : x))
+    setEdit(null); setEditErrors({})
   }
 
-  const validatePatient = patient => {
-    const errs = {}
-    if (!patient.firstName) errs.firstName = 'Required'
-    if (!patient.lastName) errs.lastName = 'Required'
-    if (!patient.community) errs.community = 'Required'
-    if (!patient.childId) errs.childId = 'Required'
-    if (!patient.dob) errs.dob = 'Required'
-    else if (isNaN(new Date(patient.dob))) errs.dob = 'Invalid date'
-    if (!['M', 'F'].includes(patient.sex)) errs.sex = 'Select gender'
-    return errs
-  }
-
-  const handleAddPatient = () => {
-    const errs = validatePatient(newPatient)
-    setErrors(errs)
-    if (Object.keys(errs).length > 0) return
-    const newId = Math.max(...people.map(p => p.id), 0) + 1
-    setPeople([...people, { ...newPatient, id: newId, screenCount: 0 }])
-    setNewPatient({ firstName: '', lastName: '', community: '', dob: '', childId: 'GH', sex: '' })
-    setShowAddModal(false)
-    setErrors({})
-  }
-
-  const handleSaveEdit = () => {
-    const errs = validatePatient(editingPerson)
-    setErrors(errs)
-    if (Object.keys(errs).length > 0) return
-    setPeople(people.map(p => p.id === editingPerson.id ? editingPerson : p))
-    setEditingPerson(null)
-    setErrors({})
-  }
-
-  const deleteSelected = () => {
-    setPeople(people.filter(p => !selectedRows.has(p.id)))
-    setSelectedRows(new Set())
-  }
-
-  const getSexColor = sex => sex === 'M' ? 'bg-blue-300 text-white' : 'bg-pink-400 text-white'
-
-  // Export functionality
-  const handleExport = () => {
-    const headers = ['childId', 'firstName', 'lastName', 'community', 'dob', 'sex', 'screenCount']
-    const csvContent = [
-      headers.join(','),
-      ...people.map(p => headers.map(h => p[h]).join(','))
-    ].join('\n')
-    
-    const blob = new Blob([csvContent], { type: 'text/csv' })
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'patients_export.csv'
+  // Export
+  function handleExport() {
+    const headers = ['childId','firstName','lastName','community','dob','sex','screenCount']
+    const csv = [headers.join(','), ...people.map(p => headers.map(h => p[h]).join(','))].join('\n')
+    const a = Object.assign(document.createElement('a'), {
+      href: URL.createObjectURL(new Blob([csv], { type: 'text/csv' })),
+      download: 'patients.csv'
+    })
     a.click()
-    window.URL.revokeObjectURL(url)
   }
 
-  // Import with strict validation
-  const handleImport = (event) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-
+  // Import
+  function handleImport(e) {
+    const file = e.target.files?.[0]; if (!file) return
     const reader = new FileReader()
-    reader.onload = (e) => {
-      const text = e.target?.result
-      if (typeof text !== 'string') return
-
-      const lines = text.split('\n').filter(line => line.trim())
-      if (lines.length < 2) {
-        setImportErrors(['File is empty or has no data rows'])
-        setShowErrorModal(true)
-        return
-      }
-
-      const requiredHeaders = ['childId', 'firstName', 'lastName', 'community', 'dob', 'sex', 'screenCount']
+    reader.onload = ev => {
+      const lines = ev.target.result.split('\n').filter(l => l.trim())
+      if (lines.length < 2) return
       const headers = lines[0].split(',').map(h => h.trim())
-      
-      // Validate headers
-      const errors = []
-      const missingHeaders = requiredHeaders.filter(h => !headers.includes(h))
-      if (missingHeaders.length > 0) {
-        errors.push(`Missing required columns: ${missingHeaders.join(', ')}`)
-      }
-
-      // Validate each row
-      for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(',').map(v => v.trim())
-        if (values.length !== headers.length) {
-          errors.push(`Row ${i}: Column count mismatch (expected ${headers.length}, got ${values.length})`)
-          continue
-        }
-
-        const row = {}
-        headers.forEach((h, idx) => {
-          row[h] = values[idx]
-        })
-
-        // Validate required fields
-        if (!row.firstName) errors.push(`Row ${i}: Missing firstName`)
-        if (!row.lastName) errors.push(`Row ${i}: Missing lastName`)
-        if (!row.community) errors.push(`Row ${i}: Missing community`)
-        if (!row.childId) errors.push(`Row ${i}: Missing childId`)
-        if (!row.dob) errors.push(`Row ${i}: Missing dob`)
-        else if (isNaN(new Date(row.dob))) errors.push(`Row ${i}: Invalid date format for dob`)
-        if (!['M', 'F'].includes(row.sex)) errors.push(`Row ${i}: Invalid sex (must be M or F)`)
-        if (row.screenCount && isNaN(parseInt(row.screenCount))) errors.push(`Row ${i}: Invalid screenCount (must be a number)`)
-      }
-
-      if (errors.length > 0) {
-        setImportErrors(errors)
-        setShowErrorModal(true)
-        event.target.value = '' // Reset file input
-        return
-      }
-
-      // If validation passes, import the data
-      const newPeople = []
       let maxId = Math.max(...people.map(p => p.id), 0)
-      
-      for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(',').map(v => v.trim())
-        const row = {}
-        headers.forEach((h, idx) => {
-          row[h] = values[idx]
-        })
-
-        maxId++
-        newPeople.push({
-          id: maxId,
-          firstName: row.firstName,
-          lastName: row.lastName,
-          community: row.community,
-          dob: row.dob,
-          childId: row.childId,
-          sex: row.sex,
-          screenCount: parseInt(row.screenCount) || 0
-        })
-      }
-
-      setPeople([...people, ...newPeople])
-      event.target.value = '' // Reset file input
+      const newPeople = lines.slice(1).map(line => {
+        const vals = line.split(',').map(v => v.trim())
+        const row = Object.fromEntries(headers.map((h, j) => [h, vals[j]]))
+        return { ...row, id: ++maxId, screenCount: parseInt(row.screenCount) || 0 }
+      })
+      setPeople(p => [...p, ...newPeople])
     }
-
     reader.readAsText(file)
+    e.target.value = ''
   }
 
   return (
-    <div className="w-full h-screen flex flex-col bg-slate-50">
-      
-      {/* --- Fixed Top Toolbar --- */}
-      <div className="flex-shrink-0 bg-white border-b border-slate-200 p-6">
-        <div className="flex flex-wrap justify-between gap-3 items-center">
-          <div className="flex gap-2 flex-wrap">
-            <Button 
-              className="bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
-              onClick={handleExport}
-            >
-              <Upload size={16} /> Export
-            </Button>
-            <Button 
-              className="bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <Download size={16} /> Import
-            </Button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".csv"
-              onChange={handleImport}
-              className="hidden"
-            />
-            {selectedRows.size > 0 && (
-              <Button className="bg-red-500 text-white hover:bg-red-600" onClick={deleteSelected}>
-                <Trash2 size={16} /> Delete ({selectedRows.size})
-              </Button>
-            )}
-          </div>
-          <div className="flex gap-2 flex-wrap items-center">
-            <Button className="bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"><SlidersHorizontal size={16} /> Sort</Button>
-            <div className="relative">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search by Name or Child ID..."
-                className="pl-8 pr-3 py-1.5 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 w-64"
-              />
+    <div className="min-h-screen bg-gray-100 p-4 sm:p-6 lg:p-10 font-sans">
+      <div className="bg-white rounded-2xl shadow-sm overflow-hidden w-full max-w-6xl mx-auto">
+
+        {/* ── Header ── */}
+        <div className="px-5 pt-5 pb-4 sm:px-6 border-b border-gray-100 space-y-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <h2 className="text-base font-bold text-gray-900 tracking-tight">Patient Records</h2>
+              <p className="text-xs text-gray-400 mt-0.5">{filtered.length} patients</p>
             </div>
-            <Button
-              className="bg-emerald-600 text-white hover:bg-emerald-700"
-              onClick={() => setShowAddModal(true)}
-            >
-              <Plus size={16} /> Add
-            </Button>
-          </div>
-        </div>
-      </div>
 
-      {/* --- Scrollable Table Container --- */}
-      <div className="flex-1 overflow-hidden p-6 pt-3">
-        <div className="bg-white rounded-xl shadow border border-slate-200 h-full flex flex-col overflow-hidden">
-          <div className="overflow-auto flex-1">
-            <table className="table-auto border-collapse w-full relative">
-              <thead className="bg-slate-50 sticky top-0 z-30">
-                <tr className="border-b border-slate-200">
-                  {[
-                    { key: 'select', label: '', stickyLeft: true, minW: 60 },
-                    { key: 'name', label: 'Name', minW: 200 },
-                    { key: 'community', label: 'Community', minW: 150 },
-                    { key: 'childId', label: 'Child ID', minW: 120 },
-                    { key: 'dob', label: 'DOB', minW: 130 },
-                    { key: 'age', label: 'Age', minW: 80 },
-                    { key: 'sex', label: 'Sex', minW: 80 },
-                    { key: 'screenCount', label: 'Screen No', minW: 120 },
-                    { key: 'actions', label: 'Actions', stickyRight: true, minW: 100 }
-                  ].map(col => (
-                    <th
-                      key={col.key}
-                      className={`text-left p-3 text-sm font-semibold text-slate-700 whitespace-nowrap ${col.stickyLeft ? 'sticky left-0 bg-slate-50 z-30' : ''} ${col.stickyRight ? 'sticky right-0 bg-slate-50 z-30 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.1)]' : ''}`}
-                      style={{ minWidth: col.minW ? `${col.minW}px` : 'auto' }}
-                    >
-                      {col.key === 'select' ? (
-                        <input
-                          type="checkbox"
-                          checked={selectedRows.size === filtered.length && filtered.length > 0}
-                          onChange={toggleAll}
-                          className="w-4 h-4 rounded border-slate-300 text-emerald-600 cursor-pointer"
-                        />
-                      ) : col.label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map(person => (
-                  <tr
-                    key={person.id}
-                    onClick={() => toggleRow(person.id)}
-                    className={`border-b border-slate-100 text-sm transition-colors duration-150 cursor-pointer
-                      ${selectedRows.has(person.id) ? 'bg-emerald-50 hover:bg-emerald-100/70' : 'bg-white hover:bg-slate-50'}`}
-                  >
-                    <td className="p-3 sticky left-0 z-20 bg-inherit" onClick={e => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        checked={selectedRows.has(person.id)}
-                        onChange={() => toggleRow(person.id)}
-                        className="w-4 h-4 rounded border-slate-300 text-emerald-600 cursor-pointer"
-                      />
-                    </td>
-                    <td className="p-3 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-8 h-8 rounded-full ${getSexColor(person.sex)} flex items-center justify-center text-white text-sm font-semibold flex-shrink-0`}>
-                          {getInitials(person.firstName)}
-                        </div>
-                        <span>{person.firstName} {person.lastName}</span>
-                      </div>
-                    </td>
-                    <td className="p-3 whitespace-nowrap text-slate-600">{person.community}</td>
-                    <td className="p-3 whitespace-nowrap font-mono text-slate-600">{person.childId}</td>
-                    <td className="p-3 whitespace-nowrap">{formatDOB(person.dob)}</td>
-                    <td className="p-3 whitespace-nowrap">{calculateAge(person.dob)}</td>
-                    <td className="p-3 whitespace-nowrap">
-                      <span className={`px-2 py-1 rounded-md text-xs font-medium ${getSexColor(person.sex)}`}>{person.sex}</span>
-                    </td>
-                    <td className="p-3 whitespace-nowrap" onClick={e => e.stopPropagation()}>
-                      <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition cursor-pointer">
-                        <Clock size={14} />
-                        <span className="font-semibold">{person.screenCount}</span>
-                      </div>
-                    </td>
-                    <td className={`p-3 whitespace-nowrap sticky right-0 z-20 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.1)] ${selectedRows.has(person.id) ? 'bg-emerald-50' : 'bg-white'}`} onClick={e => e.stopPropagation()}>
-                      <Button className="text-blue-500 hover:text-blue-600 hover:bg-blue-50 p-1.5" onClick={() => setEditingPerson(person)}><Edit2 size={16} /></Button>
-                    </td>
-                  </tr>
+            <div className="flex items-center gap-2 flex-wrap">
+              {selected.size > 0 && (
+                <button onClick={deleteSelected}
+                  className="text-xs font-medium text-red-500 bg-red-50 hover:bg-red-100 transition px-3 py-1.5 rounded-xl">
+                  Delete ({selected.size})
+                </button>
+              )}
+              <button onClick={handleExport}
+                className="text-xs font-medium text-gray-500 bg-gray-100 hover:bg-gray-200 transition px-3 py-1.5 rounded-xl">
+                Export CSV
+              </button>
+              <button onClick={() => fileRef.current?.click()}
+                className="text-xs font-medium text-gray-500 bg-gray-100 hover:bg-gray-200 transition px-3 py-1.5 rounded-xl">
+                Import CSV
+              </button>
+              <input ref={fileRef} type="file" accept=".csv" onChange={handleImport} className="hidden" />
+              <button onClick={() => { setShowAdd(true); setForm(EMPTY); setErrors({}) }}
+                className="flex items-center gap-1.5 text-xs font-medium text-white bg-emerald-500 hover:bg-emerald-600 transition px-3 py-1.5 rounded-xl">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5}
+                  strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                Add Patient
+              </button>
+            </div>
+          </div>
+
+          {/* Search */}
+          <label className="flex items-center gap-2 bg-gray-100 rounded-xl px-3 py-2.5">
+            <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor"
+              strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+              <circle cx="11" cy="11" r="7" /><path d="M21 21l-4.35-4.35" />
+            </svg>
+            <input value={query} onChange={e => setQuery(e.target.value)}
+              placeholder="Search by name or patient ID…"
+              className="flex-1 bg-transparent text-sm text-gray-700 placeholder-gray-400 outline-none min-w-0" />
+            {query && (
+              <button onClick={() => setQuery('')} className="text-gray-400 hover:text-gray-600 transition text-xs shrink-0">✕</button>
+            )}
+          </label>
+        </div>
+
+        {/* ── Table ── */}
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="border-b border-gray-100">
+                {/* Select all */}
+                <th className="w-10 px-4 py-3 text-left">
+                  <input type="checkbox"
+                    checked={selected.size === filtered.length && filtered.length > 0}
+                    onChange={toggleAll}
+                    className="w-4 h-4 rounded border-gray-300 accent-emerald-500 cursor-pointer" />
+                </th>
+                {COLS.map(col => (
+                  <th key={col.key}
+                    className="px-3 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">
+                    {col.label}
+                  </th>
                 ))}
-                {filtered.length === 0 && <tr><td colSpan={9} className="text-center p-4 text-slate-500">No data found</td></tr>}
-              </tbody>
-            </table>
-          </div>
+                {/* Actions col */}
+                <th className="px-3 py-3" />
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((p, i) => (
+                <tr key={p.id}
+                  className={`border-b border-gray-100 transition
+                    ${selected.has(p.id) ? 'bg-emerald-50' : 'hover:bg-gray-50'}`}
+                >
+                  {/* Checkbox */}
+                  <td className="w-10 px-4 py-3">
+                    <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleOne(p.id)}
+                      className="w-4 h-4 rounded border-gray-300 accent-emerald-500 cursor-pointer" />
+                  </td>
+
+                  {/* Name */}
+                  <td className="px-3 py-3 whitespace-nowrap">
+                    <div className="flex items-center gap-2.5">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0
+                        ${p.sex === 'F' ? 'bg-pink-400' : 'bg-blue-400'}`}>
+                        {p.firstName[0]}
+                      </div>
+                      <span className="text-sm font-semibold text-gray-900">{p.firstName} {p.lastName}</span>
+                    </div>
+                  </td>
+
+                  {/* Patient ID */}
+                  <td className="px-3 py-3 whitespace-nowrap">
+                    <span className="text-xs font-mono text-gray-500 bg-gray-100 px-2 py-1 rounded-lg">{p.childId}</span>
+                  </td>
+
+                  {/* Community */}
+                  <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-600">{p.community}</td>
+
+                  {/* DOB */}
+                  <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-600">{formatDOB(p.dob)}</td>
+
+                  {/* Age */}
+                  <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-600">{calcAge(p.dob)} yrs</td>
+
+                  {/* Sex */}
+                  <td className="px-3 py-3 whitespace-nowrap">
+                    <span className={`text-xs font-medium px-2 py-1 rounded-lg
+                      ${p.sex === 'F' ? 'bg-pink-100 text-pink-600' : 'bg-blue-100 text-blue-600'}`}>
+                      {p.sex === 'M' ? 'Male' : 'Female'}
+                    </span>
+                  </td>
+
+                  {/* Screen count */}
+                  <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-600">{p.screenCount}</td>
+
+                  {/* Edit */}
+                  <td className="px-3 py-3 whitespace-nowrap text-right">
+                    <button
+                      onClick={() => { setEdit(p); setEditForm({ ...p }); setEditErrors({}) }}
+                      className="text-xs font-medium text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition px-2.5 py-1.5 rounded-lg">
+                      Edit
+                    </button>
+                  </td>
+                </tr>
+              ))}
+
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={COLS.length + 2} className="py-12 text-center text-sm text-gray-400">
+                    No patients match <span className="font-medium text-gray-600">"{query}"</span>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* ── Footer ── */}
+        <div className="px-5 sm:px-6 py-3 bg-gray-50 border-t border-gray-100">
+          <p className="text-xs text-gray-400">
+            {selected.size > 0
+              ? `${selected.size} of ${filtered.length} selected`
+              : `${people.length} total patients`}
+          </p>
         </div>
       </div>
 
-      {/* --- Add Modal --- */}
-      <Modal
-        show={showAddModal}
-        onClose={() => {
-          setShowAddModal(false)
-          setErrors({})
-        }}
-        title="Add New Patient"
-        actions={[
-          <Button key="cancel" className="flex-1 bg-slate-100 text-slate-700 hover:bg-slate-200" onClick={() => {
-            setShowAddModal(false)
-            setErrors({})
-          }}>Cancel</Button>,
-          <Button
-            key="add"
-            className={`flex-1 bg-emerald-600 text-white hover:bg-emerald-700 ${Object.keys(validatePatient(newPatient)).length > 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
-            onClick={handleAddPatient}
-            disabled={Object.keys(validatePatient(newPatient)).length > 0}
-          >
-            Add Patient
-          </Button>
-        ]}
-      >
-        <Input
-          label="Child ID *"
-          required
-          value={newPatient.childId}
-          onChange={e => setNewPatient({ ...newPatient, childId: e.target.value })}
-          error={errors.childId}
-        />
-        <div className="grid grid-cols-2 gap-3">
-          <Input
-            label="First Name *"
-            required
-            value={newPatient.firstName}
-            onChange={e => setNewPatient({ ...newPatient, firstName: e.target.value })}
-            error={errors.firstName}
-          />
-          <Input
-            label="Last Name *"
-            required
-            value={newPatient.lastName}
-            onChange={e => setNewPatient({ ...newPatient, lastName: e.target.value })}
-            error={errors.lastName}
-          />
-        </div>
-        <AutocompleteInput
-          label="Community *"
-          required
-          value={newPatient.community}
-          onChange={e => setNewPatient({ ...newPatient, community: e.target.value })}
-          suggestions={uniqueCommunities}
-          error={errors.community}
-          placeholder="Type or select community"
-        />
-        <div className="flex flex-col">
-          <label className="text-sm font-medium text-slate-700 mb-1">Birthdate *</label>
-          <input
-            type="date"
-            required
-            value={newPatient.dob}
-            onChange={e => setNewPatient({ ...newPatient, dob: e.target.value })}
-            className={`border rounded-lg px-3 py-2 text-sm focus:ring-2 ${errors.dob ? 'border-red-500 focus:ring-red-500' : 'border-slate-300 focus:ring-blue-500 focus:border-blue-500'}`}
-          />
-          {errors.dob && <p className="text-xs text-red-500 mt-1">{errors.dob}</p>}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">Gender *</label>
-          <div className="flex gap-4">
-            {['M','F'].map(g => (
-              <label key={g} className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  required
-                  value={g}
-                  checked={newPatient.sex === g}
-                  onChange={e => setNewPatient({ ...newPatient, sex: e.target.value })}
-                  className={`w-4 h-4 border-slate-300 focus:ring-2 ${g==='M' ? 'text-blue-600' : 'text-pink-600'}`}
-                />
-                <span className="text-sm">{g==='M' ? 'Male' : 'Female'}</span>
-              </label>
-            ))}
-          </div>
-          {errors.sex && <p className="text-xs text-red-500 mt-1">{errors.sex}</p>}
-        </div>
+      {/* ── Add Modal ── */}
+      <Modal show={showAdd} onClose={() => { setShowAdd(false); setErrors({}) }} title="Add New Patient">
+        <PatientForm data={form} setData={setForm} errors={errors} communities={communities}
+          onSave={handleAdd} onCancel={() => { setShowAdd(false); setErrors({}) }} saveLabel="Add Patient" />
       </Modal>
 
-      {/* --- Edit Modal --- */}
-      <Modal
-        show={!!editingPerson}
-        onClose={() => {
-          setEditingPerson(null)
-          setErrors({})
-        }}
-        title="Edit Patient"
-        actions={[
-          <Button key="cancel" className="flex-1 bg-slate-100 text-slate-700 hover:bg-slate-200" onClick={() => {
-            setEditingPerson(null)
-            setErrors({})
-          }}>Cancel</Button>,
-          <Button
-            key="save"
-            className={`flex-1 bg-emerald-600 text-white hover:bg-emerald-700 ${editingPerson && Object.keys(validatePatient(editingPerson)).length > 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
-            onClick={handleSaveEdit}
-            disabled={editingPerson && Object.keys(validatePatient(editingPerson)).length > 0}
-          >
-            Save Changes
-          </Button>
-        ]}
-      >
-        {editingPerson && (
-          <>
-            <Input
-              label="Child ID *"
-              required
-              value={editingPerson.childId}
-              onChange={e => setEditingPerson({ ...editingPerson, childId: e.target.value })}
-              error={errors.childId}
-            />
-            <div className="grid grid-cols-2 gap-3">
-              <Input
-                label="First Name *"
-                required
-                value={editingPerson.firstName}
-                onChange={e => setEditingPerson({ ...editingPerson, firstName: e.target.value })}
-                error={errors.firstName}
-              />
-              <Input
-                label="Last Name *"
-                required
-                value={editingPerson.lastName}
-                onChange={e => setEditingPerson({ ...editingPerson, lastName: e.target.value })}
-                error={errors.lastName}
-              />
-            </div>
-            <AutocompleteInput
-              label="Community *"
-              required
-              value={editingPerson.community}
-              onChange={e => setEditingPerson({ ...editingPerson, community: e.target.value })}
-              suggestions={uniqueCommunities}
-              error={errors.community}
-              placeholder="Type or select community"
-            />
-            <div className="flex flex-col">
-              <label className="text-sm font-medium text-slate-700 mb-1">Birthdate *</label>
-              <input
-                type="date"
-                required
-                value={editingPerson.dob}
-                onChange={e => setEditingPerson({ ...editingPerson, dob: e.target.value })}
-                className={`border rounded-lg px-3 py-2 text-sm focus:ring-2 ${errors.dob ? 'border-red-500 focus:ring-red-500' : 'border-slate-300 focus:ring-blue-500 focus:border-blue-500'}`}
-              />
-              {errors.dob && <p className="text-xs text-red-500 mt-1">{errors.dob}</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Gender *</label>
-              <div className="flex gap-4">
-                {['M','F'].map(g => (
-                  <label key={g} className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      required
-                      value={g}
-                      checked={editingPerson.sex === g}
-                      onChange={e => setEditingPerson({ ...editingPerson, sex: e.target.value })}
-                      className={`w-4 h-4 border-slate-300 focus:ring-2 ${g==='M' ? 'text-blue-600' : 'text-pink-600'}`}
-                    />
-                    <span className="text-sm">{g==='M' ? 'Male' : 'Female'}</span>
-                  </label>
-                ))}
-              </div>
-              {errors.sex && <p className="text-xs text-red-500 mt-1">{errors.sex}</p>}
-            </div>
-          </>
+      {/* ── Edit Modal ── */}
+      <Modal show={!!editPerson} onClose={() => { setEdit(null); setEditErrors({}) }} title="Edit Patient">
+        {editPerson && (
+          <PatientForm data={editForm} setData={setEditForm} errors={editErrors} communities={communities}
+            onSave={handleEdit} onCancel={() => { setEdit(null); setEditErrors({}) }} saveLabel="Save Changes" />
         )}
       </Modal>
-
-      {/* --- Error Modal --- */}
-      <ErrorModal 
-        show={showErrorModal}
-        onClose={() => setShowErrorModal(false)}
-        errors={importErrors}
-      />
     </div>
   )
 }

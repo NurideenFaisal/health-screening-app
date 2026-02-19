@@ -33,6 +33,7 @@
     "stylelint": "^17.2.0",
     "stylelint-config-standard": "^40.0.0",
     "stylelint-config-tailwindcss": "^1.0.1",
+    "supabase": "^2.76.9",
     "tailwindcss": "^4.1.18",
     "vite": "^7.3.1"
   }
