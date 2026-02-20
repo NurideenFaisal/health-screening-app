@@ -7,6 +7,7 @@ import {
   Users,
   FileText,
   ClipboardList,
+  Calendar,
   Shield,
   LogOut,
   Menu,
@@ -34,9 +35,10 @@ export default function AdminSidebar() {
   const pages = [
     { name: 'Dashboard', route: '', icon: LayoutDashboard },
     { name: 'Role Management', route: 'role-management', icon: Shield },
+    { name: "Cycle Manager", route: 'cycle-manager', icon: Calendar },
     { name: 'Patient Data', route: 'patient-data', icon: Users },
-    { name: 'Screening Data', route: 'screening-data', icon: ClipboardList },
-    { name: 'Reports', route: 'reports', icon: FileText }
+    // { name: 'Screening Data', route: 'screening-data', icon: ClipboardList },
+    // { name: 'Reports', route: 'reports', icon: FileText }
   ]
 
   const isActive = (route) => {

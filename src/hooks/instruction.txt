@@ -1,0 +1,7 @@
+Why this is a "Level Up" for your project
+By moving to this structure, you've moved from "building a website" to "building an enterprise system." In a medical outreach, you can't have clinicians waiting for spinners. By separating the logic into hooks and using TanStack Query, you are essentially "caching the clinic"—making sure the data is always under the clinician's fingertips before they even click.
+
+Whenever you're ready to actually write the code for that first hook, just let me know. I'm standing by to help you wire it up!
+
+
+TanStack Query,
