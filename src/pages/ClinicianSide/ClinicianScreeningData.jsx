@@ -1,210 +1,434 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../store/authStore'
+import { useQuery } from '@tanstack/react-query'
 
-const SECTION_LABELS = { '1': 'Vitals & Dev', '2': 'Laboratory', '3': 'Diagnosis' }
-const STATUS_ORDER   = { ready: 0, waiting: 1, completed: 2 }
-const STATUS_META    = {
-  ready:     { label: s => `Ready · Section ${s}`, clickable: true  },
-  waiting:   { label: _  => 'Awaiting previous section', clickable: false },
-  completed: { label: _  => 'Complete',             clickable: false },
+/*
+========================================
+DEV / PRODUCTION SWITCH
+========================================
+
+true  = TEST MODE (any section accessible)
+false = PRODUCTION (linear workflow)
+
+CHANGE ONLY THIS.
+*/
+const BYPASS_MODE = true
+
+
+const SECTION_LABELS = {
+  '1': 'Vitals & Dev',
+  '2': 'Laboratory',
+  '3': 'Diagnosis'
 }
 
-export default function ClinicianScreening_Data() {
-  const [patients, setPatients]       = useState([])
-  const [activeCycle, setActiveCycle] = useState(null)
-  const [query, setQuery]             = useState('')
-  const [loading, setLoading]         = useState(true)
-  const navigate   = useNavigate()
+const STATUS_WEIGHT = {
+  ready: 0,
+  waiting: 1,
+  completed: 2
+}
+
+
+// Clickability controlled here
+const STATUS_META = {
+  ready: {
+    label: 'Ready',
+    clickable: true
+  },
+  waiting: {
+    label: 'Awaiting previous section',
+    clickable: BYPASS_MODE
+  },
+  completed: {
+    label: 'Complete',
+    clickable: BYPASS_MODE
+  }
+}
+
+export default function ClinicianScreeningData() {
+
+  const navigate = useNavigate()
   const { profile } = useAuthStore()
-  const section = profile?.assignedSection ?? '1'
 
-  useEffect(() => { fetchWorkspace() }, [])
+  const [query, setQuery] = useState('')
 
-  async function fetchWorkspace() {
-    setLoading(true)
+  const mySection = profile?.section ?? '1'
 
-    const { data: cycle } = await supabase
-      .from('cycles').select('*').eq('is_active', true).single()
-    setActiveCycle(cycle)
 
-    if (cycle) {
-      const { data } = await supabase.from('children').select(`
-        id, first_name, last_name, child_code, gender, birthdate,
-        screenings!left(section1_complete, section2_complete, section3_complete)
-      `).eq('screenings.cycle_id', cycle.id)
+  const { data: workspace, isLoading } = useQuery({
 
-      if (data) {
-        setPatients(data.map(p => ({
-          dbId: p.id,
-          id:   p.child_code,
-          name: `${p.first_name} ${p.last_name}`,
-          gender: p.gender === 'M' ? 'Male' : 'Female',
-          age:  new Date().getFullYear() - new Date(p.birthdate).getFullYear(),
-          s1: p.screenings[0]?.section1_complete || false,
-          s2: p.screenings[0]?.section2_complete || false,
-          s3: p.screenings[0]?.section3_complete || false,
-        })))
+    queryKey: ['screening-queue', mySection],
+
+    queryFn: async () => {
+
+      // Active Cycle
+      const { data: cycle } = await supabase
+        .from('cycles')
+        .select('*')
+        .eq('is_active', true)
+        .maybeSingle()
+
+      if (!cycle)
+        return { cycle: null, patients: [] }
+
+
+      const { data, error } =
+        await supabase
+          .from('children')
+          .select(`
+          id,
+          first_name,
+          last_name,
+          child_code,
+          gender,
+          birthdate,
+          screenings!left(
+            id,
+            section1_complete,
+            section2_complete,
+            section3_complete,
+            cycle_id
+          )
+        `)
+          .eq('screenings.cycle_id', cycle.id)
+
+      if (error) throw error
+
+
+      return {
+
+        cycle,
+
+        patients: data.map(child => {
+
+          const s = child.screenings?.[0] || {}
+
+          const p = {
+
+            dbId: child.id,
+
+            code: child.child_code,
+
+            name:
+              `${child.first_name} ${child.last_name}`,
+
+            gender:
+              child.gender === 'M'
+                ? 'Male'
+                : 'Female',
+
+            s1: s.section1_complete || false,
+            s2: s.section2_complete || false,
+            s3: s.section3_complete || false
+          }
+
+
+          /*
+          =====================================
+          SECTION PROGRESSION LOGIC
+          =====================================
+          */
+
+          let status = 'waiting'
+
+          if (BYPASS_MODE) {
+
+            // TESTING MODE
+            // Ignore dependencies
+
+            if (mySection === '1')
+              status = p.s1 ? 'completed' : 'ready'
+
+            else if (mySection === '2')
+              status = p.s2 ? 'completed' : 'ready'
+
+            else if (mySection === '3')
+              status = p.s3 ? 'completed' : 'ready'
+
+          } else {
+
+            // PRODUCTION MODE
+            // Strict workflow
+
+            if (mySection === '1')
+              status = p.s1 ? 'completed' : 'ready'
+
+            else if (mySection === '2')
+              status =
+                p.s2
+                  ? 'completed'
+                  : (p.s1 ? 'ready' : 'waiting')
+
+            else if (mySection === '3')
+              status =
+                p.s3
+                  ? 'completed'
+                  : (p.s2 ? 'ready' : 'waiting')
+
+          }
+
+          return { ...p, status }
+
+        })
+
       }
+
+    },
+
+    refetchInterval: 5000
+
+  })
+
+
+  const allPatients =
+    workspace?.patients || []
+
+
+  const filtered =
+    allPatients
+      .filter(p =>
+        p.name.toLowerCase().includes(query.toLowerCase()) ||
+        p.code.toLowerCase().includes(query.toLowerCase())
+      )
+      .sort(
+        (a, b) =>
+          STATUS_WEIGHT[a.status] -
+          STATUS_WEIGHT[b.status]
+      )
+
+
+  const counts =
+    allPatients.reduce((acc, p) => {
+
+      acc[p.status] =
+        (acc[p.status] || 0) + 1
+
+      return acc
+
+    }, {})
+
+
+
+  function handlePatientClick(patientId) {
+    if (mySection === '1') {
+      navigate(`/clinician/patient/${patientId}`)
+    } else if (mySection === '2') {
+      navigate(`/clinician/patient/${patientId}/section2`)
+    } else if (mySection === '3') {
+      navigate(`/clinician/patient/${patientId}/section3`)
     }
-    setLoading(false)
   }
 
-  function getStatus(p) {
-    if (section === '1') return p.s1 ? 'completed' : 'ready'
-    if (section === '2') return p.s2 ? 'completed' : !p.s1 ? 'waiting' : 'ready'
-    if (section === '3') return p.s3 ? 'completed' : !p.s2 ? 'waiting' : 'ready'
-    return 'waiting'
-  }
 
-  const processed = patients
-    .filter(p =>
-      p.name.toLowerCase().includes(query.toLowerCase()) ||
-      p.id.toLowerCase().includes(query.toLowerCase())
+
+  if (isLoading)
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <p className="text-sm text-gray-400">
+          Loading queue…
+        </p>
+      </div>
     )
-    .map(p => ({ ...p, status: getStatus(p) }))
-    .sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status])
 
-  const counts = processed.reduce((acc, p) => {
-    acc[p.status] = (acc[p.status] || 0) + 1
-    return acc
-  }, {})
-
-  // ── Loading ──
-  if (loading) return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-      <p className="text-sm text-gray-400">Loading queue…</p>
-    </div>
-  )
 
   return (
+
     <div className="min-h-screen bg-gray-100 p-3 sm:p-6 lg:p-10 font-sans">
+
       <div className="bg-white rounded-2xl shadow-sm overflow-hidden w-full sm:max-w-lg sm:mx-auto lg:max-w-2xl">
 
-        {/* ── Header ── */}
+        {/* HEADER */}
+
         <div className="px-4 pt-4 pb-3 sm:px-6 sm:pt-6 sm:pb-4 border-b border-gray-100 space-y-3">
 
           <div className="flex items-start justify-between gap-2">
+
             <div>
+
               <h2 className="text-sm sm:text-base font-bold text-gray-900 tracking-tight">
-                Screening Queue
+                Section {mySection}
               </h2>
+
               <p className="text-xs text-gray-400 mt-0.5">
-                Section {section} — {SECTION_LABELS[section]}
+                {SECTION_LABELS[mySection]}
               </p>
+
             </div>
 
-            {/* Cycle badge */}
-            <span className={`text-xs font-medium px-2 py-1 rounded-xl whitespace-nowrap shrink-0
-              ${activeCycle
-                ? 'bg-emerald-100 text-emerald-600'
-                : 'bg-gray-100 text-gray-400'}`}>
-              {activeCycle ? `● ${activeCycle.name}` : 'No active cycle'}
+            <span
+              className={`text-xs font-medium px-2 py-1 rounded-xl whitespace-nowrap shrink-0
+      ${workspace?.cycle
+                  ? 'bg-emerald-100 text-emerald-600'
+                  : 'bg-gray-100 text-gray-400'
+                }`}>
+
+              {
+                workspace?.cycle
+                  ? `● ${workspace.cycle.name}`
+                  : 'No active cycle'
+              }
+
             </span>
+
           </div>
 
-          {/* Search */}
-          <label className="flex items-center gap-2 bg-gray-100 rounded-xl px-3 py-2 sm:py-2.5">
-            <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor"
-              strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-              <circle cx="11" cy="11" r="7" /><path d="M21 21l-4.35-4.35" />
-            </svg>
+
+          {/* SEARCH */}
+
+          <label className="flex items-center gap-2 bg-gray-100 rounded-xl px-3 py-2">
+
             <input
               value={query}
               onChange={e => setQuery(e.target.value)}
               placeholder="Name or patient ID…"
-              className="flex-1 bg-transparent text-sm text-gray-700 placeholder-gray-400 outline-none min-w-0"
+              className="flex-1 bg-transparent text-sm outline-none"
             />
-            {query && (
-              <button onClick={() => setQuery('')} className="text-gray-400 hover:text-gray-600 transition text-xs shrink-0">✕</button>
-            )}
+
+            {query &&
+              <button
+                onClick={() => setQuery('')}
+                className="text-xs text-gray-400">
+                ✕
+              </button>
+            }
+
           </label>
 
-          {/* Count summary */}
+
           <p className="text-xs text-gray-400">
+
             {counts.ready ?? 0} ready
-            {counts.waiting   ? ` · ${counts.waiting} waiting`   : ''}
-            {counts.completed ? ` · ${counts.completed} complete` : ''}
+
+            {counts.waiting
+              ? ` · ${counts.waiting} waiting`
+              : ''}
+
+            {counts.completed
+              ? ` · ${counts.completed} complete`
+              : ''}
+
           </p>
+
         </div>
 
-        {/* ── No cycle state ── */}
-        {!activeCycle && (
+
+
+        {/* NO ACTIVE CYCLE */}
+
+        {!workspace?.cycle && (
+
           <div className="py-12 text-center">
-            <p className="text-sm text-gray-400">No active screening cycle.</p>
-            <p className="text-xs text-gray-300 mt-1">Contact your administrator to start a cycle.</p>
+
+            <p className="text-sm text-gray-400">
+              No active screening cycle.
+            </p>
+
+            <p className="text-xs text-gray-300 mt-1">
+              Contact admin.
+            </p>
+
           </div>
+
         )}
 
-        {/* ── Patient list ── */}
-        {activeCycle && (
+
+
+        {/* LIST */}
+
+        {workspace?.cycle && (
+
           <ul>
-            {processed.map((p, i) => {
-              const meta = STATUS_META[p.status]
+
+            {filtered.map((p, i) => {
+
+              const meta =
+                STATUS_META[p.status]
+
               return (
+
                 <React.Fragment key={p.dbId}>
+
                   <li>
+
                     <button
-                      onClick={() => meta.clickable && navigate(`/clinician/patient/${p.dbId}`)}
+
                       disabled={!meta.clickable}
-                      className={`w-full flex items-center gap-3 px-4 py-3 sm:px-6 sm:py-3.5 text-left transition group
-                        ${meta.clickable ? 'hover:bg-gray-50 cursor-pointer' : 'cursor-default'}`}
-                    >
-                      {/* Avatar */}
-                      <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center
-                        text-white text-sm font-bold shrink-0
-                        ${p.gender === 'Female' ? 'bg-pink-400' : 'bg-blue-400'}
-                        ${!meta.clickable ? 'opacity-30' : ''}`}>
-                        {p.name[0]}
+
+                      onClick={() =>
+                        meta.clickable &&
+                        handlePatientClick(p.dbId)
+                      }
+
+                      className={`w-full flex items-center gap-3 px-4 py-3 text-left transition
+        ${meta.clickable
+                          ? 'hover:bg-gray-50'
+                          : 'opacity-40'
+                        }`}>
+
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0
+        ${p.status === 'completed'
+                            ? 'bg-gray-200 text-gray-400'
+                            : p.gender === 'Female'
+                              ? 'bg-pink-400'
+                              : 'bg-blue-400'
+                          }`}>
+
+                        {p.status === 'completed'
+                          ? '✓'
+                          : p.name[0]}
+
                       </div>
 
-                      {/* Info */}
-                      <div className={`flex-1 min-w-0 ${!meta.clickable ? 'opacity-40' : ''}`}>
-                        <p className="text-sm font-semibold text-gray-900 truncate">{p.name}</p>
-                        <p className="text-xs text-gray-400 truncate">
-                          {p.id} · {p.gender} · {p.age} yrs · {meta.label(section)}
+
+                      <div className="flex-1 min-w-0">
+
+                        <p className="text-sm font-semibold truncate">
+                          {p.name}
                         </p>
+
+                        <p className="text-xs text-gray-400 truncate">
+
+                          {p.code} · {meta.label}
+
+                        </p>
+
                       </div>
 
-                      {/* Chevron — only for ready rows */}
-                      {meta.clickable ? (
-                        <svg className="w-4 h-4 text-gray-300 group-hover:text-emerald-500 transition shrink-0"
-                          fill="none" stroke="currentColor" strokeWidth={2}
-                          strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-                          <path d="M9 5l7 7-7 7" />
-                        </svg>
-                      ) : (
-                        <div className="w-4 h-4 shrink-0" />
-                      )}
                     </button>
+
                   </li>
 
-                  {i < processed.length - 1 && (
-                    <div className="mx-4 sm:mx-6 border-t border-gray-100" />
-                  )}
+                  {i < filtered.length - 1 &&
+                    <div className="mx-4 border-t border-gray-100" />
+                  }
+
                 </React.Fragment>
+
               )
+
             })}
 
-            {processed.length === 0 && (
-              <li className="py-10 sm:py-12 text-center text-sm text-gray-400">
-                {query
-                  ? <>No patients match <span className="font-medium text-gray-600">"{query}"</span></>
-                  : 'No patients in this cycle yet'}
-              </li>
-            )}
           </ul>
+
         )}
 
-        {/* ── Footer ── */}
-        <div className="px-4 sm:px-6 py-3 bg-gray-50 border-t border-gray-100">
+
+
+        <div className="px-4 py-3 bg-gray-50 border-t border-gray-100">
+
           <p className="text-xs text-gray-400 text-center">
-            Only <span className="font-medium text-gray-600">ready</span> patients can be screened
+
+            Only ready patients can be screened
+
           </p>
+
         </div>
 
       </div>
     </div>
+
   )
+
 }

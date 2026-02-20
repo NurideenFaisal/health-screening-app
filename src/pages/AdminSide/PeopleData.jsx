@@ -1,11 +1,13 @@
 import React, { useState } from 'react'
 import { useAuthStore } from '../../store/authStore'
-import { usePatientRegistry } from '../../hooks/usePatientRegistry'
+import { usePatientRegistry } from '../../hooks/usePatientRegistry' // Ensure you created this hook file
 import {
   PatientForm, ImportModal, Modal,
   normalizeForm, validate,
+  //COLS // I'm assuming COLS is exported from your Modals/Utils file now, or keep it local
 } from './PatientModals'
 
+// ── UTILS (Kept local for UI formatting) ──
 const EMPTY = { firstName: '', lastName: '', community: '', dob: '', childId: '', sex: '' }
 
 const TABLE_COLS = [
@@ -39,6 +41,7 @@ export default function PeopleData() {
   const { profile } = useAuthStore()
   const isAdmin = profile?.role === 'admin'
 
+  // ── TANSTACK QUERY HOOK ──
   const { 
     people, 
     isLoading, 
@@ -48,6 +51,7 @@ export default function PeopleData() {
     isProcessing 
   } = usePatientRegistry()
 
+  // ── UI STATES ──
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState(new Set())
   const [showAdd, setShowAdd] = useState(false)
@@ -58,15 +62,18 @@ export default function PeopleData() {
   const [errors, setErrors] = useState({})
   const [editErrors, setEditErrors] = useState({})
 
+  // ── DERIVED DATA ──
   const communities = [...new Set(people.map(p => p.community).filter(Boolean))]
   const filtered = people.filter(p =>
     `${p.firstName} ${p.lastName}`.toLowerCase().includes(query.toLowerCase()) ||
     p.childId.toLowerCase().includes(query.toLowerCase())
   )
 
+  // ── SELECTION LOGIC ──
   const toggleOne = id => setSelected(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
   const toggleAll = () => setSelected(s => s.size === filtered.length ? new Set() : new Set(filtered.map(p => p.id)))
 
+  // ── ACTIONS ──
   async function handleAdd() {
     const e = validate(form); setErrors(e)
     if (Object.keys(e).length || !profile) return
@@ -123,6 +130,7 @@ export default function PeopleData() {
     }).click()
   }
 
+  // ── LOADING STATE ──
   if (isLoading) return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center">
       <div className="text-center">
@@ -306,6 +314,7 @@ export default function PeopleData() {
           show={showImport} 
           onClose={() => setShowImport(false)}
           onImport={async (rows, onDone) => {
+            // This is still simple, but you can move this to the hook later too
             try {
               for (const row of rows) {
                 await addPatient({ ...row, created_by: profile?.id });
