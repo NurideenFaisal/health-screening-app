@@ -171,7 +171,7 @@ export default function DevSpecialistAssessment() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Developmental & Specialized Assessments</h1>
-              <p className="text-sm text-gray-500 mt-0.5">Benkrom Pentecost Child & Youth Development Centre</p>
+              {/* <p className="text-sm text-gray-500 mt-0.5">Benkrom Pentecost Child & Youth Development Centre</p> */}
             </div>
           </div>
         </div>
@@ -331,7 +331,7 @@ export default function DevSpecialistAssessment() {
         </div>
 
         <div className="text-center mt-8">
-          <p className="text-gray-500 text-xs">© 2024 Benkrom Pentecost Child & Youth Development Centre • Confidential</p>
+          <p className="text-gray-500 text-xs">© 2024 Health Screening • Confidential</p>
         </div>
       </div>
     </div>

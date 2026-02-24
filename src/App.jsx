@@ -23,9 +23,10 @@ import Vitals from './components/ScreeningSection1/Vitals'
 import Immunization from './components/ScreeningSection1/Immunization'
 import Development from './components/ScreeningSection1/Development'
 
-// --- Section 2 & 3 ---
+// --- Section 2 & 3 & 4---
 import ScreeningSection2 from './components/ScreeningSection2'
 import ScreeningSection3 from './components/ScreeningSection3'
+import ScreeningSection4 from './components/ScreeningSection4'
 
 import RoleRoute from './components/RoleRoute'
 
@@ -86,6 +87,7 @@ function App() {
             {/* SECTION 2 & 3 */}
             <Route path="section2" element={<ScreeningSection2 />} />
             <Route path="section3" element={<ScreeningSection3 />} />
+            <Route path="section4" element={<ScreeningSection4 />} />
 
           </Route>
         </Route>

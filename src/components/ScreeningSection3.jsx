@@ -256,7 +256,7 @@ export default function SummaryDiagnosis() {
         </div>
 
         <p className="text-center text-gray-500 text-xs pb-4">
-          © 2024 Benkrom Pentecost Child & Youth Development Centre • Confidential Health Information
+          © 2024 Health Screening • Confidential Health Information
         </p>
       </div>
     </div>

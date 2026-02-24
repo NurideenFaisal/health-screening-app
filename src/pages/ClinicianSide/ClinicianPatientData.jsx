@@ -256,7 +256,7 @@ export default function PatientSearch() {
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900 truncate uppercase tracking-tight">
+                      <p className="text-sm font-semibold text-gray-900 truncate capitalize tracking-tight">
                         {p.first_name} {p.last_name}
                       </p>
                       <p className="text-xs text-gray-400 truncate">
