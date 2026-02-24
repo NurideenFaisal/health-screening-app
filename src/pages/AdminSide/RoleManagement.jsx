@@ -99,6 +99,7 @@ const SECTIONS = [
   { value: '1', label: 'Section 1', color: 'bg-emerald-400 text-white' },
   { value: '2', label: 'Section 2', color: 'bg-blue-400 text-white' },
   { value: '3', label: 'Section 3', color: 'bg-purple-400 text-white' },
+  { value: '4', label: 'Section 4', color: 'bg-pink-400 text-white' },
 ]
 
 // ─── Main Component ───────────────────────────────────────────────────────────

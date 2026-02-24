@@ -4,6 +4,8 @@ import { ChevronLeft, User } from "lucide-react";
 import Section1 from "../../components/ScreeningSection1";
 import Section2 from "../../components/ScreeningSection2";
 import Section3 from "../../components/ScreeningSection3";
+import Section4 from "../../components/ScreeningSection4";
+
 
 export default function ScreeningForm() {
   const { id } = useParams();
@@ -137,6 +139,11 @@ export default function ScreeningForm() {
             isActive={activeTab === "section3"}
             onClick={() => setActiveTab("section3")}
           />
+          <TabButton
+            label="Summary & Diagnosis"
+            isActive={activeTab === "section4"}
+            onClick={() => setActiveTab("section4")}
+          />
         </div>
       </div>
 
@@ -146,6 +153,7 @@ export default function ScreeningForm() {
           {activeTab === "section1" && <Section1 patientId={id} patient={patient} />}
           {activeTab === "section2" && <Section2 patientId={id} patient={patient} />}
           {activeTab === "section3" && <Section3 patientId={id} patient={patient} />}
+          {activeTab === "section4" && <Section4 patientId={id} patient={patient} />}
         </div>
       </div>
     </div>

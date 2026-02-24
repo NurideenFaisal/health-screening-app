@@ -1,0 +1,16 @@
+1. Modify APP.jsx
+
+2. modify ScreeningForm.jsx
+    1. Import SectionX from ../components/sectionname
+
+    2. modify this
+     {/* Section Content */}
+          {activeTab === "section1" && <Section1 patientId={id} patient={patient} />}
+          {activeTab === "section2" && <Section2 patientId={id} patient={patient} />}
+          {activeTab === "section3" && <Section3 patientId={id} patient={patient} />}
+
+    3.    
+        function handlePatientClick(patientId) {
+            const paths = { '1': '', '2': '/section2', '3': '/section3', '4': '/section4' }
+            navigate(`/clinician/patient/${patientId}${paths[mySection]}`)
+        }

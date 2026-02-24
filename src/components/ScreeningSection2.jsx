@@ -65,9 +65,9 @@ export default function HealthScreeningForm() {
               </svg>
             </div>
             <div>
-              <p className="text-xs text-emerald-600 font-semibold uppercase tracking-wider">Section 5 of 6</p>
+              {/* <p className="text-xs text-emerald-600 font-semibold uppercase tracking-wider">Section 5 of 6</p> */}
               <h1 className="text-2xl font-bold text-gray-900">Laboratory Investigations</h1>
-              <p className="text-sm text-gray-500">Benkrom Pentecost Child & Youth Development Centre</p>
+              {/* <p className="text-sm text-gray-500">Benkrom Pentecost Child & Youth Development Centre</p> */}
             </div>
           </div>
           {/* Progress */}
@@ -276,7 +276,7 @@ export default function HealthScreeningForm() {
         </div>
 
         <p className="text-center text-gray-500 text-xs mt-6">
-          © 2024 Benkrom Pentecost Child & Youth Development Centre • Confidential Health Information
+          © 2024 Health Screening • Confidential Health Information
         </p>
       </div>
     </div>
