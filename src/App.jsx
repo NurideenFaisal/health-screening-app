@@ -23,12 +23,21 @@ import Vitals from './components/ScreeningSection1/Vitals'
 import Immunization from './components/ScreeningSection1/Immunization'
 import Development from './components/ScreeningSection1/Development'
 
-// --- Section 2 & 3 & 4---
+// --- Section 2, 3, 4 ---
 import ScreeningSection2 from './components/ScreeningSection2'
 import ScreeningSection3 from './components/ScreeningSection3'
 import ScreeningSection4 from './components/ScreeningSection4'
 
 import RoleRoute from './components/RoleRoute'
+
+// Dynamic section imports - maps section value to component
+// This can be extended to dynamically import sections based on config
+const SECTION_COMPONENTS = {
+  '2': ScreeningSection2,
+  '3': ScreeningSection3,
+  '4': ScreeningSection4,
+  // Add more sections here as needed
+}
 
 function App() {
   const { user, profile, loading } = useAuthStore()
@@ -76,18 +85,25 @@ function App() {
           <Route path="patient-data" element={<ClinicianPatientData />} />
           <Route path="screening-data" element={<ClinicianScreeningData />} />
 
-          {/* PATIENT SCREENING */}
+          {/* PATIENT SCREENING - DYNAMIC SECTIONS */}
           <Route path="patient/:id" element={<ClinicianScreeningForm />}>
 
-            {/* SECTION 1 (DIRECT TABS) */}
+            {/* SECTION 1 TABS (Hardcoded as these are specific sub-components) */}
             <Route index element={<Vitals />} />
             <Route path="immunization" element={<Immunization />} />
             <Route path="development" element={<Development />} />
 
-            {/* SECTION 2 & 3 */}
+            {/* ADDITIONAL SECTIONS - Dynamically rendered */}
+            {/* These routes handle section2, section3, section4, etc. */}
             <Route path="section2" element={<ScreeningSection2 />} />
             <Route path="section3" element={<ScreeningSection3 />} />
             <Route path="section4" element={<ScreeningSection4 />} />
+
+            {/* Future sections can be added here as:
+            <Route path="section5" element={<ScreeningSection5 />} />
+            <Route path="section6" element={<ScreeningSection6 />} />
+            etc.
+            */}
 
           </Route>
         </Route>

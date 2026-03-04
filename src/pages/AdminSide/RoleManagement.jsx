@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Plus, Edit2, Search, X, AlertCircle, CheckCircle2, Copy, Check, Trash2, Shield, User, KeyRound } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { SECTIONS, getSectionByValue } from '../../config/sections'
 
 // ─── Reusable Components ──────────────────────────────────────────────────────
 const Button = ({ children, className = '', ...props }) => (
@@ -94,13 +95,11 @@ const CredentialsModal = ({ show, onClose, credentials }) => {
   )
 }
 
-// ─── Sections & Colors ──────────────────────────────────────────────────────
-const SECTIONS = [
-  { value: '1', label: 'Section 1', color: 'bg-emerald-400 text-white' },
-  { value: '2', label: 'Section 2', color: 'bg-blue-400 text-white' },
-  { value: '3', label: 'Section 3', color: 'bg-purple-400 text-white' },
-  { value: '4', label: 'Section 4', color: 'bg-pink-400 text-white' },
-]
+// ─── Sections & Colors (from centralized config) ──────────────────────────────────────────────────────
+// SECTIONS is now imported from ../../config/sections - see src/config/sections.js
+// To add more sections, update the SECTIONS array in that config file
+
+// Helper function to get section display color
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function RoleManagement() {
@@ -425,7 +424,7 @@ export default function RoleManagement() {
                       <span className="text-slate-400 italic text-xs">Full Access</span>
                     ) : u.section ? (
                       <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium
-                        ${SECTIONS.find(s => s.value === u.section)?.color || 'bg-slate-100 text-slate-600'}`}>
+                        ${getSectionByValue(u.section)?.doneColor || 'bg-slate-100'} text-white`}>
                         Section {u.section}
                       </span>
                     ) : (
@@ -541,19 +540,19 @@ export default function RoleManagement() {
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Section</label>
             <div className="grid grid-cols-3 gap-2">
-              {SECTIONS.map(s => (
-                <button
-                  key={s.value}
-                  onClick={() => setEditForm(f => ({ ...f, section: s.value }))}
-                  className={`py-2 rounded-lg border text-sm font-medium transition
-                    ${editForm.section === s.value
-                      ? `${s.color} border-transparent`
-                      : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
-                    }`}
-                >
-                  {s.label}
-                </button>
-              ))}
+              {SECTIONS.map(s => {
+                const isSelected = editForm.section === s.value
+                return (
+                  <button
+                    key={s.value}
+                    onClick={() => setEditForm(f => ({ ...f, section: s.value }))}
+                    className={`py-2 rounded-lg border text-sm font-medium transition
+                      ${isSelected ? `${s.doneColor} text-white border-transparent` : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}
+                  >
+                    {s.label}
+                  </button>
+                )
+              })}
             </div>
             {editErrors.section && <p className="text-xs text-red-500 mt-1">{editErrors.section}</p>}
           </div>

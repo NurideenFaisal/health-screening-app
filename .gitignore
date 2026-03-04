@@ -22,3 +22,23 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment variables — never commit secrets
+.env
+.env.local
+.env.*.local
+.env.production
+
+# Supabase
+.supabase/
+supabase/.temp/
+supabase/seed.sql
+
+# Database backups — never commit to version control
+*.sql.backup
+backup_*.sql
+*_backup.sql
+
+# Supabase access token (stored by CLI login)
+# Located at: ~/.supabase/access-token
+# Not in project dir, but listed for awareness

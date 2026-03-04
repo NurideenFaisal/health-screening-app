@@ -4,18 +4,17 @@ import { useAuthStore } from '../../store/authStore'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { ChevronLeft } from 'lucide-react'
-
-const SECTION1_TABS = [
-  { label: 'Vitals',         path: '.'            },
-  { label: 'Immunization',   path: 'immunization' },
-  { label: 'Development',    path: 'development'  },
-]
+import { getSectionByValue } from '../../config/sections'
 
 export default function ClinicianScreeningForm() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { profile } = useAuthStore()
   const mySection = String(profile?.section || '1')
+
+  // Get current section configuration
+  const currentSection = getSectionByValue(mySection)
+  const tabs = currentSection?.tabs || []
 
   const { data: patient } = useQuery({
     queryKey: ['child', id],
@@ -30,8 +29,8 @@ export default function ClinicianScreeningForm() {
 
   return (
     <div className="min-h-screen bg-gray-100 font-sans">
-
       {/* ── Sticky header ── */}
+      
       <div className="sticky top-0 z-40 bg-white shadow-sm border-b border-gray-100">
 
         {/* Patient row */}
@@ -67,11 +66,11 @@ export default function ClinicianScreeningForm() {
           </div>
         </div>
 
-        {/* ── Tabs — Section 1 only ── */}
-        {mySection === '1' && (
+        {/* ── Tabs — Dynamic based on section configuration ── */}
+        {tabs.length > 0 && (
           <div className="px-4 sm:px-6 border-t border-gray-100">
             <div className="flex">
-              {SECTION1_TABS.map(tab => (
+              {tabs.map(tab => (
                 <NavLink
                   key={tab.path}
                   to={tab.path}
@@ -102,4 +101,4 @@ export default function ClinicianScreeningForm() {
 
     </div>
   )
-} 
+}

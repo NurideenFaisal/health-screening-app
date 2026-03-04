@@ -3,27 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../store/authStore'
 import { useQuery } from '@tanstack/react-query'
-
-/*
-  SECTION LABELS
-  Maps section number → human-readable name
-*/
-const SECTION_LABELS = {
-  '1': 'Vitals & Dev',
-  '2': 'Laboratory',
-  '3': 'Diagnosis'
-}
-
-/*
-  SECTION PILLS
-  Each section gets a unique colour pill on the patient row.
-  Coloured = that section is done. Grey = not yet done.
-*/
-const SECTION_PILLS = [
-  { key: 's1', label: 'S1', doneColor: 'bg-violet-400', title: 'Vitals & Dev' },
-  { key: 's2', label: 'S2', doneColor: 'bg-sky-400',    title: 'Laboratory'  },
-  { key: 's3', label: 'S3', doneColor: 'bg-amber-400',  title: 'Diagnosis'   }
-]
+import {
+  SECTIONS,
+  getSectionLabel,
+  getSectionPills,
+  getAllSectionColumns,
+} from '../../config/sections'
 
 /*
   STATUS LOGIC — ASYNC / ROTATION MODEL
@@ -33,21 +18,25 @@ const SECTION_PILLS = [
 
     "ready"    → this station has NOT yet seen the patient  (clickable)
     "done"     → this station has completed their part      (clickable — allows corrections)
-    "screened" → ALL three sections are done                (disabled — nothing left to do)
+    "screened" → ALL sections are done                      (disabled — nothing left to do)
 
   Sort order: ready → done → screened
 */
-function deriveStatus(s1, s2, s3, mySection) {
-  if (s1 && s2 && s3) return 'screened'
+function deriveStatus(sectionsObj, mySection) {
+  // Check if ALL sections are complete
+  const allComplete = SECTIONS.every(s => sectionsObj[`s${s.value}`] === true)
+  if (allComplete) return 'screened'
 
-  const doneHere =
-    mySection === '1' ? s1 :
-    mySection === '2' ? s2 : s3
+  // Check if this specific section is done
+  const doneHere = sectionsObj[`s${mySection}`] === true
 
   return doneHere ? 'done' : 'ready'
 }
 
 const STATUS_WEIGHT = { ready: 0, done: 1, screened: 2 }
+
+// Dynamic section column names for Supabase query
+const SECTION_COLUMNS = getAllSectionColumns()
 
 export default function ClinicianScreeningData() {
   const navigate = useNavigate()
@@ -56,7 +45,7 @@ export default function ClinicianScreeningData() {
 
   const mySection = profile?.section ?? '1'
 
-  const { data: workspace, isLoading } = useQuery({
+  const { data: workspace, isLoading, error: queryError } = useQuery({
     queryKey: ['screening-queue', mySection],
     queryFn: async () => {
 
@@ -69,49 +58,62 @@ export default function ClinicianScreeningData() {
 
       if (!cycle) return { cycle: null, patients: [] }
 
-      // 2. Fetch children + their screening record for this cycle
+      // 2. Build dynamic select query for all section columns
+      // Format: screenings!left(id, section1_complete, section2_complete, ...)
+      const sectionColumns = SECTION_COLUMNS.join(', ')
+      const selectFields = [
+        'id',
+        'first_name',
+        'last_name',
+        'child_code',
+        'gender',
+        'birthdate',
+        `screenings!left(id, ${sectionColumns}, cycle_id)`
+      ].join(', ')
+
+      // 3. Fetch children + their screening record for this cycle
       const { data, error } = await supabase
         .from('children')
-        .select(`
-          id,
-          first_name,
-          last_name,
-          child_code,
-          gender,
-          birthdate,
-          screenings!left(
-            id,
-            section1_complete,
-            section2_complete,
-            section3_complete,
-            cycle_id
-          )
-        `)
+        .select(selectFields)
         .eq('screenings.cycle_id', cycle.id)
 
-      if (error) throw error
+      if (error) {
+        console.error('Error fetching patients:', error)
+        throw error
+      }
 
+      // Process the data - handle different response structures
       return {
         cycle,
-        patients: data.map(child => {
-          const s = child.screenings?.[0] || {}
+        patients: (data || []).map(child => {
+          // Handle both array and object response for screenings
+          const s = Array.isArray(child.screenings) 
+            ? (child.screenings[0] || {})
+            : (child.screenings || {})
 
-          const s1 = s.section1_complete || false
-          const s2 = s.section2_complete || false
-          const s3 = s.section3_complete || false
+          // Dynamically build sections object from all configured sections
+          const sectionsObj = {}
+          SECTIONS.forEach(sectionConfig => {
+            const key = `s${sectionConfig.value}`
+            const dbColumn = `section${sectionConfig.value}_complete`
+            sectionsObj[key] = s[dbColumn] || false
+          })
 
           return {
-            dbId:   child.id,
-            code:   child.child_code,
-            name:   `${child.first_name} ${child.last_name}`,
+            dbId: child.id,
+            code: child.child_code,
+            name: `${child.first_name} ${child.last_name}`,
             gender: child.gender === 'M' ? 'Male' : 'Female',
-            s1, s2, s3,
-            status: deriveStatus(s1, s2, s3, mySection)
+            ...sectionsObj,
+            sections: sectionsObj,
+            status: deriveStatus(sectionsObj, mySection)
           }
         })
       }
     },
-    refetchInterval: 5000
+    staleTime: 30000, // Cache for 30 seconds
+    refetchInterval: 5000,
+    retry: 1
   })
 
   const allPatients = workspace?.patients || []
@@ -129,9 +131,11 @@ export default function ClinicianScreeningData() {
     return acc
   }, {})
 
+  // Dynamic navigation path based on current section
   function handlePatientClick(patientId) {
-    const paths = { '1': '', '2': '/section2', '3': '/section3', '4': '/section4' }
-    navigate(`/clinician/patient/${patientId}${paths[mySection]}`)
+    // For section 1, use empty path (default), for others use /sectionN
+    const pathSuffix = mySection === '1' ? '' : `/section${mySection}`
+    navigate(`/clinician/patient/${patientId}${pathSuffix}`)
   }
 
   if (isLoading) {
@@ -140,10 +144,16 @@ export default function ClinicianScreeningData() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4" />
           <p className="text-gray-600">Loading queue…</p>
+          {queryError && (
+            <p className="text-red-500 text-sm mt-2">Error: {queryError.message}</p>
+          )}
         </div>
       </div>
     )
   }
+
+  // Get section pills for the legend
+  const sectionPills = getSectionPills()
 
   return (
     <div className="bg-gray-50 min-h-full">
@@ -157,7 +167,7 @@ export default function ClinicianScreeningData() {
                 Section {mySection}
               </h1>
               <p className="text-sm text-gray-500 mt-0.5">
-                {SECTION_LABELS[mySection]}
+                {getSectionLabel(mySection)}
               </p>
             </div>
             <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border ${
@@ -176,7 +186,7 @@ export default function ClinicianScreeningData() {
         {/* SECTION PILL LEGEND */}
         <div className="flex items-center gap-4 mb-4">
           <p className="text-xs text-gray-400 font-medium shrink-0">Key:</p>
-          {SECTION_PILLS.map(({ key, label, doneColor, title }) => (
+          {sectionPills.map(({ key, label, doneColor, title }) => (
             <span key={key} className="flex items-center gap-1.5 text-xs text-gray-500">
               <span className={`w-2.5 h-2.5 rounded-full ${doneColor}`} />
               {label} · {title}
@@ -251,14 +261,14 @@ export default function ClinicianScreeningData() {
                               {p.name}
                             </p>
 
-                            {/* S1 · S2 · S3 completion pills */}
+                            {/* Dynamic section completion pills */}
                             <div className="flex items-center gap-1 shrink-0">
-                              {SECTION_PILLS.map(({ key, doneColor, title }) => (
+                              {sectionPills.map(({ key, doneColor, title }) => (
                                 <span
                                   key={key}
-                                  title={`${title}: ${p[key] ? 'complete' : 'pending'}`}
+                                  title={`${title}: ${p.sections[key] ? 'complete' : 'pending'}`}
                                   className={`h-2 w-5 rounded-full transition-colors ${
-                                    p[key] ? doneColor : 'bg-gray-200'
+                                    p.sections[key] ? doneColor : 'bg-gray-200'
                                   }`}
                                 />
                               ))}
