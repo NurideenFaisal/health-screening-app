@@ -1,0 +1,171 @@
+Vitals - > ready for backend
+
+
+import React, { useState, useEffect } from 'react'
+import { useOutletContext } from 'react-router-dom'
+import { Activity } from 'lucide-react'
+
+function calculateAge(birthdate) {
+  if (!birthdate) return null
+  const today = new Date()
+  const birth = new Date(birthdate)
+  let years = today.getFullYear() - birth.getFullYear()
+  let months = today.getMonth() - birth.getMonth()
+  if (months < 0) { years--; months += 12 }
+  return { years, months }
+}
+
+const INITIAL = {
+  weight: '',
+  height: '',
+  temperature: '',
+  pulse: '',
+  bmi: '',
+  respiration: '',
+  bloodPressure: '',
+  headCircumference: '',
+  vitalComment: '',
+  medicalHistory: '',
+  noMedicalHistory: false,
+  physicalAppearance: {
+    normalAppearance: false,
+    edema: false,
+    jaundiced: false,
+    lethargic: false,
+    pallor: false,
+    skinProblem: false,
+    other: false,
+  },
+  physicalExam: {
+    normalExam: false,
+    head: { abnormal: false, comment: '' },
+    chest: { abnormal: false, comment: '' },
+    abdomen: { abnormal: false, comment: '' },
+    genitourinary: { abnormal: false, comment: '' },
+    superiorExtremities: { abnormal: false, comment: '' },
+    inferiorExtremities: { abnormal: false, comment: '' },
+    mentalHealthStatus: { abnormal: false, comment: '' },
+  },
+  bodySystems: {
+    noDisturbances: false,
+    auditory: false,
+    circulatorySystem: false,
+    digestiveSystem: false,
+    endocrineSystem: false,
+    lymphaticSystem: false,
+    musculoskeletalSystem: false,
+    nervousSystem: false,
+    reproductiveSystem: false,
+    respiratorySystem: false,
+    skin: false,
+    urinarySystem: false,
+    vision: false,
+  },
+  systemExplanation: '',
+  signsOfAbuse: 'no',
+  signsOfAbuseComment: '',
+}
+
+export default function Vitals() {
+  const { patientId, onComplete, screening } = useOutletContext()
+  const [formData, setFormData] = useState(INITIAL)
+
+  const child = screening?.child || {}
+  const age = calculateAge(child.birthdate)
+
+  // Auto-calculate BMI
+  useEffect(() => {
+    const w = parseFloat(formData.weight)
+    const h = parseFloat(formData.height)
+    if (w > 0 && h > 0) {
+      const bmi = (w / Math.pow(h / 100, 2)).toFixed(1)
+      setFormData(prev => ({ ...prev, bmi }))
+    } else {
+      setFormData(prev => ({ ...prev, bmi: '' }))
+    }
+  }, [formData.weight, formData.height])
+
+  function updateField(key, value) {
+    setFormData(prev => ({ ...prev, [key]: value }))
+  }
+
+  function updateNestedField(parent, key, value) {
+    setFormData(prev => ({ ...prev, [parent]: { ...prev[parent], [key]: value } }))
+  }
+
+  // Transform UI state into backend-ready JSON
+  function buildPayload() {
+    return {
+      vitals: {
+        weight: formData.weight ? parseFloat(formData.weight) : null,
+        height: formData.height ? parseFloat(formData.height) : null,
+        bmi: formData.bmi ? parseFloat(formData.bmi) : null,
+        temperature: formData.temperature ? parseFloat(formData.temperature) : null,
+        pulse: formData.pulse ? parseInt(formData.pulse) : null,
+        respiration: formData.respiration ? parseInt(formData.respiration) : null,
+        bloodPressure: formData.bloodPressure || null,
+        headCircumference: formData.headCircumference || null,
+        comment: formData.vitalComment || null,
+      },
+      medicalHistory: {
+        hasHistory: !formData.noMedicalHistory,
+        details: formData.noMedicalHistory ? null : formData.medicalHistory || null,
+      },
+      physicalAppearance: { ...formData.physicalAppearance },
+      physicalExam: { ...formData.physicalExam },
+      bodySystems: {
+        noDisturbances: formData.bodySystems.noDisturbances,
+        disturbances: Object.fromEntries(
+          Object.entries(formData.bodySystems)
+            .filter(([k, v]) => k !== 'noDisturbances')
+            .map(([k, v]) => [k, v])
+        ),
+        explanation: formData.systemExplanation || null,
+      },
+      signsOfAbuse: {
+        observed: formData.signsOfAbuse === 'yes',
+        comment: formData.signsOfAbuse === 'yes' ? formData.signsOfAbuseComment || null : null,
+      },
+      age,
+    }
+  }
+
+  function handleSave() {
+    const payload = buildPayload()
+    console.log('Backend-ready JSON:', payload)
+
+    // Example: send to backend
+    // await api.saveScreeningSection(patientId, 'vitals', payload)
+
+    onComplete(payload)
+  }
+
+  return (
+    <div className="relative">
+      {/* UI layout preserved exactly as before */}
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
+          <Activity className="w-6 h-6 text-emerald-600" />
+        </div>
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Vitals Record</h2>
+          <p className="text-sm text-gray-600">Vital signs and physical examination</p>
+        </div>
+      </div>
+
+      {/* The rest of your UI sections: Vital Signs, Medical History, Physical Appearance,
+          Physical Exam, Body Systems, Signs of Abuse, Save button remain unchanged */}
+      {/* Only change is that handleSave now sends backend-ready JSON */}
+      {/* ...copy your current JSX here without modification... */}
+      
+      <div className="pt-0 border-t border-gray-100">
+        <button
+          onClick={handleSave}
+          className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-sm font-semibold rounded-xl transition-colors"
+        >
+          Save & Next →
+        </button>
+      </div>
+    </div>
+  )
+}

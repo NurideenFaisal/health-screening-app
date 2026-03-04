@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
+import { Syringe } from 'lucide-react'; 
 
 const ImmunizationSection = () => {
-  // Updated immunization list without JAP, TYP, VAR
   const immunizationList = [
     { code: 'BCG', name: 'Bacillus Calmette-Guérin' },
     { code: 'HepB', name: 'Hepatitis B' },
@@ -34,6 +34,11 @@ const ImmunizationSection = () => {
     deworming: ''
   });
 
+  // Helper to determine if all vaccines are currently checked
+  const isAllSelected = immunizationList.every(
+    vaccine => formData.immunizations[vaccine.code]?.received
+  );
+
   const updateField = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
@@ -48,14 +53,19 @@ const ImmunizationSection = () => {
     }));
   };
 
-  const handleSelectAll = () => {
-    const allSelected = immunizationList.reduce((acc, vaccine) => {
-      acc[vaccine.code] = { received: true };
+  // REFACTORED: Toggle Select/Deselect All
+  const handleToggleAll = () => {
+    const newState = !isAllSelected;
+    const updatedImmunizations = immunizationList.reduce((acc, vaccine) => {
+      acc[vaccine.code] = { received: newState };
       return acc;
     }, {});
+
     setFormData(prev => ({
       ...prev,
-      immunizations: allSelected
+      immunizations: updatedImmunizations,
+      // Optional: Auto-check the "Up to Date" status if selecting all
+      childhoodImmunizationComplete: newState 
     }));
   };
 
@@ -63,12 +73,10 @@ const ImmunizationSection = () => {
     <div className="space-y-6">
       <div className="flex items-center gap-3 mb-6">
         <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
-          <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-          </svg>
+          <Syringe className="w-6 h-6 text-emerald-600" />
         </div>
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Immunization Record</h2>
+          <h2 className="text-2xl font-bofld text-gray-900">Immunization Record</h2>
           <p className="text-sm text-gray-600">Vaccination history and supplements</p>
         </div>
       </div>
@@ -78,16 +86,20 @@ const ImmunizationSection = () => {
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-semibold text-gray-900">Vaccines Received</h3>
           <button
-            onClick={handleSelectAll}
-            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors"
+            onClick={handleToggleAll}
+            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors shadow-sm ${
+              isAllSelected 
+                ? "bg-emerald-400 text-red-700 border border-emerald-200 hover:bg-emerald-100" 
+                : "bg-emerald-600 text-white hover:bg-emerald-700"
+            }`}
           >
-            Select All
+            {isAllSelected ? 'Deselect All' : 'Select All'}
           </button>
         </div>
 
         <div className="grid grid-cols-2 gap-2">
           {immunizationList.map(vaccine => (
-            <div key={vaccine.code} className="bg-white rounded-lg p-2.5 border border-gray-200">
+            <div key={vaccine.code} className="bg-white rounded-lg p-2.5 border border-gray-200 shadow-sm">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
@@ -107,7 +119,7 @@ const ImmunizationSection = () => {
         </div>
 
         <div className="mt-4 pt-3 border-t border-emerald-200">
-          <label className="flex items-center gap-3 cursor-pointer bg-white rounded-lg p-3 border-2 border-gray-200 hover:border-emerald-300">
+          <label className="flex items-center gap-3 cursor-pointer bg-white rounded-lg p-3 border-2 border-gray-200 hover:border-emerald-300 transition-colors">
             <input
               type="checkbox"
               checked={formData.childhoodImmunizationComplete}
@@ -119,31 +131,55 @@ const ImmunizationSection = () => {
         </div>
       </div>
 
-      {/* Vitamins & Deworming */}
+      {/* Vitamins & Deworming remains the same */}
       <div className="bg-teal-50 rounded-2xl p-5 border border-teal-100">
+
         <h3 className="font-semibold text-gray-900 mb-4">Vitamin & Deworming History</h3>
-        
+
+       
+
         <div className="space-y-4">
+
           {/* Vitamin A */}
+
           <div>
+
             <label className="block text-sm font-medium text-gray-700 mb-2">
+
               Vitamin A - Last Dose Received
+
             </label>
+
             <div className="grid grid-cols-2 gap-2">
+
               {timeOptions.map(option => (
+
                 <button
+
                   key={option.value}
+
                   onClick={() => updateField('vitaminA', option.value)}
+
                   className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+
                     formData.vitaminA === option.value
+
                       ? 'bg-teal-600 text-white'
+
                       : 'bg-white text-gray-700 border border-gray-300 hover:border-teal-400'
+
                   }`}
+
                 >
+
                   {option.label}
+
                 </button>
+
               ))}
+
             </div>
+
           </div>
 
           {/* Deworming */}
@@ -151,25 +187,43 @@ const ImmunizationSection = () => {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Deworming - Last Dose Received
             </label>
+
             <div className="grid grid-cols-2 gap-2">
               {timeOptions.map(option => (
                 <button
+
                   key={option.value}
+
                   onClick={() => updateField('deworming', option.value)}
+
                   className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+
                     formData.deworming === option.value
+
                       ? 'bg-teal-600 text-white'
+
                       : 'bg-white text-gray-700 border border-gray-300 hover:border-teal-400'
+
                   }`}
+
                 >
+
                   {option.label}
+
                 </button>
+
               ))}
+
             </div>
+
           </div>
+
         </div>
+
       </div>
+
     </div>
+    
   );
 };
 

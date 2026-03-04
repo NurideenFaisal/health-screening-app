@@ -130,10 +130,10 @@ export default function DevSpecialistAssessment() {
   useEffect(() => {
     const parts = []
     const oph = data.ophthalmic
-    if (oph.diagnosis)       parts.push(`👁 Eye — ${oph.diagnosis}`)
-    if (oph.strangeDiagnosis)parts.push(`👁 Eye (other) — ${oph.strangeDiagnosis}`)
+    if (oph.diagnosis)       parts.push(`Eye — ${oph.diagnosis}`)
+    if (oph.strangeDiagnosis)parts.push(`Eye (other) — ${oph.strangeDiagnosis}`)
     const dentalDx = (data.dental.diagnosis || '').split(', ').filter(Boolean)
-    if (dentalDx.length)     parts.push(`🦷 Dental — ${dentalDx.join(', ')}`)
+    if (dentalDx.length)     parts.push(`Dental — ${dentalDx.join(', ')}`)
     const entParts = []
     const ears   = (data.ent.ears   || '').split(', ').filter(Boolean)
     const nose   = (data.ent.nose   || '').split(', ').filter(Boolean)
@@ -141,8 +141,8 @@ export default function DevSpecialistAssessment() {
     if (ears.length)   entParts.push(`Ears: ${ears.join(', ')}`)
     if (nose.length)   entParts.push(`Nose: ${nose.join(', ')}`)
     if (throat.length) entParts.push(`Throat: ${throat.join(', ')}`)
-    if (entParts.length) parts.push(`👂 ENT — ${entParts.join(' | ')}`)
-    if (data.combinedDiagnosisExtra) parts.push(`📝 Notes — ${data.combinedDiagnosisExtra}`)
+    if (entParts.length) parts.push(`ENT — ${entParts.join(' | ')}`)
+    if (data.combinedDiagnosisExtra) parts.push(`Notes — ${data.combinedDiagnosisExtra}`)
     upd('combinedDiagnosis', parts.join('\n'))
   }, [data.ophthalmic.diagnosis, data.ophthalmic.strangeDiagnosis, data.dental.diagnosis, data.ent.ears, data.ent.nose, data.ent.throat, data.combinedDiagnosisExtra])
 

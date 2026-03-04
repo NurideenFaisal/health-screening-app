@@ -3,6 +3,7 @@ import { useParams, useNavigate, NavLink, Outlet } from 'react-router-dom'
 import { useAuthStore } from '../../store/authStore'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
+import { ChevronLeft } from 'lucide-react'
 
 const SECTION1_TABS = [
   { label: 'Vitals',         path: '.'            },
@@ -41,13 +42,9 @@ export default function ClinicianScreeningForm() {
             onClick={() => navigate('/clinician/screening-data')}
             className="flex items-center gap-1 text-xs font-medium text-gray-500
               hover:text-gray-800 hover:bg-gray-100 transition px-2.5 py-1.5 rounded-lg shrink-0">
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2}
-              strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-              <path d="M15 19l-7-7 7-7" />
-            </svg>
+            <ChevronLeft className="w-3.5 h-3.5" strokeWidth={2} />
             Back
           </button>
-
           <div className="h-4 w-px bg-gray-200 shrink-0" />
 
           {/* Patient info */}
@@ -62,7 +59,7 @@ export default function ClinicianScreeningForm() {
                 {patient ? `${patient.first_name} ${patient.last_name}` : 'Loading…'}
               </p>
               <p className="text-xs text-gray-400 truncate">
-                {patient?.child_code}
+                {patient?.child_code} {patient?.community && `· ${patient.community}`}
                 {patient?.child_code && <span className="mx-1.5 text-gray-200">·</span>}
                 <span className="text-emerald-600 font-medium">Section {mySection}</span>
               </p>
