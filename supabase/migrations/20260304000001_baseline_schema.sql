@@ -5,6 +5,7 @@
 --              It is idempotent (uses IF NOT EXISTS / CREATE OR REPLACE).
 --              DO NOT run this against a fresh DB that already has these tables.
 -- Tables: profiles, cycles, children, screenings
+-- Compatible with: PostgreSQL 15 (Supabase default)
 -- =============================================================================
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -23,7 +24,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   full_name   TEXT,
   role        TEXT        NOT NULL DEFAULT 'clinician'
                           CHECK (role IN ('admin', 'clinician')),
-  section     TEXT,       -- e.g. '1', '2', '3' — null for admins
+  section     TEXT,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -38,23 +39,24 @@ COMMENT ON COLUMN public.profiles.section IS
 -- RLS
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "profiles_select_own"
-  ON public.profiles FOR SELECT
-  USING (auth.uid() = id);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='profiles' AND policyname='profiles_select_own') THEN
+    CREATE POLICY "profiles_select_own" ON public.profiles FOR SELECT USING (auth.uid() = id);
+  END IF;
+END $$;
 
-CREATE POLICY IF NOT EXISTS "profiles_update_own"
-  ON public.profiles FOR UPDATE
-  USING (auth.uid() = id);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='profiles' AND policyname='profiles_update_own') THEN
+    CREATE POLICY "profiles_update_own" ON public.profiles FOR UPDATE USING (auth.uid() = id);
+  END IF;
+END $$;
 
--- Admins can read all profiles
-CREATE POLICY IF NOT EXISTS "profiles_admin_select_all"
-  ON public.profiles FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles p
-      WHERE p.id = auth.uid() AND p.role = 'admin'
-    )
-  );
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='profiles' AND policyname='profiles_admin_select_all') THEN
+    CREATE POLICY "profiles_admin_select_all" ON public.profiles FOR SELECT
+    USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'));
+  END IF;
+END $$;
 
 -- Trigger: auto-update updated_at
 CREATE OR REPLACE FUNCTION public.handle_updated_at()
@@ -115,19 +117,18 @@ CREATE UNIQUE INDEX IF NOT EXISTS cycles_one_active
 -- RLS
 ALTER TABLE public.cycles ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "cycles_select_authenticated"
-  ON public.cycles FOR SELECT
-  TO authenticated
-  USING (TRUE);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='cycles' AND policyname='cycles_select_authenticated') THEN
+    CREATE POLICY "cycles_select_authenticated" ON public.cycles FOR SELECT TO authenticated USING (TRUE);
+  END IF;
+END $$;
 
-CREATE POLICY IF NOT EXISTS "cycles_admin_all"
-  ON public.cycles FOR ALL
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles p
-      WHERE p.id = auth.uid() AND p.role = 'admin'
-    )
-  );
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='cycles' AND policyname='cycles_admin_all') THEN
+    CREATE POLICY "cycles_admin_all" ON public.cycles FOR ALL
+    USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'));
+  END IF;
+END $$;
 
 DROP TRIGGER IF EXISTS cycles_updated_at ON public.cycles;
 CREATE TRIGGER cycles_updated_at
@@ -168,33 +169,31 @@ CREATE INDEX IF NOT EXISTS children_community_idx  ON public.children (community
 -- RLS
 ALTER TABLE public.children ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "children_select_authenticated"
-  ON public.children FOR SELECT
-  TO authenticated
-  USING (TRUE);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='children' AND policyname='children_select_authenticated') THEN
+    CREATE POLICY "children_select_authenticated" ON public.children FOR SELECT TO authenticated USING (TRUE);
+  END IF;
+END $$;
 
-CREATE POLICY IF NOT EXISTS "children_insert_authenticated"
-  ON public.children FOR INSERT
-  TO authenticated
-  WITH CHECK (TRUE);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='children' AND policyname='children_insert_authenticated') THEN
+    CREATE POLICY "children_insert_authenticated" ON public.children FOR INSERT TO authenticated WITH CHECK (TRUE);
+  END IF;
+END $$;
 
-CREATE POLICY IF NOT EXISTS "children_update_admin"
-  ON public.children FOR UPDATE
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles p
-      WHERE p.id = auth.uid() AND p.role = 'admin'
-    )
-  );
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='children' AND policyname='children_update_admin') THEN
+    CREATE POLICY "children_update_admin" ON public.children FOR UPDATE
+    USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'));
+  END IF;
+END $$;
 
-CREATE POLICY IF NOT EXISTS "children_delete_admin"
-  ON public.children FOR DELETE
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles p
-      WHERE p.id = auth.uid() AND p.role = 'admin'
-    )
-  );
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='children' AND policyname='children_delete_admin') THEN
+    CREATE POLICY "children_delete_admin" ON public.children FOR DELETE
+    USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'));
+  END IF;
+END $$;
 
 DROP TRIGGER IF EXISTS children_updated_at ON public.children;
 CREATE TRIGGER children_updated_at
@@ -205,7 +204,7 @@ CREATE TRIGGER children_updated_at
 -- TABLE: screenings
 -- One screening record per child per cycle.
 -- Stores section completion flags and JSONB data blobs per section.
--- 
+--
 -- CURRENT STRUCTURE (flat columns per section):
 --   section1_complete, section2_complete, section3_complete (BOOLEAN)
 --   section1_data, section2_data, section3_data (JSONB)
@@ -224,11 +223,8 @@ CREATE TABLE IF NOT EXISTS public.screenings (
   section3_complete   BOOLEAN     NOT NULL DEFAULT FALSE,
 
   -- Section data blobs (JSONB — current flat structure)
-  -- Section 1: Vitals, Immunization, Development
   section1_data       JSONB,
-  -- Section 2: Laboratory Investigations
   section2_data       JSONB,
-  -- Section 3: Summary & Diagnosis
   section3_data       JSONB,
 
   -- Audit
@@ -243,53 +239,45 @@ CREATE TABLE IF NOT EXISTS public.screenings (
 
 COMMENT ON TABLE public.screenings IS
   'One screening record per child per cycle. Tracks section completion and stores section data as JSONB.';
-COMMENT ON COLUMN public.screenings.section1_data IS
-  'JSONB blob for Section 1 (Vitals, Immunization, Development). See migration 0002 for normalized alternative.';
-COMMENT ON COLUMN public.screenings.section2_data IS
-  'JSONB blob for Section 2 (Laboratory Investigations).';
-COMMENT ON COLUMN public.screenings.section3_data IS
-  'JSONB blob for Section 3 (Summary & Diagnosis).';
 
 -- Indexes
-CREATE INDEX IF NOT EXISTS screenings_child_id_idx  ON public.screenings (child_id);
-CREATE INDEX IF NOT EXISTS screenings_cycle_id_idx  ON public.screenings (cycle_id);
+CREATE INDEX IF NOT EXISTS screenings_child_id_idx   ON public.screenings (child_id);
+CREATE INDEX IF NOT EXISTS screenings_cycle_id_idx   ON public.screenings (cycle_id);
 CREATE INDEX IF NOT EXISTS screenings_created_by_idx ON public.screenings (created_by);
 
--- Composite index for the most common query pattern: cycle + completion status
 CREATE INDEX IF NOT EXISTS screenings_cycle_completion_idx
   ON public.screenings (cycle_id, section1_complete, section2_complete, section3_complete);
 
--- GIN indexes for JSONB search
-CREATE INDEX IF NOT EXISTS screenings_section1_data_gin ON public.screenings USING GIN (section1_data);
-CREATE INDEX IF NOT EXISTS screenings_section2_data_gin ON public.screenings USING GIN (section2_data);
-CREATE INDEX IF NOT EXISTS screenings_section3_data_gin ON public.screenings USING GIN (section3_data);
+-- NOTE: GIN indexes on section_data JSONB columns are added in migration 0002
+-- after those columns are created via ADD COLUMN IF NOT EXISTS.
 
 -- RLS
 ALTER TABLE public.screenings ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "screenings_select_authenticated"
-  ON public.screenings FOR SELECT
-  TO authenticated
-  USING (TRUE);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='screenings' AND policyname='screenings_select_authenticated') THEN
+    CREATE POLICY "screenings_select_authenticated" ON public.screenings FOR SELECT TO authenticated USING (TRUE);
+  END IF;
+END $$;
 
-CREATE POLICY IF NOT EXISTS "screenings_insert_authenticated"
-  ON public.screenings FOR INSERT
-  TO authenticated
-  WITH CHECK (TRUE);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='screenings' AND policyname='screenings_insert_authenticated') THEN
+    CREATE POLICY "screenings_insert_authenticated" ON public.screenings FOR INSERT TO authenticated WITH CHECK (TRUE);
+  END IF;
+END $$;
 
-CREATE POLICY IF NOT EXISTS "screenings_update_own_section"
-  ON public.screenings FOR UPDATE
-  TO authenticated
-  USING (TRUE);  -- Section-level enforcement is done at application layer
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='screenings' AND policyname='screenings_update_own_section') THEN
+    CREATE POLICY "screenings_update_own_section" ON public.screenings FOR UPDATE TO authenticated USING (TRUE);
+  END IF;
+END $$;
 
-CREATE POLICY IF NOT EXISTS "screenings_delete_admin"
-  ON public.screenings FOR DELETE
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles p
-      WHERE p.id = auth.uid() AND p.role = 'admin'
-    )
-  );
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='screenings' AND policyname='screenings_delete_admin') THEN
+    CREATE POLICY "screenings_delete_admin" ON public.screenings FOR DELETE
+    USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'));
+  END IF;
+END $$;
 
 DROP TRIGGER IF EXISTS screenings_updated_at ON public.screenings;
 CREATE TRIGGER screenings_updated_at
