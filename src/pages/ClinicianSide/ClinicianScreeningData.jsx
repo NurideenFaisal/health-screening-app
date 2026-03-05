@@ -7,14 +7,13 @@ import {
   SECTIONS,
   getSectionLabel,
   getSectionPills,
-  getAllSectionColumns,
 } from '../../config/sections'
 
 /*
   STATUS LOGIC — ASYNC / ROTATION MODEL
   ──────────────────────────────────────
   No enforced section order. Patients rotate freely to whichever
-  station has less congestion. Each station's status is independent:
+  station has less congestion. Each station's independent:
 
     "ready"    → this station has NOT yet seen the patient  (clickable)
     "done"     → this station has completed their part      (clickable — allows corrections)
@@ -35,88 +34,110 @@ function deriveStatus(sectionsObj, mySection) {
 
 const STATUS_WEIGHT = { ready: 0, done: 1, screened: 2 }
 
-// Dynamic section column names for Supabase query
-const SECTION_COLUMNS = getAllSectionColumns()
-
 export default function ClinicianScreeningData() {
   const navigate = useNavigate()
   const { profile } = useAuthStore()
   const [query, setQuery] = useState('')
 
   const mySection = profile?.section ?? '1'
+  const sectionNumber = parseInt(mySection, 10)
 
-  const { data: workspace, isLoading, error: queryError } = useQuery({
+  // ── FETCH: Direct query to show all patients in the cycle ──────────────────────────
+  const { data: queueData, isLoading, error: queryError } = useQuery({
     queryKey: ['screening-queue', mySection],
     queryFn: async () => {
-
-      // 1. Fetch active cycle
-      const { data: cycle } = await supabase
+      // 1. Get active cycle
+      const { data: cycle, error: cycleError } = await supabase
         .from('cycles')
-        .select('*')
+        .select('id, name, is_active')
         .eq('is_active', true)
         .maybeSingle()
 
       if (!cycle) return { cycle: null, patients: [] }
 
-      // 2. Build dynamic select query for all section columns
-      // Format: screenings!left(id, section1_complete, section2_complete, ...)
-      const sectionColumns = SECTION_COLUMNS.join(', ')
-      const selectFields = [
-        'id',
-        'first_name',
-        'last_name',
-        'child_code',
-        'gender',
-        'birthdate',
-        `screenings!left(id, ${sectionColumns}, cycle_id)`
-      ].join(', ')
-
-      // 3. Fetch children + their screening record for this cycle
-      const { data, error } = await supabase
+      // 2. Get all children (patients) in the system
+      const { data: children, error: childrenError } = await supabase
         .from('children')
-        .select(selectFields)
-        .eq('screenings.cycle_id', cycle.id)
+        .select('id, child_code, first_name, last_name, gender, birthdate, community')
+        .order('last_name', { ascending: true })
+        .order('first_name', { ascending: true })
 
-      if (error) {
-        console.error('Error fetching patients:', error)
-        throw error
+      if (childrenError) {
+        console.error('Error fetching children:', childrenError)
+        throw childrenError
       }
 
-      // Process the data - handle different response structures
-      return {
-        cycle,
-        patients: (data || []).map(child => {
-          // Handle both array and object response for screenings
-          const s = Array.isArray(child.screenings) 
-            ? (child.screenings[0] || {})
-            : (child.screenings || {})
+      // 3. Get existing screening records for this cycle
+      const { data: screenings, error: screeningsError } = await supabase
+        .from('screenings')
+        .select('id, child_id')
+        .eq('cycle_id', cycle.id)
 
-          // Dynamically build sections object from all configured sections
-          const sectionsObj = {}
-          SECTIONS.forEach(sectionConfig => {
-            const key = `s${sectionConfig.value}`
-            const dbColumn = `section${sectionConfig.value}_complete`
-            sectionsObj[key] = s[dbColumn] || false
-          })
+      // 4. Get screening_sections for completion status
+      const screeningIds = screenings?.map(s => s.id) ?? []
+      const { data: allSections, error: secErr } = screeningIds.length > 0
+        ? await supabase
+            .from('screening_sections')
+            .select('screening_id, section_number, is_complete')
+            .in('screening_id', screeningIds)
+        : { data: [], error: null }
 
-          return {
-            dbId: child.id,
-            code: child.child_code,
-            name: `${child.first_name} ${child.last_name}`,
-            gender: child.gender === 'M' ? 'Male' : 'Female',
-            ...sectionsObj,
-            sections: sectionsObj,
-            status: deriveStatus(sectionsObj, mySection)
+      // Build maps
+      const screeningMap = {}
+      screenings?.forEach(s => {
+        screeningMap[s.child_id] = s.id
+      })
+
+      const sectionsMap = {}
+      ;(allSections ?? []).forEach(sec => {
+        const sId = sec.screening_id
+        if (!sectionsMap[sId]) sectionsMap[sId] = {}
+        sectionsMap[sId][`s${sec.section_number}`] = sec.is_complete
+      })
+
+      // 5. Build patient list - include ALL children, even without screening records
+      const patients = (children ?? []).map(child => {
+        const scrId = screeningMap[child.id]
+        const sectionsObj = sectionsMap[scrId] ?? {}
+
+        // Ensure all configured sections have a boolean value
+        SECTIONS.forEach(s => {
+          if (sectionsObj[`s${s.value}`] === undefined) {
+            sectionsObj[`s${s.value}`] = false
           }
         })
-      }
+
+        // Determine status: has any screening started?
+        let status = 'ready'
+        const hasStarted = scrId !== undefined
+        const allComplete = SECTIONS.every(s => sectionsObj[`s${s.value}`] === true)
+        
+        if (allComplete) {
+          status = 'screened'
+        } else if (hasStarted) {
+          // Check if this specific section is done
+          status = sectionsObj[`s${mySection}`] === true ? 'done' : 'ready'
+        }
+
+        return {
+          dbId: child.id,
+          code: child.child_code,
+          name: `${child.first_name} ${child.last_name}`,
+          gender: child.gender === 'M' ? 'Male' : 'Female',
+          ...sectionsObj,
+          sections: sectionsObj,
+          status,
+        }
+      })
+
+      return { cycle, patients }
     },
-    staleTime: 30000, // Cache for 30 seconds
+    staleTime: 30000,
     refetchInterval: 5000,
-    retry: 1
+    retry: 1,
   })
 
-  const allPatients = workspace?.patients || []
+  const allPatients = queueData?.patients ?? []
 
   const filtered = allPatients
     .filter(p =>
@@ -133,7 +154,6 @@ export default function ClinicianScreeningData() {
 
   // Dynamic navigation path based on current section
   function handlePatientClick(patientId) {
-    // For section 1, use empty path (default), for others use /sectionN
     const pathSuffix = mySection === '1' ? '' : `/section${mySection}`
     navigate(`/clinician/patient/${patientId}${pathSuffix}`)
   }
@@ -171,12 +191,12 @@ export default function ClinicianScreeningData() {
               </p>
             </div>
             <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border ${
-              workspace?.cycle
+              queueData?.cycle
                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                 : 'bg-gray-100 text-gray-400 border-gray-200'
             }`}>
-              {workspace?.cycle
-                ? <><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />{workspace.cycle.name}</>
+              {queueData?.cycle
+                ? <><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />{queueData.cycle.name}</>
                 : 'No active cycle'
               }
             </span>
@@ -215,7 +235,7 @@ export default function ClinicianScreeningData() {
         </div>
 
         {/* NO ACTIVE CYCLE */}
-        {!workspace?.cycle && (
+        {!queueData?.cycle && (
           <div className="bg-white rounded-2xl border border-gray-200 py-16 text-center">
             <p className="text-sm text-gray-400">No active screening cycle.</p>
             <p className="text-xs text-gray-300 mt-1">Contact admin.</p>
@@ -223,7 +243,7 @@ export default function ClinicianScreeningData() {
         )}
 
         {/* PATIENT LIST */}
-        {workspace?.cycle && (
+        {queueData?.cycle && (
           <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
             {filtered.length > 0 ? (
               <ul className="divide-y divide-gray-100">
@@ -303,6 +323,7 @@ export default function ClinicianScreeningData() {
             ) : (
               <div className="py-16 text-center">
                 <p className="text-sm text-gray-400">No beneficiaries found</p>
+                <p className="text-xs text-gray-300 mt-1">No patients registered for this cycle yet</p>
               </div>
             )}
           </div>
