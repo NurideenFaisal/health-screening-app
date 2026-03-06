@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { Activity } from 'lucide-react'
+import { useScreeningSection } from '../../hooks/useScreeningSection'
 
 function calculateAge(birthdate) {
   if (!birthdate) return null
@@ -64,10 +65,39 @@ const INITIAL = {
 }
 
 export default function Vitals() {
-  const { patientId, onComplete, screening } = useOutletContext()
-  const [formData, setFormData] = useState(INITIAL)
+  // Get context from ClinicianScreeningForm
+  const { patientId, patient, cycleId, sectionNumber } = useOutletContext()
+  
+  // Use the new normalized hook
+  const { 
+    sectionData, 
+    isComplete, 
+    isLoading, 
+    save, 
+    isSaving 
+  } = useScreeningSection({
+    childId: patientId,
+    cycleId,
+    sectionNumber: 1, // Vitals is section 1
+  })
 
-  const child = screening?.child || {}
+  // Initialize form with existing data or defaults
+  const [formData, setFormData] = useState(() => {
+    // Merge saved data with initial state
+    if (sectionData) {
+      return { ...INITIAL, ...sectionData }
+    }
+    return INITIAL
+  })
+
+  // Update form when sectionData loads
+  useEffect(() => {
+    if (sectionData) {
+      setFormData({ ...INITIAL, ...sectionData })
+    }
+  }, [sectionData])
+
+  const child = patient || {}
   const age = calculateAge(child.birthdate)
 
   // Auto-calculate BMI
@@ -93,64 +123,66 @@ export default function Vitals() {
     }))
   }
 
-  // Transform UI state into backend-ready JSON
-  function buildPayload() {
-    return {
-      vitals: {
-        weight: formData.weight ? parseFloat(formData.weight) : null,
-        height: formData.height ? parseFloat(formData.height) : null,
-        bmi: formData.bmi ? parseFloat(formData.bmi) : null,
-        temperature: formData.temperature ? parseFloat(formData.temperature) : null,
-        pulse: formData.pulse ? parseInt(formData.pulse) : null,
-        respiration: formData.respiration ? parseInt(formData.respiration) : null,
-        bloodPressure: formData.bloodPressure || null,
-        headCircumference: formData.headCircumference || null,
-        comment: formData.vitalComment || null,
-      },
-      medicalHistory: {
-        hasHistory: !formData.noMedicalHistory,
-        details: formData.noMedicalHistory ? null : formData.medicalHistory || null,
-      },
-      physicalAppearance: { ...formData.physicalAppearance },
-      physicalExam: { ...formData.physicalExam },
-      bodySystems: {
-        noDisturbances: formData.bodySystems.noDisturbances,
-        disturbances: Object.fromEntries(
-          Object.entries(formData.bodySystems)
-            .filter(([k]) => k !== 'noDisturbances')
-            .map(([k, v]) => [k, v])
-        ),
-        explanation: formData.systemExplanation || null,
-      },
-      signsOfAbuse: {
-        observed: formData.signsOfAbuse === 'yes',
-        comment: formData.signsOfAbuse === 'yes' ? formData.signsOfAbuseComment || null : null,
-      },
-      age,
+  function updateDeepNestedField(parent, child, key, value) {
+    setFormData(prev => ({
+      ...prev,
+      [parent]: {
+        ...prev[parent],
+        [child]: { ...prev[parent][child], [key]: value }
+      }
+    }))
+  }
+
+  async function handleSave() {
+    try {
+      // Save without marking complete (incomplete save)
+      await save({ sectionData: formData, isComplete: false })
+      alert('Saved successfully!')
+    } catch (err) {
+      console.error('Save error:', err)
+      alert('Failed to save: ' + err.message)
     }
   }
 
-  function handleSave() {
-    const payload = buildPayload()
-    console.log('Backend-ready JSON:', payload)
-    onComplete(payload)
+  async function handleSaveAndComplete() {
+    try {
+      await save({ sectionData: formData, isComplete: true })
+      alert('Section marked as complete!')
+    } catch (err) {
+      console.error('Save error:', err)
+      alert('Failed to save: ' + err.message)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+      </div>
+    )
   }
 
   return (
     <div className="space-y-6">
 
-      {/* ── Header ── */}
+      {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
           <Activity className="w-6 h-6 text-emerald-600" />
         </div>
         <div>
-          <h2 className="text-2xl font-bofld text-gray-900">Vitals Record</h2>
+          <h2 className="text-2xl font-bold text-gray-900">Vitals Record</h2>
           <p className="text-sm text-gray-600">Vital signs and physical examination</p>
         </div>
+        {isComplete && (
+          <span className="ml-auto px-3 py-1 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-full">
+            ✓ Complete
+          </span>
+        )}
       </div>
 
-      {/* ── Vital Signs ── */}
+      
+      {/* Vital Signs */}
       <div className="bg-emerald-50 rounded-2xl p-5 border border-emerald-100">
         <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
           <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
@@ -158,11 +190,11 @@ export default function Vitals() {
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {[
-            { key: 'weight',      label: 'Weight (kg)',            type: 'number', step: '0.1' },
-            { key: 'height',      label: 'Height (cm)',            type: 'number', step: '0.1' },
-            { key: 'temperature', label: 'Temperature (°C)',       type: 'number', step: '0.1' },
-            { key: 'pulse',       label: 'Pulse (bpm)',            type: 'number', step: '1'   },
-            { key: 'respiration', label: 'Respiration',            type: 'number', step: '1'   },
+            { key: 'weight', label: 'Weight (kg)', type: 'number', step: '0.1' },
+            { key: 'height', label: 'Height (cm)', type: 'number', step: '0.1' },
+            { key: 'temperature', label: 'Temperature (°C)', type: 'number', step: '0.1' },
+            { key: 'pulse', label: 'Pulse (bpm)', type: 'number', step: '1' },
+            { key: 'respiration', label: 'Respiration', type: 'number', step: '1' },
             { key: 'bloodPressure', label: 'Blood Pressure (12+ yrs)', type: 'text' },
           ].map(f => (
             <div key={f.key}>
@@ -177,7 +209,6 @@ export default function Vitals() {
             </div>
           ))}
 
-          {/* BMI — auto calculated */}
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1.5">
               BMI (kg/m²) <span className="text-emerald-500 font-normal">auto</span>
@@ -215,7 +246,7 @@ export default function Vitals() {
         </div>
       </div>
 
-      {/* ── Past Medical / Surgical History ── */}
+      {/* Medical History */}
       <div className="bg-teal-50 rounded-2xl p-5 border border-teal-100">
         <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
           <span className="w-2 h-2 bg-teal-500 rounded-full"></span>
@@ -241,209 +272,196 @@ export default function Vitals() {
         </label>
       </div>
 
-      {/* ── Physical Appearance ── */}
-      <div className="bg-emerald-50 rounded-2xl p-5 border border-emerald-100">
+      {/* Physical Appearance */}
+      <div className="bg-purple-50 rounded-2xl p-5 border border-purple-100">
         <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
+          <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
           Physical Appearance
         </h3>
-        <label className="flex items-center gap-2 mb-4 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={formData.physicalAppearance.normalAppearance}
-            onChange={e => updateNestedField('physicalAppearance', 'normalAppearance', e.target.checked)}
-            className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-          />
-          <span className="text-sm font-semibold text-emerald-800">Normal Physical Appearance</span>
-        </label>
-        {!formData.physicalAppearance.normalAppearance && (
-          <div className="grid grid-cols-2 gap-2">
-            {['edema', 'jaundiced', 'lethargic', 'pallor', 'skinProblem', 'other'].map(item => (
-              <div key={item} className="bg-white rounded-lg p-2.5 border border-gray-200">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.physicalAppearance[item]}
-                    onChange={e => updateNestedField('physicalAppearance', item, e.target.checked)}
-                    className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-                  />
-                  <span className="text-sm font-medium text-gray-700 capitalize">
-                    {item === 'skinProblem' ? 'Skin Problem' : item}
-                  </span>
-                </label>
-              </div>
-            ))}
-          </div>
-        )}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          {[
+            { key: 'normalAppearance', label: 'Normal Appearance' },
+            { key: 'edema', label: 'Edema' },
+            { key: 'jaundiced', label: 'Jaundiced' },
+            { key: 'lethargic', label: 'Lethargic' },
+            { key: 'pallor', label: 'Pallor' },
+            { key: 'skinProblem', label: 'Skin Problem' },
+            { key: 'other', label: 'Other' },
+          ].map(f => (
+            <label key={f.key} className="flex items-center gap-2 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={formData.physicalAppearance[f.key]}
+                onChange={e => updateNestedField('physicalAppearance', f.key, e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-2 focus:ring-purple-500 cursor-pointer"
+              />
+              <span className="text-sm text-gray-700 group-hover:text-purple-700">{f.label}</span>
+            </label>
+          ))}
+        </div>
       </div>
 
-      {/* ── Physical Examination ── */}
-      <div className="bg-teal-50 rounded-2xl p-5 border border-teal-100">
-        <h3 className="font-semibold text-gray-900 mb-1 flex items-center gap-2">
-          <span className="w-2 h-2 bg-teal-500 rounded-full"></span>
+      {/* Physical Exam */}
+      <div className="bg-indigo-50 rounded-2xl p-5 border border-indigo-100">
+        <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <span className="w-2 h-2 bg-indigo-500 rounded-full"></span>
           Physical Examination
         </h3>
-        <p className="text-xs text-gray-500 mb-4">Tick if abnormal, then provide a comment</p>
-        <label className="flex items-center gap-2 mb-4 cursor-pointer">
+        
+        <label className="flex items-center gap-2 mb-4 cursor-pointer group">
           <input
             type="checkbox"
             checked={formData.physicalExam.normalExam}
             onChange={e => updateNestedField('physicalExam', 'normalExam', e.target.checked)}
-            className="w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-2 focus:ring-teal-500 cursor-pointer"
+            className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-2 focus:ring-indigo-500 cursor-pointer"
           />
-          <span className="text-sm font-semibold text-teal-800">Normal Physical Examination</span>
+          <span className="text-sm font-semibold text-gray-700 group-hover:text-indigo-700">Normal Exam - All Within Normal Limits</span>
         </label>
-        {!formData.physicalExam.normalExam && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {[
-              { key: 'head',                label: 'Head' },
-              { key: 'chest',               label: 'Chest' },
-              { key: 'abdomen',             label: 'Abdomen' },
-              { key: 'genitourinary',       label: 'Genitourinary' },
-              { key: 'superiorExtremities', label: 'Superior Extremities' },
-              { key: 'inferiorExtremities', label: 'Inferior Extremities' },
-              { key: 'mentalHealthStatus',  label: 'Mental Health Status' },
-            ].map(field => (
-              <div
-                key={field.key}
-                className={`bg-white rounded-lg p-2.5 border transition-all ${
-                  formData.physicalExam[field.key].abnormal
-                    ? 'border-red-300 bg-red-50'
-                    : 'border-gray-200'
-                }`}
-              >
-                <label className="flex items-center gap-2 cursor-pointer mb-2">
-                  <input
-                    type="checkbox"
-                    checked={formData.physicalExam[field.key].abnormal}
-                    onChange={e => {
-                      if (e.target.checked) updateNestedField('physicalExam', 'normalExam', false)
-                      updateNestedField('physicalExam', field.key, {
-                        ...formData.physicalExam[field.key],
-                        abnormal: e.target.checked,
-                        comment: e.target.checked ? formData.physicalExam[field.key].comment : ''
-                      })
-                    }}
-                    className="w-4 h-4 rounded border-gray-300 text-red-500 focus:ring-2 focus:ring-red-300 cursor-pointer"
-                  />
-                  <span className={`text-sm font-semibold ${formData.physicalExam[field.key].abnormal ? 'text-red-700' : 'text-gray-700'}`}>
-                    {field.label}
-                    {formData.physicalExam[field.key].abnormal && (
-                      <span className="ml-2 text-xs font-normal bg-red-100 text-red-600 px-1.5 py-0.5 rounded">Abnormal</span>
-                    )}
-                  </span>
-                </label>
-                {formData.physicalExam[field.key].abnormal && (
-                  <input
-                    type="text"
-                    value={formData.physicalExam[field.key].comment}
-                    onChange={e => updateNestedField('physicalExam', field.key, {
-                      ...formData.physicalExam[field.key], comment: e.target.value
-                    })}
-                    placeholder="Describe abnormal finding..."
-                    autoFocus
-                    className="w-full px-2.5 py-2 bg-white border border-red-200 rounded-lg text-gray-900 text-xs focus:border-red-400 focus:ring-2 focus:ring-red-100 outline-none"
-                  />
-                )}
+
+        <div className="space-y-4">
+          {[
+            { key: 'head', label: 'Head' },
+            { key: 'chest', label: 'Chest / Respiratory' },
+            { key: 'abdomen', label: 'Abdomen' },
+            { key: 'genitourinary', label: 'Genitourinary' },
+            { key: 'superiorExtremities', label: 'Superior Extremities' },
+            { key: 'inferiorExtremities', label: 'Inferior Extremities' },
+            { key: 'mentalHealthStatus', label: 'Mental Health Status' },
+          ].map(part => (
+            <div key={part.key} className="bg-white rounded-xl p-4 border border-indigo-100">
+              <div className="flex items-center gap-3 mb-2">
+                <input
+                  type="checkbox"
+                  checked={formData.physicalExam[part.key]?.abnormal || false}
+                  onChange={e => updateDeepNestedField('physicalExam', part.key, 'abnormal', e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                />
+                <span className="font-medium text-gray-900">{part.label}</span>
               </div>
-            ))}
-          </div>
-        )}
+              <textarea
+                value={formData.physicalExam[part.key]?.comment || ''}
+                onChange={e => updateDeepNestedField('physicalExam', part.key, 'comment', e.target.value)}
+                placeholder="Add comments if abnormal..."
+                rows={2}
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none"
+              />
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* ── Body Systems Disturbance ── */}
-      <div className="bg-emerald-50 rounded-2xl p-5 border border-emerald-100">
+      {/* Body Systems */}
+      <div className="bg-amber-50 rounded-2xl p-5 border border-amber-100">
         <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
-          Body Systems Disturbance
+          <span className="w-2 h-2 bg-amber-500 rounded-full"></span>
+          Review of Body Systems
         </h3>
-        <label className="flex items-center gap-2 mb-4 cursor-pointer">
+        
+        <label className="flex items-center gap-2 mb-4 cursor-pointer group">
           <input
             type="checkbox"
             checked={formData.bodySystems.noDisturbances}
             onChange={e => updateNestedField('bodySystems', 'noDisturbances', e.target.checked)}
-            className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+            className="w-4 h-4 rounded border-gray-300 text-amber-600 focus:ring-2 focus:ring-amber-500 cursor-pointer"
           />
-          <span className="text-sm font-semibold text-emerald-800">No Body System Disturbances</span>
+          <span className="text-sm font-semibold text-gray-700 group-hover:text-amber-700">No Disturbances</span>
         </label>
-        {!formData.bodySystems.noDisturbances && (
-          <>
-            <div className="grid grid-cols-2 gap-2">
-              {Object.keys(formData.bodySystems).filter(s => s !== 'noDisturbances').map(system => (
-                <div key={system} className="bg-white rounded-lg p-2.5 border border-gray-200">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.bodySystems[system]}
-                      onChange={e => updateNestedField('bodySystems', system, e.target.checked)}
-                      className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-                    />
-                    <span className="text-sm font-medium text-gray-700">
-                      {system.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase())}
-                    </span>
-                  </label>
-                </div>
-              ))}
-            </div>
-            <div className="mt-4">
-              <label className="block text-xs font-semibold text-gray-700 mb-1.5">Explanation / General Comment</label>
-              <textarea
-                value={formData.systemExplanation}
-                onChange={e => updateField('systemExplanation', e.target.value)}
-                rows={3}
-                placeholder="Provide details about body system disturbances"
-                className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-gray-900 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none"
-              />
-            </div>
-          </>
-        )}
-      </div>
 
-      {/* ── Signs of Abuse / Neglect ── */}
-      <div className="bg-orange-50 rounded-2xl p-5 border border-orange-100">
-        <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-          <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
-          Signs of Abuse / Neglect
-        </h3>
-        <div className="flex gap-6 mb-3">
-          {['yes', 'no'].map(opt => (
-            <label key={opt} className="flex items-center gap-2 cursor-pointer">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          {[
+            { key: 'auditory', label: 'Auditory' },
+            { key: 'circulatorySystem', label: 'Circulatory System' },
+            { key: 'digestiveSystem', label: 'Digestive System' },
+            { key: 'endocrineSystem', label: 'Endocrine System' },
+            { key: 'lymphaticSystem', label: 'Lymphatic System' },
+            { key: 'musculoskeletalSystem', label: 'Musculoskeletal System' },
+            { key: 'nervousSystem', label: 'Nervous System' },
+            { key: 'reproductiveSystem', label: 'Reproductive System' },
+            { key: 'respiratorySystem', label: 'Respiratory System' },
+            { key: 'skin', label: 'Skin' },
+            { key: 'urinarySystem', label: 'Urinary System' },
+            { key: 'vision', label: 'Vision' },
+          ].map(f => (
+            <label key={f.key} className="flex items-center gap-2 cursor-pointer group">
               <input
-                type="radio"
-                name="signsOfAbuse"
-                value={opt}
-                checked={formData.signsOfAbuse === opt}
-                onChange={() => updateField('signsOfAbuse', opt)}
-                className="w-4 h-4 border-gray-300 text-orange-600 focus:ring-2 focus:ring-orange-400 cursor-pointer"
+                type="checkbox"
+                checked={formData.bodySystems[f.key]}
+                onChange={e => updateNestedField('bodySystems', f.key, e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-amber-600 focus:ring-2 focus:ring-amber-500 cursor-pointer"
               />
-              <span className={`text-sm font-semibold capitalize ${opt === 'yes' ? 'text-red-700' : 'text-emerald-700'}`}>
-                {opt === 'yes' ? 'Yes' : 'No'}
-              </span>
+              <span className="text-sm text-gray-700 group-hover:text-amber-700">{f.label}</span>
             </label>
           ))}
         </div>
-        {formData.signsOfAbuse === 'yes' && (
-          <div className="mt-1">
-            <label className="block text-xs font-semibold text-gray-700 mb-1.5">Please describe the observed signs</label>
+
+        <div className="mt-4">
+          <label className="block text-xs font-semibold text-gray-700 mb-1.5">System Explanation</label>
+          <textarea
+            value={formData.systemExplanation}
+            onChange={e => updateField('systemExplanation', e.target.value)}
+            rows={2}
+            placeholder="Explain any disturbances..."
+            className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-gray-900 text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-100 outline-none"
+          />
+        </div>
+      </div>
+
+      {/* Signs of Abuse */}
+      <div className="bg-red-50 rounded-2xl p-5 border border-red-100">
+        <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+          Signs of Abuse / Neglect
+        </h3>
+        
+        <div className="flex gap-4 mb-4">
+          {[
+            { value: 'no', label: 'No' },
+            { value: 'suspected', label: 'Suspected' },
+            { value: 'confirmed', label: 'Confirmed' },
+          ].map(opt => (
+            <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="signsOfAbuse"
+                value={opt.value}
+                checked={formData.signsOfAbuse === opt.value}
+                onChange={e => updateField('signsOfAbuse', e.target.value)}
+                className="w-4 h-4 border-gray-300 text-red-600 focus:ring-2 focus:ring-red-500 cursor-pointer"
+              />
+              <span className="text-sm text-gray-700">{opt.label}</span>
+            </label>
+          ))}
+        </div>
+
+        {(formData.signsOfAbuse === 'suspected' || formData.signsOfAbuse === 'confirmed') && (
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1.5">Comments / Details</label>
             <textarea
               value={formData.signsOfAbuseComment}
               onChange={e => updateField('signsOfAbuseComment', e.target.value)}
               rows={3}
-              placeholder="Describe the type, location, and nature of signs observed..."
-              autoFocus
-              className="w-full px-3 py-2.5 bg-white border border-orange-200 rounded-lg text-gray-900 text-sm focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none"
+              placeholder="Provide details about the signs observed..."
+              className="w-full px-3 py-2.5 bg-white border border-red-200 rounded-lg text-gray-900 text-sm focus:border-red-500 focus:ring-2 focus:ring-red-100 outline-none"
             />
           </div>
         )}
       </div>
 
-      {/* ── Save & Next ── */}
-      <div className="pt-2">
+      {/* Save Buttons */}
+      <div className="flex gap-3 pt-2">
         <button
           onClick={handleSave}
-          className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-sm font-semibold rounded-xl transition-colors"
+          disabled={isSaving}
+          className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold rounded-xl transition-colors disabled:opacity-50"
         >
-          Save & Next →
+          {isSaving ? 'Saving...' : 'Save (Draft)'}
+        </button>
+        <button
+          onClick={handleSaveAndComplete}
+          disabled={isSaving}
+          className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-50"
+        >
+          {isSaving ? 'Saving...' : 'Save & Complete'}
         </button>
       </div>
 

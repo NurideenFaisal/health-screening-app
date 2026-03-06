@@ -9,23 +9,40 @@ import { ClipboardList, Users, Clock, RefreshCw, FileText } from 'lucide-react'
 // ========= FETCH =========
 
 async function fetchClinicianStats(userId) {
-  const [patientsRes, screeningsRes] = await Promise.all([
-    supabase.from('children').select('id', { count: 'exact', head: true }),
-    supabase.from('screenings')
-      .select('id, status, screening_date')
-      .eq('created_by', userId),
-  ])
-
+  // Get total children count
+  const patientsRes = await supabase
+    .from('children')
+    .select('id', { count: 'exact', head: true })
+  
   if (patientsRes.error) throw new Error(patientsRes.error.message)
-  if (screeningsRes.error) throw new Error(screeningsRes.error.message)
 
-  const all = screeningsRes.data ?? []
+  // Get screenings created by this clinician today
   const today = new Date().toISOString().split('T')[0]
+  
+  // Get unique screening IDs for this clinician today
+  const screeningsRes = await supabase
+    .from('screenings')
+    .select('id, screening_date')
+    .eq('created_by', userId)
+  
+  if (screeningsRes.error) throw new Error(screeningsRes.error.message)
+  
+  const allScreenings = screeningsRes.data ?? []
+  const screeningsToday = allScreenings.filter(s => s.screening_date === today).length
+  
+  // Get draft count from screening_sections (is_complete = false)
+  // Get unique screening IDs that have incomplete sections
+  const draftsRes = await supabase
+    .from('screening_sections')
+    .select('screening_id', { count: 'exact', head: true })
+    .eq('is_complete', false)
+  
+  const drafts = draftsRes.count ?? 0
 
   return {
     totalPatients: patientsRes.count ?? 0,
-    screeningsToday: all.filter(s => s.screening_date === today).length,
-    drafts: all.filter(s => s.status === 'draft').length,
+    screeningsToday,
+    drafts,
   }
 }
 
@@ -96,36 +113,26 @@ export default function ClinicianDashboardStats() {
 
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
 
-
         {/* HEADER */}
-
         <div className="px-8 py-7 border-b border-gray-100">
-
           <div className="flex items-center justify-between">
-
             <div>
-
               <h1 className="text-3xl font-bold text-gray-900">
                 Hey, {firstName}
               </h1>
 
               <div className="flex items-center gap-3 mt-2">
-
                 {section &&
                   <span className="px-3 py-1 bg-emerald-100 text-emerald-700 text-sm font-semibold rounded-full">
                     Section {section}
                   </span>
                 }
-
                 <p className="text-sm text-gray-400">
                   Child health screenings
                 </p>
-
               </div>
 
             </div>
-
-
             <button
               onClick={refetch}
               disabled={isFetching}
@@ -133,23 +140,16 @@ export default function ClinicianDashboardStats() {
             >
               <RefreshCw size={18} className={isFetching ? 'animate-spin' : ''}/>
             </button>
-
           </div>
-
         </div>
-
-
 
         {/* QUICK ACTIONS */}
 
         <div className="px-8 py-7 border-b border-gray-100 bg-gray-50/60">
-
           <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">
             Quick Actions
           </p>
-
           <div className="grid gap-4">
-
             <QuickAction
               icon={ClipboardList}
               label="New Screening"
@@ -165,9 +165,7 @@ export default function ClinicianDashboardStats() {
               iconColor="text-blue-500"
               onClick={() => navigate('/clinician/patient-data')}
             />
-
           </div>
-
         </div>
 
 
@@ -182,7 +180,6 @@ export default function ClinicianDashboardStats() {
 
 
           {isError ? (
-
             <div className="text-center py-6">
 
               <p className="text-base text-red-400">
@@ -221,7 +218,7 @@ export default function ClinicianDashboardStats() {
               <StatCard
                 icon={Clock}
                 value={stats?.drafts}
-                label="Drafts"
+                label="Incomplete Sections"
                 iconColor="text-amber-500"
                 loading={isLoading}
               />

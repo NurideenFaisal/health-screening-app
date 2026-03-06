@@ -11,11 +11,13 @@ export default function ClinicianScreeningForm() {
   const navigate = useNavigate()
   const { profile } = useAuthStore()
   const mySection = String(profile?.section || '1')
+  const sectionNumber = parseInt(mySection, 10)
 
   // Get current section configuration
   const currentSection = getSectionByValue(mySection)
   const tabs = currentSection?.tabs || []
 
+  // Fetch patient
   const { data: patient } = useQuery({
     queryKey: ['child', id],
     enabled: !!id,
@@ -26,6 +28,30 @@ export default function ClinicianScreeningForm() {
       return data
     },
   })
+
+  // Fetch active cycle
+  const { data: activeCycle } = useQuery({
+    queryKey: ['active-cycle'],
+    staleTime: 1000 * 60 * 5,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('cycles')
+        .select('id, name, is_active')
+        .eq('is_active', true)
+        .maybeSingle()
+      if (error) throw error
+      return data
+    },
+  })
+
+  // Context for child components
+  const contextValue = {
+    patientId: id,
+    patient,
+    cycleId: activeCycle?.id ?? null,
+    sectionNumber,
+    mySection,
+  }
 
   return (
     <div className="min-h-screen bg-gray-100 font-sans">
@@ -94,7 +120,7 @@ export default function ClinicianScreeningForm() {
       <div className="p-3 sm:p-6 lg:p-10">
         <div className="bg-white rounded-2xl shadow-sm w-full sm:max-w-lg sm:mx-auto lg:max-w-2xl overflow-hidden">
           <div className="p-4 sm:p-6">
-            <Outlet context={{ patientId: id, patient }} />
+            <Outlet context={contextValue} />
           </div>
         </div>
       </div>

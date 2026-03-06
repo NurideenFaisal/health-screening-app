@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useOutletContext } from 'react-router-dom'
+import { useScreeningSection } from '../hooks/useScreeningSection'
 
 const RadioGroup = ({ options, value, onChange, name }) => (
   <div className="flex flex-wrap gap-2 mt-1">
@@ -27,26 +29,82 @@ const SectionHeader = ({ color, title }) => (
   </h3>
 )
 
-export default function HealthScreeningForm() {
-  const [currentSection, setCurrentSection] = useState(5)
-  const [completedSections, setCompletedSections] = useState({ 1: false, 2: false, 3: false, 4: false, 5: false, 6: false })
+const INITIAL = {
+  wbc: '', hb: '', mcv: '', mchc: '', plt: '', neu: '', lymp: '',
+  bloodGroup: '', rhesusFactor: '',
+  sickling: '', hbElectrophoresis: '',
+  typhoidO: '', typhoidH: '',
+  bf: '', bfCount: '', rdt: '',
+  uAppearance: '', uColor: '', uPh: '', uSg: '',
+  uProtein: '', uGlucose: '', uNitrite: '', uLeuco: '',
+  uBili: '', uBlood: '', uKetone: '', uUrobil: '',
+  umPusCells: '', umEpithCells: '', umRBCs: '',
+  umYeastCells: '', umSHematobium: '', umTrichomonas: '',
+  umCast: '', umCrystals: '',
+  stoolMacro: '', stoolMicro: ''
+}
 
-  const [lab, setLab] = useState({
-    wbc: '', hb: '', mcv: '', mchc: '', plt: '', neu: '', lymp: '',
-    bloodGroup: '', rhesusFactor: '',
-    sickling: '', hbElectrophoresis: '',
-    typhoidO: '', typhoidH: '',
-    bf: '', bfCount: '', rdt: '',
-    uAppearance: '', uColor: '', uPh: '', uSg: '',
-    uProtein: '', uGlucose: '', uNitrite: '', uLeuco: '',
-    uBili: '', uBlood: '', uKetone: '', uUrobil: '',
-    umPusCells: '', umEpithCells: '', umRBCs: '',
-    umYeastCells: '', umSHematobium: '', umTrichomonas: '',
-    umCast: '', umCrystals: '',
-    stoolMacro: '', stoolMicro: ''
+export default function HealthScreeningForm() {
+  // Get context from ClinicianScreeningForm
+  const { patientId, cycleId } = useOutletContext()
+  
+  // Use the new normalized hook - Section 2 = Lab
+  const { 
+    sectionData, 
+    isComplete, 
+    isLoading, 
+    save, 
+    isSaving 
+  } = useScreeningSection({
+    childId: patientId,
+    cycleId,
+    sectionNumber: 2, // Laboratory
   })
 
+  // Initialize form with existing data or defaults
+  const [lab, setLab] = useState(() => {
+    if (sectionData) {
+      return { ...INITIAL, ...sectionData }
+    }
+    return INITIAL
+  })
+
+  // Update form when sectionData loads
+  useEffect(() => {
+    if (sectionData) {
+      setLab({ ...INITIAL, ...sectionData })
+    }
+  }, [sectionData])
+
   const set = (key, val) => setLab(prev => ({ ...prev, [key]: val }))
+
+  async function handleSave() {
+    try {
+      await save({ sectionData: lab, isComplete: false })
+      alert('Saved successfully!')
+    } catch (err) {
+      console.error('Save error:', err)
+      alert('Failed to save: ' + err.message)
+    }
+  }
+
+  async function handleSaveAndComplete() {
+    try {
+      await save({ sectionData: lab, isComplete: true })
+      alert('Section marked as complete!')
+    } catch (err) {
+      console.error('Save error:', err)
+      alert('Failed to save: ' + err.message)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-100 py-8 px-4">
@@ -65,9 +123,12 @@ export default function HealthScreeningForm() {
               </svg>
             </div>
             <div>
-              {/* <p className="text-xs text-emerald-600 font-semibold uppercase tracking-wider">Section 5 of 6</p> */}
               <h1 className="text-2xl font-bold text-gray-900">Laboratory Investigations</h1>
-              {/* <p className="text-sm text-gray-500">Benkrom Pentecost Child & Youth Development Centre</p> */}
+              {isComplete && (
+                <span className="inline-flex items-center px-2 py-1 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-full mt-1">
+                  ✓ Complete
+                </span>
+              )}
             </div>
           </div>
           {/* Progress */}
@@ -78,184 +139,164 @@ export default function HealthScreeningForm() {
           </div>
         </div>
 
-        {/* Form */}
-        <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-6 md:p-8 space-y-8">
-
-          {/* ── Full Blood Count ── */}
-          <div className="bg-red-50 rounded-2xl p-5 border border-red-100">
-            <SectionHeader color="red" title="Full Blood Count" />
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-6 space-y-6">
+          {/* 1. Haematology */}
+          <div className="space-y-3">
+            <SectionHeader color="emerald" title="Haematology" />
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {[
-                { num: 7, key: 'wbc', label: 'White Blood Cells (WBC)' },
-                { num: 8, key: 'hb', label: 'Hemoglobin (HB)' },
-                { num: 9, key: 'mcv', label: 'MCV' },
-                { num: 10, key: 'mchc', label: 'MCHC' },
-                { num: 11, key: 'plt', label: 'PLT' },
-                { num: 12, key: 'neu', label: 'NEU' },
-                { num: 13, key: 'lymp', label: 'LYMP' },
+                { key: 'wbc', label: 'WBC (x10³/µL)' },
+                { key: 'hb', label: 'Hb (g/dL)' },
+                { key: 'mcv', label: 'MCV (fL)' },
+                { key: 'mchc', label: 'MCHC (g/dL)' },
+                { key: 'plt', label: 'PLT (x10³/µL)' },
+                { key: 'neu', label: 'Neutrophils (%)' },
+                { key: 'lymp', label: 'Lymphocytes (%)' },
               ].map(f => (
                 <div key={f.key}>
-                  <FieldLabel num={f.num} label={f.label} />
-                  <TextInput value={lab[f.key]} onChange={v => set(f.key, v)} placeholder="Result" />
+                  <FieldLabel num={1} label={f.label} />
+                  <TextInput value={lab[f.key]} onChange={v => set(f.key, v)} />
                 </div>
               ))}
             </div>
           </div>
 
-          {/* ── Blood Grouping ── */}
-          <div className="bg-pink-50 rounded-2xl p-5 border border-pink-100">
-            <SectionHeader color="pink" title="Blood Grouping" />
-            <div className="space-y-4">
+          {/* 2. Blood Group */}
+          <div className="space-y-3">
+            <SectionHeader color="blue" title="Blood Group & Genotype" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <FieldLabel num={14} label="Blood Group" />
-                <RadioGroup name="bloodGroup" options={['A', 'B', 'AB', 'O']} value={lab.bloodGroup} onChange={v => set('bloodGroup', v)} />
+                <FieldLabel num={8} label="Blood Group" />
+                <RadioGroup options={['A', 'B', 'AB', 'O']} value={lab.bloodGroup} onChange={v => set('bloodGroup', v)} name="bloodGroup" />
               </div>
               <div>
-                <FieldLabel num={15} label="Rhesus Factor" />
-                <RadioGroup name="rhesusFactor" options={['Positive', 'Negative']} value={lab.rhesusFactor} onChange={v => set('rhesusFactor', v)} />
+                <FieldLabel num={9} label="Rhesus Factor" />
+                <RadioGroup options={['Positive', 'Negative']} value={lab.rhesusFactor} onChange={v => set('rhesusFactor', v)} name="rhesusFactor" />
+              </div>
+              <div>
+                <FieldLabel num={10} label="Sickling Test" />
+                <RadioGroup options={['Negative', 'Positive']} value={lab.sickling} onChange={v => set('sickling', v)} name="sickling" />
+              </div>
+              <div>
+                <FieldLabel num={11} label="Hb Electrophoresis" />
+                <TextInput value={lab.hbElectrophoresis} onChange={v => set('hbElectrophoresis', v)} placeholder="e.g. AA, AS, SS" />
               </div>
             </div>
           </div>
 
-          {/* ── Sickling Test ── */}
-          <div className="bg-orange-50 rounded-2xl p-5 border border-orange-100">
-            <SectionHeader color="orange" title="Sickling Test" />
-            <div className="space-y-4">
+          {/* 3. Widal & Serology */}
+          <div className="space-y-3">
+            <SectionHeader color="amber" title="Widal & Serology" />
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
-                <FieldLabel num={16} label="Sickling" />
-                <RadioGroup name="sickling" options={['Positive', 'Negative']} value={lab.sickling} onChange={v => set('sickling', v)} />
+                <FieldLabel num={12} label="Typhoid O" />
+                <TextInput value={lab.typhoidO} onChange={v => set('typhoidO', v)} />
               </div>
               <div>
-                <FieldLabel num={17} label="HB Electrophoresis" />
-                <RadioGroup name="hbElectrophoresis" options={['AA', 'AS', 'SS', 'AC', 'SC']} value={lab.hbElectrophoresis} onChange={v => set('hbElectrophoresis', v)} />
+                <FieldLabel num={13} label="Typhoid H" />
+                <TextInput value={lab.typhoidH} onChange={v => set('typhoidH', v)} />
+              </div>
+              <div>
+                <FieldLabel num={14} label="BF (Malaria)" />
+                <RadioGroup options={['Negative', 'Positive']} value={lab.bf} onChange={v => set('bf', v)} name="bf" />
+              </div>
+              <div>
+                <FieldLabel num={15} label="BF Count" />
+                <TextInput value={lab.bfCount} onChange={v => set('bfCount', v)} />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <FieldLabel num={16} label="RDT (Malaria)" />
+                <RadioGroup options={['Negative', 'Positive']} value={lab.rdt} onChange={v => set('rdt', v)} name="rdt" />
               </div>
             </div>
           </div>
 
-          {/* ── Typhoid Test ── */}
-          <div className="bg-yellow-50 rounded-2xl p-5 border border-yellow-100">
-            <SectionHeader color="yellow" title="Typhoid Test (Widal)" />
-            <div className="space-y-4">
+          {/* 4. Urinalysis - Physical & Chemical */}
+          <div className="space-y-3">
+            <SectionHeader color="purple" title="Urinalysis - Physical & Chemical" />
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
-                <FieldLabel num={18} label="Salmonella Typhi O" />
-                <RadioGroup name="typhoidO" options={['1:20', '1:40', '1:80', '1:120', '1:160', '1:320']} value={lab.typhoidO} onChange={v => set('typhoidO', v)} />
+                <FieldLabel num={17} label="Appearance" />
+                <TextInput value={lab.uAppearance} onChange={v => set('uAppearance', v)} />
               </div>
               <div>
-                <FieldLabel num={18} label="Salmonella Typhi H" />
-                <RadioGroup name="typhoidH" options={['Negative', '1:20', '1:40', '1:80', '1:120', '1:160', '1:320']} value={lab.typhoidH} onChange={v => set('typhoidH', v)} />
+                <FieldLabel num={18} label="Color" />
+                <TextInput value={lab.uColor} onChange={v => set('uColor', v)} />
+              </div>
+              <div>
+                <FieldLabel num={19} label="pH" />
+                <TextInput value={lab.uPh} onChange={v => set('uPh', v)} />
+              </div>
+              <div>
+                <FieldLabel num={20} label="Specific Gravity" />
+                <TextInput value={lab.uSg} onChange={v => set('uSg', v)} />
+              </div>
+              <div>
+                <FieldLabel num={21} label="Protein" />
+                <RadioGroup options={['Negative', '+', '++', '+++']} value={lab.uProtein} onChange={v => set('uProtein', v)} name="uProtein" />
+              </div>
+              <div>
+                <FieldLabel num={22} label="Glucose" />
+                <RadioGroup options={['Negative', '+', '++', '+++']} value={lab.uGlucose} onChange={v => set('uGlucose', v)} name="uGlucose" />
+              </div>
+              <div>
+                <FieldLabel num={23} label="Nitrite" />
+                <RadioGroup options={['Negative', 'Positive']} value={lab.uNitrite} onChange={v => set('uNitrite', v)} name="uNitrite" />
+              </div>
+              <div>
+                <FieldLabel num={24} label="Leucocytes" />
+                <RadioGroup options={['Negative', '+', '++', '+++']} value={lab.uLeuco} onChange={v => set('uLeuco', v)} name="uLeuco" />
+              </div>
+              <div>
+                <FieldLabel num={25} label="Bilirubin" />
+                <RadioGroup options={['Negative', '+', '++', '+++']} value={lab.uBili} onChange={v => set('uBili', v)} name="uBili" />
+              </div>
+              <div>
+                <FieldLabel num={26} label="Blood" />
+                <RadioGroup options={['Negative', '+', '++', '+++']} value={lab.uBlood} onChange={v => set('uBlood', v)} name="uBlood" />
+              </div>
+              <div>
+                <FieldLabel num={27} label="Ketones" />
+                <RadioGroup options={['Negative', '+', '++', '+++']} value={lab.uKetone} onChange={v => set('uKetone', v)} name="uKetone" />
+              </div>
+              <div>
+                <FieldLabel num={28} label="Urobilinogen" />
+                <TextInput value={lab.uUrobil} onChange={v => set('uUrobil', v)} />
               </div>
             </div>
           </div>
 
-          {/* ── Malaria Test ── */}
-          <div className="bg-green-50 rounded-2xl p-5 border border-green-100">
-            <SectionHeader color="green" title="Malaria Test" />
-            <div className="space-y-4">
-              <div>
-                <FieldLabel num={19} label="BF (Blood Film)" />
-                <RadioGroup name="bf" options={['Not Seen', 'Seen PF', 'Seen P ovale', 'Seen P malariae']} value={lab.bf} onChange={v => set('bf', v)} />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <FieldLabel num={21} label="Count" />
-                  <TextInput value={lab.bfCount} onChange={v => set('bfCount', v)} placeholder="Enter count" />
-                </div>
-                <div>
-                  <FieldLabel num={20} label="RDT" />
-                  <RadioGroup name="rdt" options={['Positive', 'Negative']} value={lab.rdt} onChange={v => set('rdt', v)} />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* ── Urinalysis ── */}
-          <div className="bg-yellow-50 rounded-2xl p-5 border border-yellow-100">
-            <SectionHeader color="yellow" title="Urinalysis" />
-            <div className="space-y-4">
-              <div>
-                <FieldLabel num={22} label="Appearance" />
-                <RadioGroup name="uAppearance" options={['Clear', 'Cloudy', 'Bloody', 'Hazy']} value={lab.uAppearance} onChange={v => set('uAppearance', v)} />
-              </div>
-              <div>
-                <FieldLabel num={23} label="Color" />
-                <RadioGroup name="uColor" options={['Straw', 'Amber']} value={lab.uColor} onChange={v => set('uColor', v)} />
-              </div>
-              <div>
-                <FieldLabel num={24} label="pH" />
-                <RadioGroup name="uPh" options={['5.0','5.5','6.0','6.5','7.0','7.5','8.0','8.5','9.0']} value={lab.uPh} onChange={v => set('uPh', v)} />
-              </div>
-              <div>
-                <FieldLabel num={25} label="SG" />
-                <RadioGroup name="uSg" options={['1.000','1.005','1.010','1.015','1.020','1.025','1.030']} value={lab.uSg} onChange={v => set('uSg', v)} />
-              </div>
+          {/* 5. Urinalysis - Microscopic */}
+          <div className="space-y-3">
+            <SectionHeader color="pink" title="Urinalysis - Microscopic" />
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {[
-                { num: 26, key: 'uProtein', label: 'Protein' },
-                { num: 27, key: 'uGlucose', label: 'Glucose' },
-                { num: 28, key: 'uNitrite', label: 'Nitrite' },
-                { num: 29, key: 'uLeuco', label: 'Leucocytes' },
-                { num: 30, key: 'uBili', label: 'Bilirubin' },
-                { num: 31, key: 'uBlood', label: 'Blood' },
-                { num: 32, key: 'uKetone', label: 'Ketone' },
+                { key: 'umPusCells', label: 'Pus Cells' },
+                { key: 'umEpithCells', label: 'Epithelial Cells' },
+                { key: 'umRBCs', label: 'RBCs' },
+                { key: 'umYeastCells', label: 'Yeast Cells' },
+                { key: 'umSHematobium', label: 'S. Haematobium' },
+                { key: 'umTrichomonas', label: 'Trichomonas' },
+                { key: 'umCast', label: 'Cast' },
+                { key: 'umCrystals', label: 'Crystals' },
               ].map(f => (
                 <div key={f.key}>
-                  <FieldLabel num={f.num} label={f.label} />
-                  <RadioGroup name={f.key} options={['Pos+1','Pos+2','Pos+3','Negative']} value={lab[f.key]} onChange={v => set(f.key, v)} />
+                  <FieldLabel num={29} label={f.label} />
+                  <TextInput value={lab[f.key]} onChange={v => set(f.key, v)} />
                 </div>
               ))}
-              <div>
-                <FieldLabel num={33} label="Urobilinogen" />
-                <RadioGroup name="uUrobil" options={['Normal', 'Increasing']} value={lab.uUrobil} onChange={v => set('uUrobil', v)} />
-              </div>
             </div>
           </div>
 
-          {/* ── Urine Microscopy ── */}
-          <div className="bg-cyan-50 rounded-2xl p-5 border border-cyan-100">
-            <SectionHeader color="cyan" title="Urine Microscopy" />
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {[
-                  { num: 34, key: 'umPusCells', label: 'Pus Cells' },
-                  { num: 35, key: 'umEpithCells', label: 'Epith Cells' },
-                  { num: 36, key: 'umRBCs', label: 'RBCs' },
-                ].map(f => (
-                  <div key={f.key}>
-                    <FieldLabel num={f.num} label={f.label} />
-                    <TextInput value={lab[f.key]} onChange={v => set(f.key, v)} placeholder="Result" />
-                  </div>
-                ))}
-              </div>
-              {[
-                { num: '36', key: 'umYeastCells', label: 'Yeast Cells' },
-                { num: 37, key: 'umSHematobium', label: 'S. Hematobium' },
-                { num: 38, key: 'umTrichomonas', label: 'Trichomonas Vaginalis' },
-              ].map(f => (
-                <div key={f.key}>
-                  <FieldLabel num={f.num} label={f.label} />
-                  <RadioGroup name={f.key} options={['Seen +1','Seen +2','Seen +3','Not Seen']} value={lab[f.key]} onChange={v => set(f.key, v)} />
-                </div>
-              ))}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {[
-                  { num: 39, key: 'umCast', label: 'Cast' },
-                  { num: 40, key: 'umCrystals', label: 'Crystals' },
-                ].map(f => (
-                  <div key={f.key}>
-                    <FieldLabel num={f.num} label={f.label} />
-                    <TextInput value={lab[f.key]} onChange={v => set(f.key, v)} placeholder="Result" />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* ── Stool Examination ── */}
-          <div className="bg-amber-50 rounded-2xl p-5 border border-amber-100">
-            <SectionHeader color="amber" title="Stool Examination" />
+          {/* 6. Stool */}
+          <div className="space-y-3">
+            <SectionHeader color="teal" title="Stool Analysis" />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <FieldLabel num={41} label="Stool Macroscopy" />
-                <TextInput value={lab.stoolMacro} onChange={v => set('stoolMacro', v)} placeholder="Gross appearance" />
+                <TextInput value={lab.stoolMacro} onChange={v => set('stoolMacro', v)} placeholder="Macroscopic findings" />
               </div>
               <div>
                 <FieldLabel num={42} label="Stool Microscopy" />
@@ -264,13 +305,23 @@ export default function HealthScreeningForm() {
             </div>
           </div>
 
-          {/* Navigation */}
+          {/* Save Buttons */}
           <div className="flex gap-3 pt-4 border-t border-gray-200">
-            <button type="button" className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-4 rounded-xl transition-all">
-              ← Previous
+            <button 
+              type="button" 
+              onClick={handleSave}
+              disabled={isSaving}
+              className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-4 rounded-xl transition-all disabled:opacity-50"
+            >
+              {isSaving ? 'Saving...' : 'Save (Draft)'}
             </button>
-            <button type="button" className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold py-4 rounded-xl transition-all shadow-lg">
-              Next →
+            <button 
+              type="button" 
+              onClick={handleSaveAndComplete}
+              disabled={isSaving}
+              className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold py-4 rounded-xl transition-all shadow-lg disabled:opacity-50"
+            >
+              {isSaving ? 'Saving...' : 'Save & Complete'}
             </button>
           </div>
         </div>

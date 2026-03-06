@@ -1,6 +1,18 @@
 import { useState, useEffect } from 'react'
+import { useOutletContext } from 'react-router-dom'
+import { useScreeningSection } from '../../hooks/useScreeningSection'
 
 const NORMAL = 'Normal'
+
+// Initial state matching the original component structure
+const INITIAL = {
+  developmental: { grossMotor:'', fineMotor:'', language:'', personalSocial:'' },
+  ophthalmic: { rightVision:'', leftVision:'', nose:'', anteriorSegment:'', posteriorSegment:'', conjunctiva:'', diagnosis:'', strangeDiagnosis:'', recommendations:'' },
+  dental: { mouth:'', mouthExtra:'', teeth:'', teethExtra:'', diagnosis:'', diagnosisExtra:'', treatment:'', treatmentExtra:'' },
+  ent: { ears:'', earsExtra:'', nose:'', throat:'', treatment:'', treatmentExtra:'' },
+  combinedDiagnosis:'', combinedDiagnosisExtra:'',
+  referral: { referred:'' }
+}
 
 function CheckGroup({ options, values, onChange, extra, extraVal, onExtra, columns = 2 }) {
   const toggle = (opt) => {
@@ -92,14 +104,36 @@ const devFields = [
 ]
 
 export default function DevSpecialistAssessment() {
-  const [data, setData] = useState({
-    developmental: { grossMotor:'', fineMotor:'', language:'', personalSocial:'' },
-    ophthalmic: { rightVision:'', leftVision:'', nose:'', anteriorSegment:'', posteriorSegment:'', conjunctiva:'', diagnosis:'', strangeDiagnosis:'', recommendations:'' },
-    dental: { mouth:'', mouthExtra:'', teeth:'', teethExtra:'', diagnosis:'', diagnosisExtra:'', treatment:'', treatmentExtra:'' },
-    ent: { ears:'', earsExtra:'', nose:'', throat:'', treatment:'', treatmentExtra:'' },
-    combinedDiagnosis:'', combinedDiagnosisExtra:'',
-    referral: { referred:'' }
+  // Get context from ClinicianScreeningForm
+  const { patientId, cycleId } = useOutletContext()
+  
+  // Use the new normalized hook - Development is part of Section 1
+  const { 
+    sectionData, 
+    isComplete, 
+    isLoading, 
+    save, 
+    isSaving 
+  } = useScreeningSection({
+    childId: patientId,
+    cycleId,
+    sectionNumber: 1, // Part of Section 1
   })
+
+  // Initialize form with existing data or defaults
+  const [data, setData] = useState(() => {
+    if (sectionData) {
+      return { ...INITIAL, ...sectionData }
+    }
+    return INITIAL
+  })
+
+  // Update form when sectionData loads
+  useEffect(() => {
+    if (sectionData) {
+      setData({ ...INITIAL, ...sectionData })
+    }
+  }, [sectionData])
 
   const upd = (f, v) => setData(p => ({...p, [f]: v}))
   const updN = (parent, f, v) => setData(p => ({...p, [parent]: {...p[parent], [f]: v}}))
@@ -152,6 +186,34 @@ export default function DevSpecialistAssessment() {
     setData(p => ({...p, developmental: {...p.developmental, ...u}}))
   }
 
+  async function handleSave() {
+    try {
+      await save({ sectionData: data, isComplete: false })
+      alert('Saved successfully!')
+    } catch (err) {
+      console.error('Save error:', err)
+      alert('Failed to save: ' + err.message)
+    }
+  }
+
+  async function handleSaveAndComplete() {
+    try {
+      await save({ sectionData: data, isComplete: true })
+      alert('Section marked as complete!')
+    } catch (err) {
+      console.error('Save error:', err)
+      alert('Failed to save: ' + err.message)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-100 py-8 px-4">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -171,7 +233,11 @@ export default function DevSpecialistAssessment() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Developmental & Specialized Assessments</h1>
-              {/* <p className="text-sm text-gray-500 mt-0.5">Benkrom Pentecost Child & Youth Development Centre</p> */}
+              {isComplete && (
+                <span className="inline-flex items-center px-2 py-1 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-full mt-1">
+                  ✓ Complete
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -328,6 +394,24 @@ export default function DevSpecialistAssessment() {
             </div>
           </SubCard>
 
+        </div>
+
+        {/* Save Buttons */}
+        <div className="flex gap-3 mt-6 pt-4">
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold rounded-xl transition-colors disabled:opacity-50"
+          >
+            {isSaving ? 'Saving...' : 'Save (Draft)'}
+          </button>
+          <button
+            onClick={handleSaveAndComplete}
+            disabled={isSaving}
+            className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-50"
+          >
+            {isSaving ? 'Saving...' : 'Save & Complete'}
+          </button>
         </div>
 
         <div className="text-center mt-8">
