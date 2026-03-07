@@ -185,7 +185,7 @@ export default function ClinicianDashboardStats() {
               <p className="text-base text-red-400">
                 Couldn't load stats
               </p>
-
+ 
               <button
                 onClick={refetch}
                 className="text-sm text-red-300 underline mt-2"
