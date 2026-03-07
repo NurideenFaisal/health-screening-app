@@ -66,15 +66,19 @@ const INITIAL = {
 
 export default function Vitals() {
   // Get context from ClinicianScreeningForm
-  const { patientId, patient, cycleId, sectionNumber } = useOutletContext()
-  
+  const { patientId, patient, cycleId } = useOutletContext()
+
+  // LOCAL LOGIC FIX: Track which specific button was clicked
+  const [isDrafting, setIsDrafting] = useState(false)
+  const [isCompleting, setIsCompleting] = useState(false)
+
   // Use the new normalized hook
-  const { 
-    sectionData, 
-    isComplete, 
-    isLoading, 
-    save, 
-    isSaving 
+  const {
+    sectionData,
+    isComplete,
+    isLoading,
+    save,
+    isSaving
   } = useScreeningSection({
     childId: patientId,
     cycleId,
@@ -83,7 +87,6 @@ export default function Vitals() {
 
   // Initialize form with existing data or defaults
   const [formData, setFormData] = useState(() => {
-    // Merge saved data with initial state
     if (sectionData) {
       return { ...INITIAL, ...sectionData }
     }
@@ -133,24 +136,22 @@ export default function Vitals() {
     }))
   }
 
+  // FIXED HANDLERS: Wrap save in local loading toggles
   async function handleSave() {
+    setIsDrafting(true)
     try {
-      // Save without marking complete (incomplete save)
       await save({ sectionData: formData, isComplete: false })
-      alert('Saved successfully!')
-    } catch (err) {
-      console.error('Save error:', err)
-      alert('Failed to save: ' + err.message)
+    } finally {
+      setIsDrafting(false)
     }
   }
 
   async function handleSaveAndComplete() {
+    setIsCompleting(true)
     try {
       await save({ sectionData: formData, isComplete: true })
-      alert('Section marked as complete!')
-    } catch (err) {
-      console.error('Save error:', err)
-      alert('Failed to save: ' + err.message)
+    } finally {
+      setIsCompleting(false)
     }
   }
 
@@ -181,7 +182,6 @@ export default function Vitals() {
         )}
       </div>
 
-      
       {/* Vital Signs */}
       <div className="bg-emerald-50 rounded-2xl p-5 border border-emerald-100">
         <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
@@ -307,7 +307,7 @@ export default function Vitals() {
           <span className="w-2 h-2 bg-indigo-500 rounded-full"></span>
           Physical Examination
         </h3>
-        
+
         <label className="flex items-center gap-2 mb-4 cursor-pointer group">
           <input
             type="checkbox"
@@ -356,7 +356,7 @@ export default function Vitals() {
           <span className="w-2 h-2 bg-amber-500 rounded-full"></span>
           Review of Body Systems
         </h3>
-        
+
         <label className="flex items-center gap-2 mb-4 cursor-pointer group">
           <input
             type="checkbox"
@@ -412,7 +412,7 @@ export default function Vitals() {
           <span className="w-2 h-2 bg-red-500 rounded-full"></span>
           Signs of Abuse / Neglect
         </h3>
-        
+
         <div className="flex gap-4 mb-4">
           {[
             { value: 'no', label: 'No' },
@@ -447,21 +447,35 @@ export default function Vitals() {
         )}
       </div>
 
-      {/* Save Buttons */}
-      <div className="flex gap-3 pt-2">
+      {/* FIXED SAVE BUTTONS: Logic Fix Implemented */}
+      <div className="flex flex-row gap-4 pt-6 border-t border-gray-100 mt-8">
         <button
           onClick={handleSave}
           disabled={isSaving}
-          className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold rounded-xl transition-colors disabled:opacity-50"
+          className="flex-1 py-3 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-bold rounded-xl transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm"
         >
-          {isSaving ? 'Saving...' : 'Save (Draft)'}
+          {isDrafting ? (
+            <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+          ) : (
+            'Save Draft'
+          )}
         </button>
+
         <button
           onClick={handleSaveAndComplete}
           disabled={isSaving}
-          className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-50"
+          className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md shadow-emerald-100"
         >
-          {isSaving ? 'Saving...' : 'Save & Complete'}
+          {isCompleting ? (
+            <div className="w-4 h-4 border-2 border-emerald-200 border-t-white rounded-full animate-spin" />
+          ) : (
+            <>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+              </svg>
+              Complete
+            </>
+          )}
         </button>
       </div>
 

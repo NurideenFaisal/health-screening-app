@@ -1,5 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './store/authStore'
+// Import the Toaster for global notifications
+import { Toaster } from 'sonner' 
 
 import Login from './pages/Login'
 
@@ -45,83 +47,99 @@ function App() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        Loading...
+        {/* Added a themed spinner to match your emerald UI */}
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+        <span className="ml-3 text-gray-600 font-medium">Loading...</span>
       </div>
     )
   }
 
   return (
-    <Router>
-      <Routes>
+    <>
+      {/* TOASTER SETUP: 
+        This sits outside the Router so it's always available.
+        richColors: Automatically skins success (green) and error (red).
+        expand: Keeps multiple toasts stacked neatly.
+      */}
+      <Toaster 
+        position="top-right" 
+        richColors 
+        closeButton 
+        expand={false}
+      />
 
-        <Route path="/login" element={<Login />} />
+      <Router>
+        <Routes>
 
-        {/* ADMIN */}
-        <Route
-          path="/admin/*"
-          element={
-            <RoleRoute requiredRole="admin" user={user} profile={profile}>
-              <AdminDashboard />
-            </RoleRoute>
-          }
-        >
-          <Route index element={<DashboardStats />} />
-          <Route path="role-management" element={<RoleManagement />} />
-          <Route path="cycle-manager" element={<AdminCycleManager />} />
-          <Route path="patient-data" element={<PatientData />} />
-          <Route path="screening-data" element={<ScreeningData />} />
-        </Route>
+          <Route path="/login" element={<Login />} />
 
-        {/* CLINICIAN */}
-        <Route
-          path="/clinician/*"
-          element={
-            <RoleRoute requiredRole="clinician" user={user} profile={profile}>
-              <ClinicianDashboard />
-            </RoleRoute>
-          }
-        >
-          <Route index element={<ClinicianDashboardStats />} />
-          <Route path="patient-data" element={<ClinicianPatientData />} />
-          <Route path="screening-data" element={<ClinicianScreeningData />} />
-
-          {/* PATIENT SCREENING - DYNAMIC SECTIONS */}
-          <Route path="patient/:id" element={<ClinicianScreeningForm />}>
-
-            {/* SECTION 1 TABS (Hardcoded as these are specific sub-components) */}
-            <Route index element={<Vitals />} />
-            <Route path="immunization" element={<Immunization />} />
-            <Route path="development" element={<Development />} />
-
-            {/* ADDITIONAL SECTIONS - Dynamically rendered */}
-            {/* These routes handle section2, section3, section4, etc. */}
-            <Route path="section2" element={<ScreeningSection2 />} />
-            <Route path="section3" element={<ScreeningSection3 />} />
-            <Route path="section4" element={<ScreeningSection4 />} />
-
-            {/* Future sections can be added here as:
-            <Route path="section5" element={<ScreeningSection5 />} />
-            <Route path="section6" element={<ScreeningSection6 />} />
-            etc.
-            */}
-
+          {/* ADMIN */}
+          <Route
+            path="/admin/*"
+            element={
+              <RoleRoute requiredRole="admin" user={user} profile={profile}>
+                <AdminDashboard />
+              </RoleRoute>
+            }
+          >
+            <Route index element={<DashboardStats />} />
+            <Route path="role-management" element={<RoleManagement />} />
+            <Route path="cycle-manager" element={<AdminCycleManager />} />
+            <Route path="patient-data" element={<PatientData />} />
+            <Route path="screening-data" element={<ScreeningData />} />
           </Route>
-        </Route>
 
-        {/* ROOT */}
-        <Route
-          path="/"
-          element={
-            user
-              ? <Navigate replace to={profile?.role === 'admin' ? '/admin' : '/clinician'} />
-              : <Navigate replace to="/login" />
-          }
-        />
+          {/* CLINICIAN */}
+          <Route
+            path="/clinician/*"
+            element={
+              <RoleRoute requiredRole="clinician" user={user} profile={profile}>
+                <ClinicianDashboard />
+              </RoleRoute>
+            }
+          >
+            <Route index element={<ClinicianDashboardStats />} />
+            <Route path="patient-data" element={<ClinicianPatientData />} />
+            <Route path="screening-data" element={<ClinicianScreeningData />} />
 
-        <Route path="*" element={<Navigate replace to="/" />} />
+            {/* PATIENT SCREENING - DYNAMIC SECTIONS */}
+            <Route path="patient/:id" element={<ClinicianScreeningForm />}>
 
-      </Routes>
-    </Router>
+              {/* SECTION 1 TABS (Hardcoded as these are specific sub-components) */}
+              <Route index element={<Vitals />} />
+              <Route path="immunization" element={<Immunization />} />
+              <Route path="development" element={<Development />} />
+
+              {/* ADDITIONAL SECTIONS - Dynamically rendered */}
+              {/* These routes handle section2, section3, section4, etc. */}
+              <Route path="section2" element={<ScreeningSection2 />} />
+              <Route path="section3" element={<ScreeningSection3 />} />
+              <Route path="section4" element={<ScreeningSection4 />} />
+
+              {/* Future sections can be added here as:
+              <Route path="section5" element={<ScreeningSection5 />} />
+              <Route path="section6" element={<ScreeningSection6 />} />
+              /etc.
+              */}
+
+            </Route>
+          </Route>
+
+          {/* ROOT */}
+          <Route
+            path="/"
+            element={
+              user
+                ? <Navigate replace to={profile?.role === 'admin' ? '/admin' : '/clinician'} />
+                : <Navigate replace to="/login" />
+            }
+          />
+
+          <Route path="*" element={<Navigate replace to="/" />} />
+
+        </Routes>
+      </Router>
+    </>
   )
 }
 
