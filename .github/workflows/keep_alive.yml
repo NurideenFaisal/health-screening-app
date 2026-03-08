@@ -1,0 +1,18 @@
+name: Supabase Keep-Alive
+
+on:
+  schedule:
+    # This runs at 00:00 every Monday, Wednesday, and Friday
+    # It ensures the DB never stays idle for more than 48 hours
+    - cron: '0 0 * * 1,3,5'
+  workflow_dispatch: # This adds a "Run now" button in GitHub so you can test it
+
+jobs:
+  ping_supabase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Heartbeat Request
+        run: |
+          curl -i -X GET "${{ secrets.SUPABASE_URL }}/rest/v1/cycles?select=id&limit=1" \
+          -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+          -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}"
