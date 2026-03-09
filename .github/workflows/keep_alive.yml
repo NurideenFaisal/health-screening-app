@@ -30,8 +30,8 @@ jobs:
           echo "Response Body: $BODY"
           
           if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "206" ]; then
-            echo "✅ Keep-alive ping successful!"
+            echo " Keep-alive ping successful!"
           else
-            echo "❌ Keep-alive ping failed with status $HTTP_CODE"
+            echo " Keep-alive ping failed with status $HTTP_CODE"
             exit 1
           fi

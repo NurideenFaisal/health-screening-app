@@ -33,8 +33,10 @@ export default function ClinicianScreeningData() {
 
   // Moved inside the component so 'navigate' is in scope
   const handlePatientClick = (childId) => {
-    // Navigates to /clinician/patient/:id as defined in your App.js
-    navigate(`/clinician/patient/${childId}`)
+    // Navigate to the user's assigned section
+    // Section 1 uses index route (vitals), others use section{2,3,4} paths
+    const sectionPath = mySection === '1' ? '' : `section${mySection}`
+    navigate(`/clinician/patient/${childId}${sectionPath ? `/${sectionPath}` : ''}`)
   }
 
   // ── FETCH: Direct query to show all patients in the cycle ──────────────────────────
