@@ -4,13 +4,13 @@
  * This is the central configuration for all screening sections.
  * To add more sections:
  * 1. Add a new entry to this array with a unique value
- * 2. Add the corresponding tab components in App.jsx
- * 3. Add database columns: section{N}_complete (boolean)
+ * 2. Add the lazy import in App.jsx LAZY_SECTIONS map
+ * 3. Database tables already support sections 1-10 (screening_sections table)
  * 
  * The app will dynamically generate:
  * - Section pills in patient list
  * - Status calculations
- * - Navigation routes
+ * - Navigation routes (auto-generated from LAZY_SECTIONS in App.jsx)
  * - Admin role management dropdowns
  */
 
@@ -47,16 +47,16 @@ export const SECTIONS = [
     doneColor: 'bg-amber-400',
     tabs: [], // Section 3 has no sub-tabs (single page)
   },
-  // Additional sections can be added here
-  // {
-  //   value: '4',
-  //   label: 'Section 4',
-  //   shortLabel: 'S4',
-  //   title: 'Dental',
-  //   color: 'pink',
-  //   doneColor: 'bg-pink-400',
-  //   tabs: [],
-  // },
+  {
+    value: '4',
+    label: 'Section 4',
+    shortLabel: 'S4',
+    title: 'Dental/Other',
+    color: 'pink',
+    doneColor: 'bg-pink-400',
+    tabs: [], // Section 4 has no sub-tabs (single page)
+  },
+  // Additional sections can be added here following the same pattern
 ]
 
 // Color mappings for pills and badges

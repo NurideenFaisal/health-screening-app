@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './store/authStore'
+import { lazy, Suspense } from 'react'
 // Import the Toaster for global notifications
 import { Toaster } from 'sonner' 
 
@@ -20,25 +21,35 @@ import ClinicianPatientData from './pages/ClinicianSide/ClinicianPatientData'
 import ClinicianScreeningData from './pages/ClinicianSide/ClinicianScreeningData'
 import ClinicianScreeningForm from './pages/ClinicianSide/ClinicianScreeningForm'
 
-// --- Section 1 Tabs ---
+// --- Section 1 Tabs (Eager load - these are commonly used) ---
 import Vitals from './components/ScreeningSection1/Vitals'
 import Immunization from './components/ScreeningSection1/Immunization'
 import Development from './components/ScreeningSection1/Development'
 
-// --- Section 2, 3, 4 ---
-import ScreeningSection2 from './components/ScreeningSection2'
-import ScreeningSection3 from './components/ScreeningSection3'
-import ScreeningSection4 from './components/ScreeningSection4'
-
 import RoleRoute from './components/RoleRoute'
 
-// Dynamic section imports - maps section value to component
-// This can be extended to dynamically import sections based on config
-const SECTION_COMPONENTS = {
-  '2': ScreeningSection2,
-  '3': ScreeningSection3,
-  '4': ScreeningSection4,
-  // Add more sections here as needed
+// --- Lazy-loaded additional sections ---
+// To add new sections:
+// 1. Create component at ./components/ScreeningSection{N}/index.js
+// 2. Add entry to LAZY_SECTIONS map below
+// 3. Add route path to sections config in src/config/sections.js
+const LAZY_SECTIONS = {
+  '2': lazy(() => import('./components/ScreeningSection2')),
+  '3': lazy(() => import('./components/ScreeningSection3')),
+  '4': lazy(() => import('./components/ScreeningSection4')),
+  // Add future sections here - they'll be lazy loaded automatically
+  // '5': lazy(() => import('./components/ScreeningSection5')),
+  // '6': lazy(() => import('./components/ScreeningSection6')),
+}
+
+// Loading fallback for lazy sections
+function SectionLoader() {
+  return (
+    <div className="flex items-center justify-center p-8">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+      <span className="ml-3 text-gray-500 font-medium">Loading section...</span>
+    </div>
+  )
 }
 
 function App() {
@@ -105,22 +116,25 @@ function App() {
             {/* PATIENT SCREENING - DYNAMIC SECTIONS */}
             <Route path="patient/:id" element={<ClinicianScreeningForm />}>
 
-              {/* SECTION 1 TABS (Hardcoded as these are specific sub-components) */}
+              {/* SECTION 1 TABS (Eager loaded - commonly used) */}
               <Route index element={<Vitals />} />
               <Route path="immunization" element={<Immunization />} />
               <Route path="development" element={<Development />} />
 
-              {/* ADDITIONAL SECTIONS - Dynamically rendered */}
-              {/* These routes handle section2, section3, section4, etc. */}
-              <Route path="section2" element={<ScreeningSection2 />} />
-              <Route path="section3" element={<ScreeningSection3 />} />
-              <Route path="section4" element={<ScreeningSection4 />} />
-
-              {/* Future sections can be added here as:
-              <Route path="section5" element={<ScreeningSection5 />} />
-              <Route path="section6" element={<ScreeningSection6 />} />
-              /etc.
-              */}
+              {/* ADDITIONAL SECTIONS - Lazy loaded for performance */}
+              {/* Routes are dynamically generated from LAZY_SECTIONS map */}
+              {/* To add new sections: update LAZY_SECTIONS map above */}
+              {Object.entries(LAZY_SECTIONS).map(([sectionNum, LazyComponent]) => (
+                <Route
+                  key={sectionNum}
+                  path={`section${sectionNum}`}
+                  element={
+                    <Suspense fallback={<SectionLoader />}>
+                      <LazyComponent />
+                    </Suspense>
+                  }
+                />
+              ))}
 
             </Route>
           </Route>
