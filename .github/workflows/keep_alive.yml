@@ -4,13 +4,34 @@ on:
   schedule:
     - cron: '0 0 * * 1,3,5'
   workflow_dispatch:
+    inputs:
+      manual_trigger:
+        description: 'Manual trigger for keep-alive ping'
+        required: false
+        default: 'true'
 
 jobs:
   ping_supabase:
     runs-on: ubuntu-latest
     steps:
-      - name: Send Heartbeat Request
+      - name: Send Heartbeat Request to Children Table
         run: |
-          curl -i -X GET "${{ secrets.SUPABASE_URL }}/rest/v1/children?select=id&limit=1" \
-          -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
-          -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}"
+          echo "Pinging Supabase children table..."
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X GET "${{ secrets.SUPABASE_URL }}/rest/v1/children?select=id&limit=1" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: return=minimal")
+          
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          echo "HTTP Status Code: $HTTP_CODE"
+          echo "Response Body: $BODY"
+          
+          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "206" ]; then
+            echo "✅ Keep-alive ping successful!"
+          else
+            echo "❌ Keep-alive ping failed with status $HTTP_CODE"
+            exit 1
+          fi
