@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { useParams, useNavigate, NavLink, Outlet } from 'react-router-dom'
 import { useAuthStore } from '../../store/authStore'
 import { useQuery } from '@tanstack/react-query'
@@ -9,7 +9,7 @@ import { getSectionByValue } from '../../config/sections'
 export default function ClinicianScreeningForm() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { profile } = useAuthStore()
+  const { profile, activeCycle, fetchActiveCycle } = useAuthStore()
   const mySection = String(profile?.section || '1')
   const sectionNumber = parseInt(mySection, 10)
 
@@ -29,20 +29,12 @@ export default function ClinicianScreeningForm() {
     },
   })
 
-  // Fetch active cycle
-  const { data: activeCycle } = useQuery({
-    queryKey: ['active-cycle'],
-    staleTime: 1000 * 60 * 5,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('cycles')
-        .select('id, name, is_active')
-        .eq('is_active', true)
-        .maybeSingle()
-      if (error) throw error
-      return data
-    },
-  })
+  // Fetch active cycle once on mount (uses cached value if available)
+  useEffect(() => {
+    if (!activeCycle) {
+      fetchActiveCycle()
+    }
+  }, [])
 
   // Context for child components
   const contextValue = {

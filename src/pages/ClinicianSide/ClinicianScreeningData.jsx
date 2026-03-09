@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../store/authStore'
@@ -26,10 +26,15 @@ const STATUS_WEIGHT = { ready: 0, done: 1, screened: 2 }
 
 export default function ClinicianScreeningData() {
   const navigate = useNavigate()
-  const { profile } = useAuthStore()
+  const { profile, activeCycle, fetchActiveCycle } = useAuthStore()
   const [query, setQuery] = useState('')
 
   const mySection = profile?.section ?? '1'
+
+  // Fetch active cycle once on mount (uses cached value if available)
+  useEffect(() => {
+    fetchActiveCycle()
+  }, [])
 
   // Moved inside the component so 'navigate' is in scope
   const handlePatientClick = (childId) => {
@@ -43,11 +48,11 @@ export default function ClinicianScreeningData() {
   const { data: queueData, isLoading, error: queryError } = useQuery({
     queryKey: ['screening-queue', mySection],
     queryFn: async () => {
-      const { data: cycle } = await supabase
-        .from('cycles')
-        .select('id, name, is_active')
-        .eq('is_active', true)
-        .maybeSingle()
+      // Use cached active cycle if available
+      let cycle = activeCycle
+      if (!cycle) {
+        cycle = await fetchActiveCycle()
+      }
 
       if (!cycle) return { cycle: null, patients: [] }
 
