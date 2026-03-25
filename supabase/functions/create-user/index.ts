@@ -50,17 +50,27 @@ Deno.serve(async (req) => {
       .eq('id', caller.id)
       .single()
 
-    if (callerProfile?.role !== 'admin') {
-      return new Response(JSON.stringify({ error: 'Only admins can create users' }), {
+    if (callerProfile?.role !== 'admin' && callerProfile?.role !== 'super-admin') {
+      return new Response(JSON.stringify({ error: 'Only admins and super-admins can create users' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
     // Get data from frontend request
-    const { firstName, lastName, email, password, role, assignedSection } = await req.json()
+    const { 
+      firstName, 
+      lastName, 
+      email, 
+      password, 
+      role, 
+      assignedSection,
+      clinic_id,
+      full_name 
+    } = await req.json()
 
-    if (!firstName || !lastName || !email || !password || !role) {
+    // Validate required fields
+    if (!email || !password || !role) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -74,13 +84,16 @@ Deno.serve(async (req) => {
       })
     }
 
+    // Support both firstName/lastName and full_name formats
+    const userFullName = full_name || `${firstName || ''} ${lastName || ''}`.trim()
+
     // Create user with admin privileges
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
       user_metadata: {
-        full_name: `${firstName} ${lastName}`,
+        full_name: userFullName,
         role: role.toLowerCase(),
         section: role === 'clinician' ? assignedSection : null,
       },
@@ -91,6 +104,18 @@ Deno.serve(async (req) => {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
+    }
+
+    // Create profile record with clinic_id if provided
+    if (clinic_id && newUser?.user) {
+      const { error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .update({ clinic_id })
+        .eq('id', newUser.user.id)
+
+      if (profileError) {
+        console.error('Error updating profile with clinic_id:', profileError)
+      }
     }
 
     return new Response(JSON.stringify({ success: true, user: newUser.user }), {

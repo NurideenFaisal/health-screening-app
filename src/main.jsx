@@ -23,13 +23,15 @@ async function init() {
   const { data: { session } } = await supabase.auth.getSession()
 
   if (session) {
-    const { data: profile } = await supabase
+    const { data: profile, error } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', session.user.id)
       .single()
 
-    setAuth(session.user, profile)
+    // Handle case where profile doesn't exist or has NULL clinic_id (super-admin)
+    // We proceed even without a profile - the app will handle it
+    setAuth(session.user, error ? null : profile)
   } else {
     clearAuth()
   }
@@ -38,13 +40,13 @@ async function init() {
   // This keeps your store in sync whenever Supabase silently refreshes the JWT
   supabase.auth.onAuthStateChange(async (event, session) => {
     if (session) {
-      const { data: profile } = await supabase
+      const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', session.user.id)
         .single()
 
-      setAuth(session.user, profile)
+      setAuth(session.user, error ? null : profile)
     } else {
       clearAuth()
     }

@@ -16,7 +16,9 @@ export default function Login() {
   // Redirect if already logged in
   useEffect(() => {
     if (user && profile) {
-      if (profile.role === 'admin') {
+      if (profile.role === 'super-admin') {
+        navigate('/super-admin/dashboard')
+      } else if (profile.role === 'admin') {
         navigate('/admin')
       } else if (profile.role === 'clinician') {
         navigate('/clinician')
