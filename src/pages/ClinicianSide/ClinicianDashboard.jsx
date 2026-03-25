@@ -9,10 +9,15 @@ export default function ClinicianDashboard() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    if (user === null) {
+    // Redirect super-admin and admin users away from clinician routes
+    if (profile?.role === 'super-admin') {
+      navigate('/super-admin/dashboard', { replace: true })
+    } else if (profile?.role === 'admin') {
+      navigate('/admin', { replace: true })
+    } else if (user === null) {
       navigate('/login', { replace: true })
     }
-  }, [user, navigate])
+  }, [user, profile, navigate])
 
   if (!profile || !user) {
     return (

@@ -23,9 +23,34 @@ export default function RoleRoute({ requiredRole, user, profile, children }) {
   // Check if user is trying to access super-admin route
   const isSuperAdminRoute = window.location.pathname.startsWith('/super-admin')
   
-  // Super-admin can access everything
+  // Check if user is trying to access admin route
+  const isAdminRoute = window.location.pathname.startsWith('/admin')
+  
+  // Super-admin can ONLY access super-admin routes
   if (profile.role === 'super-admin') {
-    return children
+    if (isSuperAdminRoute) {
+      return children
+    }
+    // Super-admin trying to access admin or clinician routes - BLOCK
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 to-gray-100">
+        <div className="text-center max-w-md p-8 bg-white rounded-2xl shadow-xl">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-4">
+            <ShieldAlert className="w-8 h-8 text-red-600" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h1>
+          <p className="text-gray-600 mb-6">
+            Super Administrators cannot access individual clinic admin panels.\nPlease use the Mission Control dashboard instead.
+          </p>
+          <a 
+            href="/super-admin/dashboard" 
+            className="mt-6 inline-flex items-center justify-center px-6 py-3 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition-colors"
+          >
+            Go to Mission Control
+          </a>
+        </div>
+      </div>
+    )
   }
   
   // Block non-super-admin users from accessing super-admin routes

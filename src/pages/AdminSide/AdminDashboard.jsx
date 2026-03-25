@@ -9,10 +9,13 @@ export default function AdminDashboard() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    if (!user) {
+    // Redirect super-admin users away from admin routes
+    if (profile?.role === 'super-admin') {
+      navigate('/super-admin/dashboard', { replace: true })
+    } else if (!user) {
       navigate('/login', { replace: true })
     }
-  }, [user, navigate])
+  }, [user, profile, navigate])
 
   if (!profile || !user) {
     return (
@@ -28,6 +31,7 @@ export default function AdminDashboard() {
   return (
     <div className="flex h-screen bg-gray-100 overflow-hidden">
       <AdminSidebar />
+
 
       {/* IMPORTANT: min-w-0 prevents flex reflow jumping */}
       <div className="flex-1 p-8 overflow-y-auto min-w-0">
