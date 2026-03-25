@@ -28,6 +28,13 @@ import Development from './components/ScreeningSection1/Development'
 
 import RoleRoute from './components/RoleRoute'
 
+// --- Super Admin ---
+import SuperAdminDashboard from './pages/SuperAdminSide/SuperAdminDashboard'
+import SuperAdminDashboardStats from './pages/SuperAdminSide/SuperAdminDashboardStats'
+import ClinicRegistry from './pages/SuperAdminSide/ClinicRegistry'
+import UserManagement from './pages/SuperAdminSide/UserManagement'
+import SuperAdminSettings from './pages/SuperAdminSide/SuperAdminSettings'
+
 // --- Lazy-loaded additional sections ---
 // To add new sections:
 // 1. Create component at ./components/ScreeningSection{N}/index.js
@@ -83,6 +90,22 @@ function App() {
         <Routes>
 
           <Route path="/login" element={<Login />} />
+
+          {/* SUPER ADMIN */}
+          <Route
+            path="/super-admin/*"
+            element={
+              <RoleRoute requiredRole="super-admin" user={user} profile={profile}>
+                <SuperAdminDashboard />
+              </RoleRoute>
+            }
+          >
+            <Route index element={<SuperAdminDashboardStats />} />
+            <Route path="dashboard" element={<SuperAdminDashboardStats />} />
+            <Route path="clinics" element={<ClinicRegistry />} />
+            <Route path="users" element={<UserManagement />} />
+            <Route path="settings" element={<SuperAdminSettings />} />
+          </Route>
 
           {/* ADMIN */}
           <Route
@@ -144,7 +167,13 @@ function App() {
             path="/"
             element={
               user
-                ? <Navigate replace to={profile?.role === 'admin' ? '/admin' : '/clinician'} />
+                ? <Navigate replace to={
+                    profile?.role === 'super-admin' 
+                      ? '/super-admin/dashboard' 
+                      : profile?.role === 'admin' 
+                        ? '/admin' 
+                        : '/clinician'
+                  } />
                 : <Navigate replace to="/login" />
             }
           />
