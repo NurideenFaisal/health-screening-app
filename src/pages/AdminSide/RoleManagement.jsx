@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Plus, Edit2, Search, X, AlertCircle, CheckCircle2, Copy, Check, Trash2, Shield, User, KeyRound } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { useAuthStore } from '../../store/authStore'
 import { SECTIONS, getSectionByValue } from '../../config/sections'
 
 // ─── Reusable Components ──────────────────────────────────────────────────────
@@ -103,7 +104,10 @@ const CredentialsModal = ({ show, onClose, credentials }) => {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function RoleManagement() {
+  const { profile } = useAuthStore()
   const [users, setUsers] = useState([])
+  const isSuperAdmin = profile?.role === 'super-admin'
+  const isClinicAdmin = profile?.role === 'admin' && profile?.clinic_id
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -151,10 +155,23 @@ export default function RoleManagement() {
   // ─── Fetch Users ───────────────────────────────────────────────
   async function fetchUsers() {
     setLoading(true)
-    const { data, error } = await supabase
+    
+    // Build query based on user role
+    let query = supabase
       .from('profiles')
-      .select('id, full_name, role, section')
+      .select('id, full_name, role, section, clinic_id')
       .order('created_at', { ascending: false })
+    
+    // For clinic admins: filter by their clinic_id AND exclude super-admin
+    if (isClinicAdmin && profile?.clinic_id) {
+      query = query
+        .eq('clinic_id', profile.clinic_id)
+        .neq('role', 'super-admin')
+    }
+    // For super-admin: show all users (no filter)
+    // The RoleRoute already prevents non-super-admins from accessing this page
+    
+    const { data, error } = await query
 
     if (error) {
       showToast('Failed to load users', 'error')
@@ -192,6 +209,8 @@ export default function RoleManagement() {
           password: newUser.password,
           role: newUser.role.toLowerCase(),
           assignedSection: newUser.role.toLowerCase() === 'clinician' ? newUser.assignedSection : null,
+          // For clinic admins: automatically assign new users to their clinic
+          clinic_id: isClinicAdmin ? profile?.clinic_id : null,
         })
       })
 
@@ -217,6 +236,11 @@ export default function RoleManagement() {
 
   // ─── Open Edit Modal ─────────────────────────────────────────────
   function openEditModal(user) {
+    // Guard: Prevent editing super-admin accounts
+    if (user.role === 'super-admin') {
+      showToast('System accounts are protected', 'error')
+      return
+    }
     setEditingUser(user)
     setEditForm({
       role: user.role || 'clinician',
@@ -228,6 +252,13 @@ export default function RoleManagement() {
 
   // ─── Save Role/Section Edit ──────────────────────────────────────
   async function handleSaveEdit() {
+    // Guard: Prevent editing super-admin accounts
+    if (editingUser?.role === 'super-admin') {
+      showToast('System accounts are protected', 'error')
+      setShowEditModal(false)
+      return
+    }
+    
     // Validate: clinicians must have a section
     if (editForm.role === 'clinician' && !editForm.section) {
       setEditErrors({ section: 'Required for clinicians' })
@@ -300,6 +331,11 @@ export default function RoleManagement() {
 
   // ─── Open Delete Confirm ─────────────────────────────────────────
   function openDeleteModal(user) {
+    // Guard: Prevent deleting super-admin accounts
+    if (user.role === 'super-admin') {
+      showToast('System accounts are protected', 'error')
+      return
+    }
     setDeletingUser(user)
     setShowDeleteModal(true)
   }
@@ -309,6 +345,13 @@ export default function RoleManagement() {
   // edge function pattern. If you don't have a delete-user function yet,
   // we fall back to just removing the profile row.
   async function handleDeleteUser() {
+    // Guard: Prevent deleting super-admin accounts
+    if (deletingUser?.role === 'super-admin') {
+      showToast('System accounts are protected', 'error')
+      setShowDeleteModal(false)
+      return
+    }
+    
     setSaving(true)
     try {
       const { data: { session } } = await supabase.auth.getSession()

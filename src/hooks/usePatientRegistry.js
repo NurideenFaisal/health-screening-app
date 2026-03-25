@@ -1,16 +1,29 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { useAuthStore } from '../store/authStore'
 
 export function usePatientRegistry() {
   const queryClient = useQueryClient()
+  const { profile } = useAuthStore()
+
+  // Super-admin sees ALL patients (global), admins see only their clinic's patients
+  const isSuperAdmin = profile?.role === 'super-admin'
 
   const { data: people = [], isLoading } = useQuery({
-    queryKey: ['patients'],
+    queryKey: ['patients', profile?.clinic_id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('children')
         .select('*, screenings(count)')
         .order('created_at', { ascending: false })
+      
+      // Filter by clinic_id only if NOT super-admin
+      // Super-admin (clinic_id = NULL) sees ALL children
+      if (!isSuperAdmin && profile?.clinic_id) {
+        query = query.eq('clinic_id', profile.clinic_id)
+      }
+      
+      const { data, error } = await query
       if (error) throw error
       return data.map(c => ({
         id: c.id,
@@ -25,12 +38,18 @@ export function usePatientRegistry() {
       }))
     },
     staleTime: 1000 * 60 * 5,
-    gcTime: 1000 * 60 * 30, 
+    gcTime: 1000 * 60 * 30,
+    enabled: !!profile, // Only run when profile is loaded
   })
 
   const addPatient = useMutation({
     mutationFn: async (newPatient) => {
-      const { error } = await supabase.from('children').insert(newPatient)
+      // Automatically assign clinic_id for non-super-admin users
+      const patientData = isSuperAdmin 
+        ? newPatient 
+        : { ...newPatient, clinic_id: profile?.clinic_id }
+      
+      const { error } = await supabase.from('children').insert(patientData)
       if (error) throw error
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['patients'] }),
