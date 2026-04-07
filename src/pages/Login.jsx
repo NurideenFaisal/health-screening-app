@@ -26,24 +26,56 @@ export default function Login() {
     }
   }, [user, profile, navigate])
 
+  useEffect(() => {
+    if (!user || profile) {
+      return
+    }
+
+    const timeoutId = setTimeout(async () => {
+      const { user: currentUser, profile: currentProfile } = useAuthStore.getState()
+
+      if (!currentUser || currentProfile) {
+        return
+      }
+
+      await supabase.auth.signOut()
+      setError('Profile access denied by RLS')
+      setLoading(false)
+    }, 5000)
+
+    return () => clearTimeout(timeoutId)
+  }, [user, profile])
+
   async function handleLogin(e) {
     e.preventDefault()
     setLoading(true)
     setError(null)
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    })
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      })
 
-    if (error) {
+      if (error) {
+        throw error
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 300))
+      await loadSession()
+
+      const { profile: authProfile } = useAuthStore.getState()
+
+      if (!authProfile) {
+        throw new Error('Profile access denied by RLS')
+      }
+
+      setLoading(false)
+    } catch (error) {
       console.error('Supabase login error:', error)
       setError(error.message || 'An unexpected error occurred. Please try again.')
       setLoading(false)
-      return
     }
-
-    await loadSession()
   }
 
   return (

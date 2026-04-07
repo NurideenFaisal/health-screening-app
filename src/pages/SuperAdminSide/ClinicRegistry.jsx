@@ -92,7 +92,7 @@ export default function ClinicRegistry() {
           className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition-colors shadow-sm"
         >
           <Plus size={20} className="mr-2" />
-          Launch Outreach
+          Add Clinic
         </button>
       </div>
 
