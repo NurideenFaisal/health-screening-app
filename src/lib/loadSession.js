@@ -11,15 +11,11 @@ export async function loadSession() {
     return
   }
 
-  const user = session.user
-
   const { data: profile, error } = await supabase
     .from('profiles')
     .select('*')
-    .eq('id', user.id)
+    .eq('id', session.user.id)
     .single()
 
-  // Handle case where profile doesn't exist or has NULL clinic_id (super-admin)
-  // We proceed even without a profile - the app will handle it
-  setAuth(user, error ? null : profile)
+  setAuth(session.user, error ? null : profile)
 }

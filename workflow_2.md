@@ -110,3 +110,72 @@ CREATE TABLE public.section_definitions (
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT section_definitions_pkey PRIMARY KEY (id)
 );
+
+
+
+
+BYPASS TO RLS
+-- =================================================================
+-- 1. THE LOOP-BREAKER FUNCTION
+-- =================================================================
+-- This function is 'SECURITY DEFINER', meaning it bypasses RLS.
+-- It is the only safe way to ask "What is my clinic ID?" without a loop.
+CREATE OR REPLACE FUNCTION public.get_auth_profile()
+RETURNS TABLE (role text, clinic_id uuid, section text) 
+LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
+  SELECT role, clinic_id, section FROM public.profiles WHERE id = auth.uid();
+$$;
+
+-- =================================================================
+-- 2. RESET POLICIES
+-- =================================================================
+ALTER TABLE public.profiles DISABLE ROW LEVEL SECURITY;
+
+DO $$ 
+DECLARE pol RECORD;
+BEGIN 
+    FOR pol IN (SELECT policyname, tablename FROM pg_policies WHERE schemaname = 'public' AND tablename = 'profiles') 
+    LOOP EXECUTE format('DROP POLICY IF EXISTS %I ON %I', pol.policyname, pol.tablename); END LOOP; 
+END $$;
+
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+-- =================================================================
+-- 3. THE "NON-RECURSIVE" POLICIES
+-- =================================================================
+
+-- RULE: Read your own row. 
+-- We use a direct ID check ONLY. No subqueries here!
+CREATE POLICY "profiles_self_read" 
+ON public.profiles FOR SELECT 
+TO authenticated 
+USING (auth.uid() = id);
+
+-- RULE: Admin view. 
+-- We use the SECURITY DEFINER function to avoid the 500 loop.
+CREATE POLICY "profiles_admin_view" 
+ON public.profiles FOR SELECT 
+TO authenticated 
+USING (
+  (SELECT p.role FROM public.get_auth_profile() p) = 'admin'
+  AND 
+  clinic_id = (SELECT p.clinic_id FROM public.get_auth_profile() p)
+);
+
+-- RULE: Owner update
+CREATE POLICY "profiles_self_update" 
+ON public.profiles FOR UPDATE 
+TO authenticated 
+USING (auth.uid() = id);
+
+-- =================================================================
+-- 4. APPLY TO OTHER TABLES
+-- =================================================================
+-- Now that profiles are fixed, we use the same safe function for children.
+DROP POLICY IF EXISTS "children_isolation" ON public.children;
+CREATE POLICY "children_isolation" 
+ON public.children FOR ALL 
+TO authenticated 
+USING (
+  clinic_id = (SELECT p.clinic_id FROM public.get_auth_profile() p)
+);
