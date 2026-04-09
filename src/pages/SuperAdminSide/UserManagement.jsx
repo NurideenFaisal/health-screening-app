@@ -5,17 +5,13 @@ import {
   Users, 
   Shield, 
   Building2, 
-  Mail, 
   Loader2,
-  MoreVertical,
-  Edit,
-  Trash2
+  AlertTriangle
 } from 'lucide-react'
 import { toast } from 'sonner'
 
 export default function UserManagement() {
   const [users, setUsers] = useState([])
-  const [clinics, setClinics] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState('all')
@@ -33,7 +29,12 @@ export default function UserManagement() {
         supabase
           .from('profiles')
           .select(`
-            *,
+            id,
+            full_name,
+            role,
+            section,
+            clinic_id,
+            created_at,
             clinics:clinic_id (name, code)
           `)
           .order('created_at', { ascending: false }),
@@ -47,7 +48,6 @@ export default function UserManagement() {
       if (clinicsRes.error) throw clinicsRes.error
 
       setUsers(usersRes.data || [])
-      setClinics(clinicsRes.data || [])
     } catch (err) {
       console.error('Error fetching data:', err)
       toast.error('Failed to load user data')
@@ -58,10 +58,13 @@ export default function UserManagement() {
 
   const filteredUsers = users.filter(user => {
     const query = searchQuery.toLowerCase()
+    const clinicName = user.clinics?.name?.toLowerCase() || ''
+    const clinicCode = user.clinics?.code?.toLowerCase() || ''
     const matchesSearch = 
       user.full_name?.toLowerCase().includes(query) ||
       user.id?.toLowerCase().includes(query) ||
-      user.email?.toLowerCase().includes(query)
+      clinicName.includes(query) ||
+      clinicCode.includes(query)
     
     const matchesRole = roleFilter === 'all' || user.role === roleFilter
     
@@ -87,12 +90,7 @@ export default function UserManagement() {
 
   const getClinicBadge = (clinic) => {
     if (!clinic) {
-      return (
-        <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-800">
-          <Shield size={12} className="mr-1" />
-          Super Admin
-        </span>
-      )
+      return null
     }
     return (
       <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700">
@@ -100,6 +98,28 @@ export default function UserManagement() {
         {clinic.name}
       </span>
     )
+  }
+
+  const getScopeBadge = (user) => {
+    if (user.role === 'super-admin') {
+      return (
+        <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-800">
+          <Shield size={12} className="mr-1" />
+          Super Admin
+        </span>
+      )
+    }
+
+    if (!user.clinic_id) {
+      return (
+        <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-amber-100 text-amber-800">
+          <AlertTriangle size={12} className="mr-1" />
+          No Clinic Assigned
+        </span>
+      )
+    }
+
+    return getClinicBadge(user.clinics)
   }
 
   return (
@@ -115,7 +135,7 @@ export default function UserManagement() {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
           <input
             type="text"
-            placeholder="Search users by name or ID..."
+            placeholder="Search users by name, ID, or clinic..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition"
@@ -219,7 +239,7 @@ export default function UserManagement() {
                       {getRoleBadge(user.role)}
                     </td>
                     <td className="px-6 py-4">
-                      {getClinicBadge(user.clinics)}
+                      {getScopeBadge(user)}
                     </td>
                     <td className="px-6 py-4">
                       {user.section ? (

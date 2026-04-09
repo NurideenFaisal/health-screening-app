@@ -1,147 +1,141 @@
 import React, { useState, useEffect } from 'react'
-import { Plus, Edit2, Search, X, AlertCircle, CheckCircle2, Copy, Check, Trash2, Shield, User, KeyRound } from 'lucide-react'
+import { Plus, Edit2, Search, KeyRound, Trash2, Shield, User } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../store/authStore'
 import { SECTIONS, getSectionByValue } from '../../config/sections'
+import {
+  Button, Toast, CredentialsModal, AddUserModal, EditUserModal,
+  ResetPasswordModal, DeleteUserModal
+} from '../../components/RoleManagement/RoleManagementModals'
 
-// ─── Reusable Components ──────────────────────────────────────────────────────
-const Button = ({ children, className = '', ...props }) => (
-  <button className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm transition ${className}`} {...props}>
-    {children}
-  </button>
-)
-
-const Modal = ({ show, onClose, title, children, actions }) => {
-  if (!show) return null
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-slate-800">{title}</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition">
-            <X size={20} />
-          </button>
-        </div>
-        <div className="space-y-4">{children}</div>
-        {actions && <div className="flex gap-2 pt-2">{actions}</div>}
-      </div>
-    </div>
-  )
-}
-
-const Input = ({ label, error, type = 'text', children, ...props }) => (
-  <div>
-    {label && <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>}
-    <div className="relative">
-      <input
-        type={type}
-        className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 text-sm
-          ${error ? 'border-red-500 focus:ring-red-500' : 'border-slate-200 focus:ring-emerald-500/20 focus:border-emerald-500'}`}
-        {...props}
-      />
-      {children}
-    </div>
-    {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
-  </div>
-)
-
-const Toast = ({ message, type, onClose }) => {
-  useEffect(() => {
-    const t = setTimeout(onClose, 4000)
-    return () => clearTimeout(t)
-  }, [onClose])
-
-  return (
-    <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium
-      ${type === 'success' ? 'bg-emerald-600 text-white' : 'bg-red-500 text-white'}`}>
-      {type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
-      {message}
-    </div>
-  )
-}
-
-const CredentialsModal = ({ show, onClose, credentials }) => {
-  const [copied, setCopied] = useState(false)
-  const handleCopy = () => {
-    navigator.clipboard.writeText(`Email: ${credentials?.email}\nPassword: ${credentials?.password}`)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-  if (!show || !credentials) return null
-  return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
-            <CheckCircle2 size={20} className="text-emerald-600" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-slate-800">User Created!</h2>
-            <p className="text-xs text-slate-500">Share these credentials now — password won't be shown again.</p>
-          </div>
-        </div>
-        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-          <div><p className="text-xs text-slate-400 font-medium mb-0.5">Name</p><p className="text-sm font-semibold text-slate-800">{credentials.name}</p></div>
-          <div><p className="text-xs text-slate-400 font-medium mb-0.5">Email</p><p className="text-sm font-mono text-slate-800">{credentials.email}</p></div>
-          <div><p className="text-xs text-slate-400 font-medium mb-0.5">Password</p><p className="text-sm font-mono text-slate-800">{credentials.password}</p></div>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={handleCopy} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition ${copied ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-700'}`}>
-            {copied ? <Check size={16} /> : <Copy size={16} />} {copied ? 'Copied!' : 'Copy'}
-          </button>
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-lg text-sm font-medium bg-emerald-600 text-white">Done</button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ─── Sections & Colors (from centralized config) ──────────────────────────────────────────────────────
-// SECTIONS is now imported from ../../config/sections - see src/config/sections.js
-// To add more sections, update the SECTIONS array in that config file
-
-// Helper function to get section display color
+// ─── Local Storage Keys ──────────────────────────────────────────────────────
+const STORAGE_KEY = 'roleManagement_users'
+const STORAGE_TIMESTAMP = 'roleManagement_timestamp'
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function RoleManagement() {
   const { profile } = useAuthStore()
-  const [users, setUsers] = useState([])
   const isSuperAdmin = profile?.role === 'super-admin'
   const isClinicAdmin = profile?.role === 'admin' && profile?.clinic_id
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
 
-  // Add modal
+  // Core state
+  const [users, setUsers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  // Modal states
   const [showAddModal, setShowAddModal] = useState(false)
   const [newUser, setNewUser] = useState({ firstName: '', lastName: '', email: '', password: '', role: 'Clinician', assignedSection: '1' })
   const [errors, setErrors] = useState({})
 
-  // Edit modal
   const [showEditModal, setShowEditModal] = useState(false)
-  const [editingUser, setEditingUser] = useState(null)   // { id, full_name, role, section }
+  const [editingUser, setEditingUser] = useState(null)
   const [editForm, setEditForm] = useState({ role: '', section: '' })
   const [editErrors, setEditErrors] = useState({})
 
-  // Delete confirm
-  const [showDeleteModal, setShowDeleteModal] = useState(false)
-  const [deletingUser, setDeletingUser] = useState(null)
-
-  // Reset password
   const [showResetModal, setShowResetModal] = useState(false)
   const [resetUser, setResetUser] = useState(null)
   const [newPassword, setNewPassword] = useState('')
   const [resetError, setResetError] = useState('')
 
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deletingUser, setDeletingUser] = useState(null)
+
   const [toast, setToast] = useState(null)
   const [credentials, setCredentials] = useState(null)
 
-  useEffect(() => { fetchUsers() }, [])
+  // ─── Local Storage Helpers ─────────────────────────────────────────────────
+  const saveToCache = (data) => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+      localStorage.setItem(STORAGE_TIMESTAMP, Date.now().toString())
+    } catch (err) {
+      console.warn('Failed to save to localStorage:', err)
+    }
+  }
 
+  const loadFromCache = () => {
+    try {
+      const cached = localStorage.getItem(STORAGE_KEY)
+      return cached ? JSON.parse(cached) : []
+    } catch (err) {
+      console.warn('Failed to load from localStorage:', err)
+      return []
+    }
+  }
+
+  // ─── Real-time Subscription Setup ──────────────────────────────────────────
+  useEffect(() => {
+    // Load cached data immediately
+    const cachedUsers = loadFromCache()
+    if (cachedUsers.length > 0) {
+      setUsers(cachedUsers)
+      setLoading(false)
+    }
+
+    // Set up real-time subscription
+    const setupSubscription = () => {
+      const channel = supabase
+        .channel('profiles_changes')
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'profiles'
+        }, (payload) => {
+          console.log('Real-time update:', payload)
+          fetchUsers() // Refresh data when changes occur
+        })
+        .subscribe()
+
+      return () => {
+        supabase.removeChannel(channel)
+      }
+    }
+
+    const cleanup = setupSubscription()
+
+    // Fetch fresh data in background
+    fetchUsers()
+
+    return cleanup
+  }, [])
+
+  // ─── Fetch Users ──────────────────────────────────────────────────────────
+  const fetchUsers = async () => {
+    try {
+      let query = supabase
+        .from('profiles')
+        .select('id, full_name, role, section, clinic_id')
+        .order('created_at', { ascending: false })
+
+      // For clinic admins: filter by their clinic_id AND exclude super-admin
+      if (isClinicAdmin && profile?.clinic_id) {
+        query = query
+          .eq('clinic_id', profile.clinic_id)
+          .neq('role', 'super-admin')
+      }
+      // For super-admin: show all users (no filter)
+
+      const { data, error } = await query
+
+      if (error) {
+        showToast('Failed to load users', 'error')
+      } else {
+        setUsers(data || [])
+        saveToCache(data || [])
+      }
+    } catch (err) {
+      showToast('Network error loading users', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // ─── Toast Helper ─────────────────────────────────────────────────────────
   const showToast = (message, type = 'success') => setToast({ message, type })
-  const getInitial = name => name?.charAt(0).toUpperCase() || '?'
-  const getRoleColor = role => role === 'admin' ? 'bg-emerald-500 text-white' : 'bg-blue-500 text-white'
 
+  // ─── Validation ───────────────────────────────────────────────────────────
   const validate = u => {
     const errs = {}
     if (!u.firstName) errs.firstName = 'Required'
@@ -152,37 +146,8 @@ export default function RoleManagement() {
     return errs
   }
 
-  // ─── Fetch Users ───────────────────────────────────────────────
-  async function fetchUsers() {
-    setLoading(true)
-    
-    // Build query based on user role
-    let query = supabase
-      .from('profiles')
-      .select('id, full_name, role, section, clinic_id')
-      .order('created_at', { ascending: false })
-    
-    // For clinic admins: filter by their clinic_id AND exclude super-admin
-    if (isClinicAdmin && profile?.clinic_id) {
-      query = query
-        .eq('clinic_id', profile.clinic_id)
-        .neq('role', 'super-admin')
-    }
-    // For super-admin: show all users (no filter)
-    // The RoleRoute already prevents non-super-admins from accessing this page
-    
-    const { data, error } = await query
-
-    if (error) {
-      showToast('Failed to load users', 'error')
-    } else {
-      setUsers(data || [])
-    }
-    setLoading(false)
-  }
-
-  // ─── Add User (Calls Edge Function) ─────────────────────────────
-  async function handleAddUser() {
+  // ─── Add User ─────────────────────────────────────────────────────────────
+  const handleAddUser = async () => {
     const errs = validate(newUser)
     setErrors(errs)
     if (Object.keys(errs).length) return
@@ -209,7 +174,6 @@ export default function RoleManagement() {
           password: newUser.password,
           role: newUser.role.toLowerCase(),
           assignedSection: newUser.role.toLowerCase() === 'clinician' ? newUser.assignedSection : null,
-          // For clinic admins: automatically assign new users to their clinic
           clinic_id: isClinicAdmin ? profile?.clinic_id : null,
         })
       })
@@ -226,7 +190,7 @@ export default function RoleManagement() {
         })
         setShowAddModal(false)
         setNewUser({ firstName: '', lastName: '', email: '', password: '', role: 'Clinician', assignedSection: '1' })
-        fetchUsers()
+        // No manual fetchUsers() - subscription will handle the update
       }
     } catch (err) {
       showToast('Network error: ' + err.message, 'error')
@@ -234,9 +198,8 @@ export default function RoleManagement() {
     setSaving(false)
   }
 
-  // ─── Open Edit Modal ─────────────────────────────────────────────
-  function openEditModal(user) {
-    // Guard: Prevent editing super-admin accounts
+  // ─── Edit User ────────────────────────────────────────────────────────────
+  const openEditModal = (user) => {
     if (user.role === 'super-admin') {
       showToast('System accounts are protected', 'error')
       return
@@ -250,16 +213,13 @@ export default function RoleManagement() {
     setShowEditModal(true)
   }
 
-  // ─── Save Role/Section Edit ──────────────────────────────────────
-  async function handleSaveEdit() {
-    // Guard: Prevent editing super-admin accounts
+  const handleSaveEdit = async () => {
     if (editingUser?.role === 'super-admin') {
       showToast('System accounts are protected', 'error')
       setShowEditModal(false)
       return
     }
-    
-    // Validate: clinicians must have a section
+
     if (editForm.role === 'clinician' && !editForm.section) {
       setEditErrors({ section: 'Required for clinicians' })
       return
@@ -269,7 +229,6 @@ export default function RoleManagement() {
 
     const updates = {
       role: editForm.role,
-      // Clear section for admins, set it for clinicians
       section: editForm.role === 'clinician' ? editForm.section : null,
     }
 
@@ -284,21 +243,20 @@ export default function RoleManagement() {
       showToast(`${editingUser.full_name} updated successfully`)
       setShowEditModal(false)
       setEditingUser(null)
-      fetchUsers()
+      // No manual fetchUsers() - subscription will handle the update
     }
     setSaving(false)
   }
 
-  // ─── Open Reset Modal ────────────────────────────────────────────
-  function openResetModal(user) {
+  // ─── Reset Password ───────────────────────────────────────────────────────
+  const openResetModal = (user) => {
     setResetUser(user)
     setNewPassword('')
     setResetError('')
     setShowResetModal(true)
   }
 
-  // ─── Reset Password ──────────────────────────────────────────────
-  async function handleResetPassword() {
+  const handleResetPassword = async () => {
     if (!newPassword || newPassword.length < 6) {
       setResetError('Password must be at least 6 characters')
       return
@@ -329,9 +287,8 @@ export default function RoleManagement() {
     setSaving(false)
   }
 
-  // ─── Open Delete Confirm ─────────────────────────────────────────
-  function openDeleteModal(user) {
-    // Guard: Prevent deleting super-admin accounts
+  // ─── Delete User ──────────────────────────────────────────────────────────
+  const openDeleteModal = (user) => {
     if (user.role === 'super-admin') {
       showToast('System accounts are protected', 'error')
       return
@@ -340,23 +297,17 @@ export default function RoleManagement() {
     setShowDeleteModal(true)
   }
 
-  // ─── Delete User (via Edge Function) ────────────────────────────
-  // Deleting auth users requires service role key, so we call the same
-  // edge function pattern. If you don't have a delete-user function yet,
-  // we fall back to just removing the profile row.
-  async function handleDeleteUser() {
-    // Guard: Prevent deleting super-admin accounts
+  const handleDeleteUser = async () => {
     if (deletingUser?.role === 'super-admin') {
       showToast('System accounts are protected', 'error')
       setShowDeleteModal(false)
       return
     }
-    
+
     setSaving(true)
     try {
       const { data: { session } } = await supabase.auth.getSession()
 
-      // Try edge function first (if you have one)
       let deleted = false
       if (session) {
         try {
@@ -374,7 +325,6 @@ export default function RoleManagement() {
         }
       }
 
-      // Fallback: just delete the profile row
       if (!deleted) {
         const { error } = await supabase
           .from('profiles')
@@ -391,14 +341,18 @@ export default function RoleManagement() {
       showToast(`${deletingUser.full_name} removed`)
       setShowDeleteModal(false)
       setDeletingUser(null)
-      fetchUsers()
+      // No manual fetchUsers() - subscription will handle the update
     } catch (err) {
       showToast('Error: ' + err.message, 'error')
     }
     setSaving(false)
   }
 
-  // ─── Filtered Users ─────────────────────────────────────────────
+  // ─── Helpers ──────────────────────────────────────────────────────────────
+  const getInitial = name => name?.charAt(0).toUpperCase() || '?'
+  const getRoleColor = role => role === 'admin' ? 'bg-emerald-500 text-white' : 'bg-blue-500 text-white'
+
+  // ─── Filtered Users ───────────────────────────────────────────────────────
   const filtered = users.filter(u =>
     u.full_name?.toLowerCase().includes(searchQuery.toLowerCase())
   )
@@ -430,7 +384,7 @@ export default function RoleManagement() {
 
       {/* Users Table */}
       <div className="bg-white rounded-xl shadow border border-slate-200 overflow-hidden">
-        {loading ? (
+        {loading && users.length === 0 ? (
           <div className="text-center py-12 text-slate-400">Loading users...</div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-12 text-slate-400">No users found</div>
@@ -506,165 +460,48 @@ export default function RoleManagement() {
         )}
       </div>
 
-      {/* ── Add User Modal ── */}
-      <Modal
+      {/* Modals */}
+      <AddUserModal
         show={showAddModal}
-        onClose={() => { setShowAddModal(false); setErrors({}) }}
-        title="Add User"
-        actions={[
-          <Button key="c" className="bg-slate-100 text-slate-700 flex-1" onClick={() => setShowAddModal(false)}>Cancel</Button>,
-          <Button key="a" className="bg-emerald-600 text-white flex-1" onClick={handleAddUser} disabled={saving}>
-            {saving ? 'Creating...' : 'Add User'}
-          </Button>
-        ]}
-      >
-        <div className="grid grid-cols-2 gap-3">
-          <Input label="First Name" value={newUser.firstName} onChange={e => setNewUser({ ...newUser, firstName: e.target.value })} error={errors.firstName} />
-          <Input label="Last Name" value={newUser.lastName} onChange={e => setNewUser({ ...newUser, lastName: e.target.value })} error={errors.lastName} />
-        </div>
-        <Input label="Email" value={newUser.email} onChange={e => setNewUser({ ...newUser, email: e.target.value })} error={errors.email} />
-        <Input label="Password" type="password" value={newUser.password} onChange={e => setNewUser({ ...newUser, password: e.target.value })} error={errors.password} />
-        <div className="space-y-3">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Role</label>
-            <select value={newUser.role} onChange={e => setNewUser({ ...newUser, role: e.target.value })} className="w-full border border-slate-200 p-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500">
-              <option value="Admin">Admin</option>
-              <option value="Clinician">Clinician</option>
-            </select>
-          </div>
-          {newUser.role === 'Clinician' && (
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Section</label>
-              <select value={newUser.assignedSection} onChange={e => setNewUser({ ...newUser, assignedSection: e.target.value })} className="w-full border border-slate-200 p-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500">
-                {SECTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-              </select>
-            </div>
-          )}
-        </div>
-      </Modal>
+        onClose={() => setShowAddModal(false)}
+        newUser={newUser}
+        setNewUser={setNewUser}
+        errors={errors}
+        setErrors={setErrors}
+        onAddUser={handleAddUser}
+        saving={saving}
+      />
 
-      {/* ── Edit Role/Section Modal ── */}
-      <Modal
+      <EditUserModal
         show={showEditModal}
         onClose={() => { setShowEditModal(false); setEditingUser(null) }}
-        title={`Edit — ${editingUser?.full_name}`}
-        actions={[
-          <Button key="c" className="bg-slate-100 text-slate-700 flex-1" onClick={() => setShowEditModal(false)}>Cancel</Button>,
-          <Button key="s" className="bg-emerald-600 text-white flex-1" onClick={handleSaveEdit} disabled={saving}>
-            {saving ? 'Saving...' : 'Save Changes'}
-          </Button>
-        ]}
-      >
-        {/* Role selector */}
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Role</label>
-          <div className="grid grid-cols-2 gap-2">
-            {['admin', 'clinician'].map(r => (
-              <button
-                key={r}
-                onClick={() => setEditForm(f => ({ ...f, role: r }))}
-                className={`flex items-center justify-center gap-2 py-2.5 rounded-lg border text-sm font-medium transition capitalize
-                  ${editForm.role === r
-                    ? r === 'admin'
-                      ? 'bg-emerald-600 text-white border-emerald-600'
-                      : 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
-                  }`}
-              >
-                {r === 'admin' ? <Shield size={14} /> : <User size={14} />}
-                {r}
-              </button>
-            ))}
-          </div>
-        </div>
+        editingUser={editingUser}
+        editForm={editForm}
+        setEditForm={setEditForm}
+        editErrors={editErrors}
+        onSaveEdit={handleSaveEdit}
+        saving={saving}
+      />
 
-        {/* Section selector — only for clinicians */}
-        {editForm.role === 'clinician' && (
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Section</label>
-            <div className="grid grid-cols-3 gap-2">
-              {SECTIONS.map(s => {
-                const isSelected = editForm.section === s.value
-                return (
-                  <button
-                    key={s.value}
-                    onClick={() => setEditForm(f => ({ ...f, section: s.value }))}
-                    className={`py-2 rounded-lg border text-sm font-medium transition
-                      ${isSelected ? `${s.doneColor} text-white border-transparent` : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}
-                  >
-                    {s.label}
-                  </button>
-                )
-              })}
-            </div>
-            {editErrors.section && <p className="text-xs text-red-500 mt-1">{editErrors.section}</p>}
-          </div>
-        )}
-
-        {/* Preview */}
-        <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-slate-500">
-          <span className="font-medium text-slate-700">{editingUser?.full_name}</span> will be set to{' '}
-          <span className={`font-semibold ${editForm.role === 'admin' ? 'text-emerald-600' : 'text-blue-600'}`}>
-            {editForm.role}
-          </span>
-          {editForm.role === 'clinician' && editForm.section && (
-            <> · Section {editForm.section}</>
-          )}
-        </div>
-      </Modal>
-
-      {/* ── Reset Password Modal ── */}
-      <Modal
+      <ResetPasswordModal
         show={showResetModal}
         onClose={() => { setShowResetModal(false); setResetUser(null) }}
-        title={`Reset Password — ${resetUser?.full_name}`}
-        actions={[
-          <Button key="c" className="bg-slate-100 text-slate-700 flex-1" onClick={() => setShowResetModal(false)}>Cancel</Button>,
-          <Button key="r" className="bg-amber-500 text-white flex-1" onClick={handleResetPassword} disabled={saving}>
-            {saving ? 'Resetting...' : 'Reset Password'}
-          </Button>
-        ]}
-      >
-        <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-100 rounded-lg">
-          <KeyRound size={16} className="text-amber-500 mt-0.5 shrink-0" />
-          <p className="text-xs text-slate-600">
-            This will immediately change <span className="font-semibold">{resetUser?.full_name}</span>'s password. Make sure to share the new password with them.
-          </p>
-        </div>
-        <Input
-          label="New Password"
-          type="password"
-          value={newPassword}
-          onChange={e => { setNewPassword(e.target.value); setResetError('') }}
-          error={resetError}
-          placeholder="Min. 6 characters"
-        />
-      </Modal>
+        resetUser={resetUser}
+        newPassword={newPassword}
+        setNewPassword={setNewPassword}
+        resetError={resetError}
+        setResetError={setResetError}
+        onResetPassword={handleResetPassword}
+        saving={saving}
+      />
 
-      {/* ── Delete Confirm Modal ── */}
-      <Modal
+      <DeleteUserModal
         show={showDeleteModal}
         onClose={() => { setShowDeleteModal(false); setDeletingUser(null) }}
-        title="Remove User"
-        actions={[
-          <Button key="c" className="bg-slate-100 text-slate-700 flex-1" onClick={() => setShowDeleteModal(false)}>Cancel</Button>,
-          <Button key="d" className="bg-red-500 text-white flex-1" onClick={handleDeleteUser} disabled={saving}>
-            {saving ? 'Removing...' : 'Remove User'}
-          </Button>
-        ]}
-      >
-        <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-100 rounded-xl">
-          <AlertCircle size={18} className="text-red-500 mt-0.5 shrink-0" />
-          <div>
-            <p className="text-sm font-medium text-slate-800">
-              Remove <span className="text-red-600">{deletingUser?.full_name}</span>?
-            </p>
-            <p className="text-xs text-slate-500 mt-1">
-              This will delete their profile. Their auth account will also be removed if a delete-user Edge Function is configured.
-            </p>
-          </div>
-        </div>
-      </Modal>
+        deletingUser={deletingUser}
+        onDeleteUser={handleDeleteUser}
+        saving={saving}
+      />
     </div>
   )
 }

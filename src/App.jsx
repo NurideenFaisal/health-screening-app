@@ -32,8 +32,8 @@ import RoleRoute from './components/RoleRoute'
 import SuperAdminDashboard from './pages/SuperAdminSide/SuperAdminDashboard'
 import SuperAdminDashboardStats from './pages/SuperAdminSide/SuperAdminDashboardStats'
 import ClinicRegistry from './pages/SuperAdminSide/ClinicRegistry'
+import LaunchClinicWizard from './pages/SuperAdminSide/LaunchClinicWizard'
 import UserManagement from './pages/SuperAdminSide/UserManagement'
-import SuperAdminSettings from './pages/SuperAdminSide/SuperAdminSettings'
 
 // --- Lazy-loaded additional sections ---
 // To add new sections:
@@ -103,8 +103,9 @@ function App() {
             <Route index element={<SuperAdminDashboardStats />} />
             <Route path="dashboard" element={<SuperAdminDashboardStats />} />
             <Route path="clinics" element={<ClinicRegistry />} />
+            <Route path="launch-clinic" element={<LaunchClinicWizard />} />
+            <Route path="settings" element={<Navigate replace to="/super-admin/launch-clinic" />} />
             <Route path="users" element={<UserManagement />} />
-            <Route path="settings" element={<SuperAdminSettings />} />
           </Route>
 
           {/* ADMIN */}

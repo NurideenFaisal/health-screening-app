@@ -18,44 +18,45 @@ export default function SuperAdminDashboardStats() {
         setLoading(true)
         setError(null)
 
-        // Use .count() with { head: true } for instant lightweight counts
         const [
           beneficiariesCount,
           activeClinicsCount,
           screeningsCount,
-          staffCount
+          adminCount,
+          clinicianCount,
         ] = await Promise.all([
-          // Total Beneficiaries (children table)
           supabase
             .from('children')
-            .count({ head: true }),
-          
-          // Active Clinics
+            .select('id', { count: 'exact', head: true }),
           supabase
             .from('clinics')
-            .count({ head: true, filter: { is_active: true } }),
-          
-          // Total Screenings completed (status = 'submitted')
+            .select('id', { count: 'exact', head: true })
+            .eq('is_active', true),
           supabase
             .from('screenings')
-            .count({ head: true, filter: { status: 'submitted' } }),
-          
-          // Total Staff (profiles with role admin or clinician)
+            .select('id', { count: 'exact', head: true })
+            .eq('status', 'submitted'),
           supabase
             .from('profiles')
-            .count({ head: true, filter: { role: 'admin' } })
+            .select('id', { count: 'exact', head: true })
+            .eq('role', 'admin'),
+          supabase
+            .from('profiles')
+            .select('id', { count: 'exact', head: true })
+            .eq('role', 'clinician'),
         ])
 
-        // Also get clinicians count
-        const cliniciansCount = await supabase
-          .from('profiles')
-          .count({ head: true, filter: { role: 'clinician' } })
+        if (beneficiariesCount.error) throw beneficiariesCount.error
+        if (activeClinicsCount.error) throw activeClinicsCount.error
+        if (screeningsCount.error) throw screeningsCount.error
+        if (adminCount.error) throw adminCount.error
+        if (clinicianCount.error) throw clinicianCount.error
 
         setStats({
           totalBeneficiaries: beneficiariesCount.count || 0,
           activeClinics: activeClinicsCount.count || 0,
           totalScreenings: screeningsCount.count || 0,
-          totalStaff: (staffCount.count || 0) + (cliniciansCount.count || 0)
+          totalStaff: (adminCount.count || 0) + (clinicianCount.count || 0)
         })
       } catch (err) {
         console.error('Error fetching global stats:', err)

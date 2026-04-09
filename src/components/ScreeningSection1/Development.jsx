@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useOutletContext } from 'react-router-dom'
+import { useNavigate, useOutletContext } from 'react-router-dom'
 import { useScreeningSection } from '../../hooks/useScreeningSection'
 
 const NORMAL = 'Normal'
@@ -12,6 +12,33 @@ const INITIAL = {
   ent: { ears:'', earsExtra:'', nose:'', throat:'', treatment:'', treatmentExtra:'' },
   combinedDiagnosis:'', combinedDiagnosisExtra:'',
   referral: { referred:'' }
+}
+
+function buildDevelopmentFormState(existingDevelopmentData) {
+  return {
+    ...INITIAL,
+    ...existingDevelopmentData,
+    developmental: {
+      ...INITIAL.developmental,
+      ...(existingDevelopmentData?.developmental ?? {}),
+    },
+    ophthalmic: {
+      ...INITIAL.ophthalmic,
+      ...(existingDevelopmentData?.ophthalmic ?? {}),
+    },
+    dental: {
+      ...INITIAL.dental,
+      ...(existingDevelopmentData?.dental ?? {}),
+    },
+    ent: {
+      ...INITIAL.ent,
+      ...(existingDevelopmentData?.ent ?? {}),
+    },
+    referral: {
+      ...INITIAL.referral,
+      ...(existingDevelopmentData?.referral ?? {}),
+    },
+  }
 }
 
 function CheckGroup({ options, values, onChange, extra, extraVal, onExtra, columns = 2 }) {
@@ -106,6 +133,7 @@ const devFields = [
 export default function DevSpecialistAssessment() {
   // Get context from ClinicianScreeningForm
   const { patientId, cycleId } = useOutletContext()
+  const navigate = useNavigate()
   
   // Use the new normalized hook - Development is part of Section 1
   const { 
@@ -120,20 +148,17 @@ export default function DevSpecialistAssessment() {
     sectionNumber: 1, // Part of Section 1
   })
 
+  const existingDevelopmentData = sectionData?.development ?? sectionData ?? null
+
   // Initialize form with existing data or defaults
   const [data, setData] = useState(() => {
-    if (sectionData) {
-      return { ...INITIAL, ...sectionData }
-    }
-    return INITIAL
+    return buildDevelopmentFormState(existingDevelopmentData)
   })
 
   // Update form when sectionData loads
   useEffect(() => {
-    if (sectionData) {
-      setData({ ...INITIAL, ...sectionData })
-    }
-  }, [sectionData])
+    setData(buildDevelopmentFormState(existingDevelopmentData))
+  }, [existingDevelopmentData])
 
   const upd = (f, v) => setData(p => ({...p, [f]: v}))
   const updN = (parent, f, v) => setData(p => ({...p, [parent]: {...p[parent], [f]: v}}))
@@ -187,23 +212,24 @@ export default function DevSpecialistAssessment() {
   }
 
   async function handleSave() {
-    try {
-      await save({ sectionData: data, isComplete: false })
-      alert('Saved successfully!')
-    } catch (err) {
-      console.error('Save error:', err)
-      alert('Failed to save: ' + err.message)
-    }
+    await save({
+      sectionData: {
+        ...(sectionData ?? {}),
+        development: data,
+      },
+      isComplete: false,
+    })
   }
 
   async function handleSaveAndComplete() {
-    try {
-      await save({ sectionData: data, isComplete: true })
-      alert('Section marked as complete!')
-    } catch (err) {
-      console.error('Save error:', err)
-      alert('Failed to save: ' + err.message)
-    }
+    await save({
+      sectionData: {
+        ...(sectionData ?? {}),
+        development: data,
+      },
+      isComplete: true,
+    })
+    navigate('/clinician/screening-data')
   }
 
   if (isLoading) {
@@ -405,13 +431,13 @@ export default function DevSpecialistAssessment() {
           >
             {isSaving ? 'Saving...' : 'Save (Draft)'}
           </button>
-          <button
-            onClick={handleSaveAndComplete}
-            disabled={isSaving}
-            className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-50"
-          >
-            {isSaving ? 'Saving...' : 'Save & Complete'}
-          </button>
+        <button
+          onClick={handleSaveAndComplete}
+          disabled={isSaving}
+          className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-50"
+        >
+          {isSaving ? 'Saving...' : 'Complete Section'}
+        </button>
         </div>
 
         <div className="text-center mt-8">

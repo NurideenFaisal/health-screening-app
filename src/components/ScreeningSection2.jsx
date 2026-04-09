@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useOutletContext } from 'react-router-dom'
+import { useScreeningSection } from '../hooks/useScreeningSection'
 
-const RadioGroup = ({ options, value, onChange, name }) => (
+const RadioGroup = ({ options, value, onChange }) => (
   <div className="flex flex-wrap gap-2 mt-1">
     {options.map(opt => (
       <button
@@ -64,14 +66,51 @@ const INITIAL = {
   stoolMacro: '', stoolMicro: ''
 }
 
+function buildLabState(sectionData) {
+  return {
+    ...INITIAL,
+    ...(sectionData ?? {}),
+  }
+}
+
 export default function LabInvestigations() {
-  const [lab, setLab] = useState(INITIAL)
+  const { patientId, cycleId } = useOutletContext()
+  const {
+    sectionData,
+    isComplete,
+    isLoading,
+    save,
+    isSaving,
+  } = useScreeningSection({
+    childId: patientId,
+    cycleId,
+    sectionNumber: 2,
+  })
+
+  const [lab, setLab] = useState(() => buildLabState(sectionData))
   const set = (key, val) => setLab(prev => ({ ...prev, [key]: val }))
+
+  useEffect(() => {
+    setLab(buildLabState(sectionData))
+  }, [sectionData])
+
+  async function handleSave(isCompleteValue) {
+    await save({
+      sectionData: lab,
+      isComplete: isCompleteValue,
+    })
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6 p-4 max-w-3xl mx-auto">
-
-      {/* ── Header ── */}
       <div className="flex items-center gap-3 mb-6">
         <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
           <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -82,19 +121,23 @@ export default function LabInvestigations() {
           <h2 className="text-2xl font-bold text-gray-900">Laboratory Investigations</h2>
           <p className="text-sm text-gray-600">Blood, urine, and stool examination results</p>
         </div>
+        {isComplete && (
+          <span className="ml-auto px-3 py-1 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-full">
+            Complete
+          </span>
+        )}
       </div>
 
-      {/* ── Full Blood Count ── */}
       <div className="bg-red-50 rounded-2xl p-5 border border-red-100">
         <SectionHeader color="red" title="Full Blood Count" />
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { num: 7,  key: 'wbc',  label: 'White Blood Cells (WBC)' },
-            { num: 8,  key: 'hb',   label: 'Hemoglobin (HB)' },
-            { num: 9,  key: 'mcv',  label: 'MCV' },
+            { num: 7, key: 'wbc', label: 'White Blood Cells (WBC)' },
+            { num: 8, key: 'hb', label: 'Hemoglobin (HB)' },
+            { num: 9, key: 'mcv', label: 'MCV' },
             { num: 10, key: 'mchc', label: 'MCHC' },
-            { num: 11, key: 'plt',  label: 'PLT' },
-            { num: 12, key: 'neu',  label: 'NEU' },
+            { num: 11, key: 'plt', label: 'PLT' },
+            { num: 12, key: 'neu', label: 'NEU' },
             { num: 13, key: 'lymp', label: 'LYMP' },
           ].map(f => (
             <div key={f.key}>
@@ -105,58 +148,54 @@ export default function LabInvestigations() {
         </div>
       </div>
 
-      {/* ── Blood Grouping ── */}
       <div className="bg-pink-50 rounded-2xl p-5 border border-pink-100">
         <SectionHeader color="pink" title="Blood Grouping" />
         <div className="space-y-4">
           <div>
             <FieldLabel num={14} label="Blood Group" />
-            <RadioGroup name="bloodGroup" options={['A', 'B', 'AB', 'O']} value={lab.bloodGroup} onChange={v => set('bloodGroup', v)} />
+            <RadioGroup options={['A', 'B', 'AB', 'O']} value={lab.bloodGroup} onChange={v => set('bloodGroup', v)} />
           </div>
           <div>
             <FieldLabel num={15} label="Rhesus Factor" />
-            <RadioGroup name="rhesusFactor" options={['Positive', 'Negative']} value={lab.rhesusFactor} onChange={v => set('rhesusFactor', v)} />
+            <RadioGroup options={['Positive', 'Negative']} value={lab.rhesusFactor} onChange={v => set('rhesusFactor', v)} />
           </div>
         </div>
       </div>
 
-      {/* ── Sickling Test ── */}
       <div className="bg-orange-50 rounded-2xl p-5 border border-orange-100">
         <SectionHeader color="orange" title="Sickling Test" />
         <div className="space-y-4">
           <div>
             <FieldLabel num={16} label="Sickling" />
-            <RadioGroup name="sickling" options={['Positive', 'Negative']} value={lab.sickling} onChange={v => set('sickling', v)} />
+            <RadioGroup options={['Positive', 'Negative']} value={lab.sickling} onChange={v => set('sickling', v)} />
           </div>
           <div>
             <FieldLabel num={17} label="HB Electrophoresis" />
-            <RadioGroup name="hbElectrophoresis" options={['AA', 'AS', 'SS', 'AC', 'SC']} value={lab.hbElectrophoresis} onChange={v => set('hbElectrophoresis', v)} />
+            <RadioGroup options={['AA', 'AS', 'SS', 'AC', 'SC']} value={lab.hbElectrophoresis} onChange={v => set('hbElectrophoresis', v)} />
           </div>
         </div>
       </div>
 
-      {/* ── Typhoid Test ── */}
       <div className="bg-yellow-50 rounded-2xl p-5 border border-yellow-100">
         <SectionHeader color="yellow" title="Typhoid Test (Widal)" />
         <div className="space-y-4">
           <div>
             <FieldLabel num={18} label="Salmonella Typhi O" />
-            <RadioGroup name="typhoidO" options={['1:20', '1:40', '1:80', '1:120', '1:160', '1:320']} value={lab.typhoidO} onChange={v => set('typhoidO', v)} />
+            <RadioGroup options={['1:20', '1:40', '1:80', '1:120', '1:160', '1:320']} value={lab.typhoidO} onChange={v => set('typhoidO', v)} />
           </div>
           <div>
             <FieldLabel num={19} label="Salmonella Typhi H" />
-            <RadioGroup name="typhoidH" options={['Negative', '1:20', '1:40', '1:80', '1:120', '1:160', '1:320']} value={lab.typhoidH} onChange={v => set('typhoidH', v)} />
+            <RadioGroup options={['Negative', '1:20', '1:40', '1:80', '1:120', '1:160', '1:320']} value={lab.typhoidH} onChange={v => set('typhoidH', v)} />
           </div>
         </div>
       </div>
 
-      {/* ── Malaria Test ── */}
       <div className="bg-green-50 rounded-2xl p-5 border border-green-100">
         <SectionHeader color="green" title="Malaria Test" />
         <div className="space-y-4">
           <div>
             <FieldLabel num={20} label="BF (Blood Film)" />
-            <RadioGroup name="bf" options={['Not Seen', 'Seen PF', 'Seen P ovale', 'Seen P malariae']} value={lab.bf} onChange={v => set('bf', v)} />
+            <RadioGroup options={['Not Seen', 'Seen PF', 'Seen P ovale', 'Seen P malariae']} value={lab.bf} onChange={v => set('bf', v)} />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -165,62 +204,60 @@ export default function LabInvestigations() {
             </div>
             <div>
               <FieldLabel num={22} label="RDT" />
-              <RadioGroup name="rdt" options={['Positive', 'Negative']} value={lab.rdt} onChange={v => set('rdt', v)} />
+              <RadioGroup options={['Positive', 'Negative']} value={lab.rdt} onChange={v => set('rdt', v)} />
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── Urinalysis ── */}
       <div className="bg-yellow-50 rounded-2xl p-5 border border-yellow-100">
         <SectionHeader color="yellow" title="Urinalysis" />
         <div className="space-y-4">
           <div>
             <FieldLabel num={23} label="Appearance" />
-            <RadioGroup name="uAppearance" options={['Clear', 'Cloudy', 'Bloody', 'Hazy']} value={lab.uAppearance} onChange={v => set('uAppearance', v)} />
+            <RadioGroup options={['Clear', 'Cloudy', 'Bloody', 'Hazy']} value={lab.uAppearance} onChange={v => set('uAppearance', v)} />
           </div>
           <div>
             <FieldLabel num={24} label="Color" />
-            <RadioGroup name="uColor" options={['Straw', 'Amber']} value={lab.uColor} onChange={v => set('uColor', v)} />
+            <RadioGroup options={['Straw', 'Amber']} value={lab.uColor} onChange={v => set('uColor', v)} />
           </div>
           <div>
             <FieldLabel num={25} label="pH" />
-            <RadioGroup name="uPh" options={['5.0','5.5','6.0','6.5','7.0','7.5','8.0','8.5','9.0']} value={lab.uPh} onChange={v => set('uPh', v)} />
+            <RadioGroup options={['5.0', '5.5', '6.0', '6.5', '7.0', '7.5', '8.0', '8.5', '9.0']} value={lab.uPh} onChange={v => set('uPh', v)} />
           </div>
           <div>
             <FieldLabel num={26} label="SG" />
-            <RadioGroup name="uSg" options={['1.000','1.005','1.010','1.015','1.020','1.025','1.030']} value={lab.uSg} onChange={v => set('uSg', v)} />
+            <RadioGroup options={['1.000', '1.005', '1.010', '1.015', '1.020', '1.025', '1.030']} value={lab.uSg} onChange={v => set('uSg', v)} />
           </div>
           {[
             { num: 27, key: 'uProtein', label: 'Protein' },
             { num: 28, key: 'uGlucose', label: 'Glucose' },
             { num: 29, key: 'uNitrite', label: 'Nitrite' },
-            { num: 30, key: 'uLeuco',   label: 'Leucocytes' },
-            { num: 31, key: 'uBili',    label: 'Bilirubin' },
-            { num: 32, key: 'uBlood',   label: 'Blood' },
-            { num: 33, key: 'uKetone',  label: 'Ketone' },
+            { num: 30, key: 'uLeuco', label: 'Leucocytes' },
+            { num: 31, key: 'uBili', label: 'Bilirubin' },
+            { num: 32, key: 'uBlood', label: 'Blood' },
+            { num: 33, key: 'uKetone', label: 'Ketone' },
           ].map(f => (
             <div key={f.key}>
               <FieldLabel num={f.num} label={f.label} />
-              <RadioGroup name={f.key} options={['Pos+1','Pos+2','Pos+3','Negative']} value={lab[f.key]} onChange={v => set(f.key, v)} />
+              <RadioGroup options={['Pos+1', 'Pos+2', 'Pos+3', 'Negative']} value={lab[f.key]} onChange={v => set(f.key, v)} />
             </div>
           ))}
           <div>
             <FieldLabel num={34} label="Urobilinogen" />
-            <RadioGroup name="uUrobil" options={['Normal', 'Increasing']} value={lab.uUrobil} onChange={v => set('uUrobil', v)} />
+            <RadioGroup options={['Normal', 'Increasing']} value={lab.uUrobil} onChange={v => set('uUrobil', v)} />
           </div>
         </div>
       </div>
 
-      {/* ── Urine Microscopy ── */}
       <div className="bg-cyan-50 rounded-2xl p-5 border border-cyan-100">
         <SectionHeader color="cyan" title="Urine Microscopy" />
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {[
-              { num: 35, key: 'umPusCells',   label: 'Pus Cells' },
+              { num: 35, key: 'umPusCells', label: 'Pus Cells' },
               { num: 36, key: 'umEpithCells', label: 'Epith Cells' },
-              { num: 37, key: 'umRBCs',        label: 'RBCs' },
+              { num: 37, key: 'umRBCs', label: 'RBCs' },
             ].map(f => (
               <div key={f.key}>
                 <FieldLabel num={f.num} label={f.label} />
@@ -229,18 +266,18 @@ export default function LabInvestigations() {
             ))}
           </div>
           {[
-            { num: 38, key: 'umYeastCells',  label: 'Yeast Cells' },
+            { num: 38, key: 'umYeastCells', label: 'Yeast Cells' },
             { num: 39, key: 'umSHematobium', label: 'S. Hematobium' },
             { num: 40, key: 'umTrichomonas', label: 'Trichomonas Vaginalis' },
           ].map(f => (
             <div key={f.key}>
               <FieldLabel num={f.num} label={f.label} />
-              <RadioGroup name={f.key} options={['Seen +1','Seen +2','Seen +3','Not Seen']} value={lab[f.key]} onChange={v => set(f.key, v)} />
+              <RadioGroup options={['Seen +1', 'Seen +2', 'Seen +3', 'Not Seen']} value={lab[f.key]} onChange={v => set(f.key, v)} />
             </div>
           ))}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {[
-              { num: 41, key: 'umCast',     label: 'Cast' },
+              { num: 41, key: 'umCast', label: 'Cast' },
               { num: 42, key: 'umCrystals', label: 'Crystals' },
             ].map(f => (
               <div key={f.key}>
@@ -252,7 +289,6 @@ export default function LabInvestigations() {
         </div>
       </div>
 
-      {/* ── Stool Examination ── */}
       <div className="bg-amber-50 rounded-2xl p-5 border border-amber-100">
         <SectionHeader color="amber" title="Stool Examination" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -267,24 +303,24 @@ export default function LabInvestigations() {
         </div>
       </div>
 
-      {/* ── Buttons ── */}
       <div className="flex gap-3 pt-2">
         <button
           type="button"
-          onClick={() => alert('Save Draft clicked')}
-          className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold rounded-xl transition-colors"
+          onClick={() => handleSave(false)}
+          disabled={isSaving}
+          className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold rounded-xl transition-colors disabled:opacity-50"
         >
-          Save Draft
+          {isSaving ? 'Saving...' : 'Save Draft'}
         </button>
         <button
           type="button"
-          onClick={() => alert('Save & Complete clicked — payload: ' + JSON.stringify(lab, null, 2))}
-          className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-sm font-semibold rounded-xl transition-colors"
+          onClick={() => handleSave(true)}
+          disabled={isSaving}
+          className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-50"
         >
-          Save & Complete →
+          {isSaving ? 'Saving...' : 'Save & Complete'}
         </button>
       </div>
-
     </div>
   )
 }
