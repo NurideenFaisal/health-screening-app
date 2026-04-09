@@ -25,6 +25,21 @@ const INITIAL = {
   signDate: new Date().toISOString().split('T')[0]
 }
 
+function buildSummaryDiagnosisState(sectionData) {
+  return {
+    ...INITIAL,
+    ...sectionData,
+    diagnosisOptions: {
+      ...INITIAL.diagnosisOptions,
+      ...(sectionData?.diagnosisOptions ?? {}),
+    },
+    treatmentGiven: {
+      ...INITIAL.treatmentGiven,
+      ...(sectionData?.treatmentGiven ?? {}),
+    },
+  }
+}
+
 export default function SummaryDiagnosis() {
   // Get context from ClinicianScreeningForm
   const { patientId, cycleId } = useOutletContext()
@@ -44,17 +59,12 @@ export default function SummaryDiagnosis() {
 
   // Initialize form with existing data or defaults
   const [formData, setFormData] = useState(() => {
-    if (sectionData) {
-      return { ...INITIAL, ...sectionData }
-    }
-    return INITIAL
+    return buildSummaryDiagnosisState(sectionData)
   })
 
   // Update form when sectionData loads
   useEffect(() => {
-    if (sectionData) {
-      setFormData({ ...INITIAL, ...sectionData })
-    }
+    setFormData(buildSummaryDiagnosisState(sectionData))
   }, [sectionData])
 
   const updateField = (field, value) =>

@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { useOutletContext } from 'react-router-dom';
-import { Syringe } from 'lucide-react';
-import { useScreeningSection } from '../../hooks/useScreeningSection';
+import React, { useState, useEffect } from 'react'
+import { useNavigate, useOutletContext } from 'react-router-dom'
+import { Syringe } from 'lucide-react'
+import { useScreeningSection } from '../../hooks/useScreeningSection'
 
 const immunizationList = [
   { code: 'BCG', name: 'Bacillus Calmette-Guérin' },
@@ -16,14 +16,14 @@ const immunizationList = [
   { code: 'MR', name: 'Measles, Rubella' },
   { code: 'HPV', name: 'Human Papillomavirus' },
   { code: 'TD', name: 'Tetanus, Diphtheria' }
-];
+]
 
 const timeOptions = [
   { label: '6 months ago', value: '6_months' },
   { label: '1 year ago', value: '1_year' },
   { label: '2 years ago', value: '2_years' },
   { label: '5 years ago', value: '5_years' }
-];
+]
 
 const INITIAL = {
   immunizations: immunizationList.reduce((acc, vaccine) => {
@@ -33,11 +33,23 @@ const INITIAL = {
   childhoodImmunizationComplete: false,
   vitaminA: '',
   deworming: ''
-};
+}
+
+function buildImmunizationFormState(existingImmunizationData) {
+  return {
+    ...INITIAL,
+    ...existingImmunizationData,
+    immunizations: {
+      ...INITIAL.immunizations,
+      ...(existingImmunizationData?.immunizations ?? {}),
+    },
+  }
+}
 
 const ImmunizationSection = () => {
   // Get context from ClinicianScreeningForm
   const { patientId, cycleId } = useOutletContext()
+  const navigate = useNavigate()
   
   // Use the new normalized hook - Immunization is part of Section 1
   const { 
@@ -52,20 +64,17 @@ const ImmunizationSection = () => {
     sectionNumber: 1, // Part of Section 1
   })
 
+  const existingImmunizationData = sectionData?.immunization ?? sectionData ?? null
+
   // Initialize form with existing data or defaults
   const [formData, setFormData] = useState(() => {
-    if (sectionData) {
-      return { ...INITIAL, ...sectionData }
-    }
-    return INITIAL
+    return buildImmunizationFormState(existingImmunizationData)
   })
 
   // Update form when sectionData loads
   useEffect(() => {
-    if (sectionData) {
-      setFormData({ ...INITIAL, ...sectionData })
-    }
-  }, [sectionData])
+    setFormData(buildImmunizationFormState(existingImmunizationData))
+  }, [existingImmunizationData])
 
   // Helper to determine if all vaccines are currently checked
   const isAllSelected = immunizationList.every(
@@ -73,8 +82,8 @@ const ImmunizationSection = () => {
   );
 
   const updateField = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
+    setFormData(prev => ({ ...prev, [field]: value }))
+  }
 
   const updateNestedField = (parent, key, value) => {
     setFormData(prev => ({
@@ -83,42 +92,43 @@ const ImmunizationSection = () => {
         ...prev[parent],
         [key]: value
       }
-    }));
-  };
+    }))
+  }
 
   // Toggle Select/Deselect All
   const handleToggleAll = () => {
-    const newState = !isAllSelected;
+    const newState = !isAllSelected
     const updatedImmunizations = immunizationList.reduce((acc, vaccine) => {
-      acc[vaccine.code] = { received: newState };
-      return acc;
-    }, {});
+      acc[vaccine.code] = { received: newState }
+      return acc
+    }, {})
 
     setFormData(prev => ({
       ...prev,
       immunizations: updatedImmunizations,
       childhoodImmunizationComplete: newState 
-    }));
-  };
-
-  async function handleSave() {
-    try {
-      await save({ sectionData: formData, isComplete: false })
-      alert('Saved successfully!')
-    } catch (err) {
-      console.error('Save error:', err)
-      alert('Failed to save: ' + err.message)
-    }
+    }))
   }
 
-  async function handleSaveAndComplete() {
-    try {
-      await save({ sectionData: formData, isComplete: true })
-      alert('Section marked as complete!')
-    } catch (err) {
-      console.error('Save error:', err)
-      alert('Failed to save: ' + err.message)
-    }
+  async function handleSave() {
+    await save({
+      sectionData: {
+        ...(sectionData ?? {}),
+        immunization: formData,
+      },
+      isComplete: false,
+    })
+  }
+
+  async function handleSaveAndNext() {
+    await save({
+      sectionData: {
+        ...(sectionData ?? {}),
+        immunization: formData,
+      },
+      isComplete: false,
+    })
+    navigate(`/clinician/patient/${patientId}/development`)
   }
 
   if (isLoading) {
@@ -257,15 +267,15 @@ const ImmunizationSection = () => {
           {isSaving ? 'Saving...' : 'Save (Draft)'}
         </button>
         <button
-          onClick={handleSaveAndComplete}
+          onClick={handleSaveAndNext}
           disabled={isSaving}
           className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-50"
         >
-          {isSaving ? 'Saving...' : 'Save & Complete'}
+          {isSaving ? 'Saving...' : 'Next: Development'}
         </button>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default ImmunizationSection;
+export default ImmunizationSection

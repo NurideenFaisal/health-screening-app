@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useOutletContext } from 'react-router-dom'
+import { useNavigate, useOutletContext } from 'react-router-dom'
 import { Activity } from 'lucide-react'
 import { useScreeningSection } from '../../hooks/useScreeningSection'
 
@@ -64,9 +64,54 @@ const INITIAL = {
   signsOfAbuseComment: '',
 }
 
+function buildVitalsFormState(existingVitalsData) {
+  if (!existingVitalsData) {
+    return {
+      ...INITIAL,
+      physicalAppearance: { ...INITIAL.physicalAppearance },
+      physicalExam: {
+        ...INITIAL.physicalExam,
+        head: { ...INITIAL.physicalExam.head },
+        chest: { ...INITIAL.physicalExam.chest },
+        abdomen: { ...INITIAL.physicalExam.abdomen },
+        genitourinary: { ...INITIAL.physicalExam.genitourinary },
+        superiorExtremities: { ...INITIAL.physicalExam.superiorExtremities },
+        inferiorExtremities: { ...INITIAL.physicalExam.inferiorExtremities },
+        mentalHealthStatus: { ...INITIAL.physicalExam.mentalHealthStatus },
+      },
+      bodySystems: { ...INITIAL.bodySystems },
+    }
+  }
+
+  return {
+    ...INITIAL,
+    ...existingVitalsData,
+    physicalAppearance: {
+      ...INITIAL.physicalAppearance,
+      ...(existingVitalsData.physicalAppearance ?? {}),
+    },
+    physicalExam: {
+      ...INITIAL.physicalExam,
+      ...(existingVitalsData.physicalExam ?? {}),
+      head: { ...INITIAL.physicalExam.head, ...(existingVitalsData.physicalExam?.head ?? {}) },
+      chest: { ...INITIAL.physicalExam.chest, ...(existingVitalsData.physicalExam?.chest ?? {}) },
+      abdomen: { ...INITIAL.physicalExam.abdomen, ...(existingVitalsData.physicalExam?.abdomen ?? {}) },
+      genitourinary: { ...INITIAL.physicalExam.genitourinary, ...(existingVitalsData.physicalExam?.genitourinary ?? {}) },
+      superiorExtremities: { ...INITIAL.physicalExam.superiorExtremities, ...(existingVitalsData.physicalExam?.superiorExtremities ?? {}) },
+      inferiorExtremities: { ...INITIAL.physicalExam.inferiorExtremities, ...(existingVitalsData.physicalExam?.inferiorExtremities ?? {}) },
+      mentalHealthStatus: { ...INITIAL.physicalExam.mentalHealthStatus, ...(existingVitalsData.physicalExam?.mentalHealthStatus ?? {}) },
+    },
+    bodySystems: {
+      ...INITIAL.bodySystems,
+      ...(existingVitalsData.bodySystems ?? {}),
+    },
+  }
+}
+
 export default function Vitals() {
   // Get context from ClinicianScreeningForm
   const { patientId, patient, cycleId } = useOutletContext()
+  const navigate = useNavigate()
 
   // LOCAL LOGIC FIX: Track which specific button was clicked
   const [isDrafting, setIsDrafting] = useState(false)
@@ -85,23 +130,20 @@ export default function Vitals() {
     sectionNumber: 1, // Vitals is section 1
   })
 
+  const existingVitalsData = sectionData?.vitals ?? sectionData ?? null
+
   // Initialize form with existing data or defaults
   const [formData, setFormData] = useState(() => {
-    if (sectionData) {
-      return { ...INITIAL, ...sectionData }
-    }
-    return INITIAL
+    return buildVitalsFormState(existingVitalsData)
   })
 
   // Update form when sectionData loads
   useEffect(() => {
-    if (sectionData) {
-      setFormData({ ...INITIAL, ...sectionData })
-    }
-  }, [sectionData])
+    setFormData(buildVitalsFormState(existingVitalsData))
+  }, [existingVitalsData])
 
   const child = patient || {}
-  const age = calculateAge(child.birthdate)
+  calculateAge(child.birthdate)
 
   // Auto-calculate BMI
   useEffect(() => {
@@ -140,16 +182,29 @@ export default function Vitals() {
   async function handleSave() {
     setIsDrafting(true)
     try {
-      await save({ sectionData: formData, isComplete: false })
+      await save({
+        sectionData: {
+          ...(sectionData ?? {}),
+          vitals: formData,
+        },
+        isComplete: false,
+      })
     } finally {
       setIsDrafting(false)
     }
   }
 
-  async function handleSaveAndComplete() {
+  async function handleSaveAndNext() {
     setIsCompleting(true)
     try {
-      await save({ sectionData: formData, isComplete: true })
+      await save({
+        sectionData: {
+          ...(sectionData ?? {}),
+          vitals: formData,
+        },
+        isComplete: false,
+      })
+      navigate(`/clinician/patient/${patientId}/immunization`)
     } finally {
       setIsCompleting(false)
     }
@@ -462,7 +517,7 @@ export default function Vitals() {
         </button>
 
         <button
-          onClick={handleSaveAndComplete}
+          onClick={handleSaveAndNext}
           disabled={isSaving}
           className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md shadow-emerald-100"
         >
@@ -470,10 +525,7 @@ export default function Vitals() {
             <div className="w-4 h-4 border-2 border-emerald-200 border-t-white rounded-full animate-spin" />
           ) : (
             <>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
-              </svg>
-              Complete
+              Next: Immunization
             </>
           )}
         </button>

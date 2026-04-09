@@ -18,6 +18,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { toast } from 'sonner' // Using Sonner for global notifications
+import { useActiveCycleQuery } from './useActiveCycleQuery'
 
 /**
  * useScreeningSection
@@ -83,7 +84,7 @@ export function useScreeningSection({ childId, cycleId, sectionNumber }) {
       if (variables.isComplete) {
         toast.success(`Section ${sectionNumber} marked as complete!`, {
           description: 'This section is now locked for review.',
-          icon: '✅',
+          icon: '',
         })
       } else {
         toast.info('Progress saved as draft', {
@@ -123,17 +124,5 @@ export function useScreeningSection({ childId, cycleId, sectionNumber }) {
  * Helper to ensure we are always writing to the current clinic cycle.
  */
 export function useActiveCycle() {
-  return useQuery({
-    queryKey: ['active-cycle'],
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('cycles')
-        .select('id, name, is_active')
-        .eq('is_active', true)
-        .maybeSingle()
-      if (error) throw error
-      return data
-    },
-  })
+  return useActiveCycleQuery()
 }

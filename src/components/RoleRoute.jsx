@@ -2,8 +2,12 @@ import { Navigate } from 'react-router-dom'
 import { Users, Shield, ShieldAlert, ShieldCheck, AlertTriangle } from 'lucide-react'
 
 export default function RoleRoute({ requiredRole, user, profile, children }) {
-  // Still loading user or profile
-  if (!user || !profile) {
+  if (!user) {
+    return <Navigate to="/login" replace />
+  }
+
+  // Still loading profile for an authenticated user
+  if (!profile) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -14,17 +18,11 @@ export default function RoleRoute({ requiredRole, user, profile, children }) {
     )
   }
 
-  // User not authenticated
-  if (!user) return <Navigate to="/login" replace />
-
   // Convert to array if single role
   const allowedRoles = Array.isArray(requiredRole) ? requiredRole : [requiredRole]
 
   // Check if user is trying to access super-admin route
   const isSuperAdminRoute = window.location.pathname.startsWith('/super-admin')
-  
-  // Check if user is trying to access admin route
-  const isAdminRoute = window.location.pathname.startsWith('/admin')
   
   // Super-admin can ONLY access super-admin routes
   if (profile.role === 'super-admin') {

@@ -6,7 +6,6 @@ import {
   LayoutDashboard,
   Building2,
   Users,
-  Settings,
   LogOut,
   Menu,
   ChevronLeft,
@@ -37,7 +36,7 @@ export default function SuperAdminSidebar() {
     { name: 'Dashboard', route: 'dashboard', icon: LayoutDashboard },
     { name: 'Clinic Registry', route: 'clinics', icon: Building2 },
     { name: 'User Management', route: 'users', icon: Users },
-    { name: 'Settings', route: 'settings', icon: Settings },
+    { name: 'Launch Clinic', route: 'launch-clinic', icon: Rocket },
   ]
 
   const isActive = (route) => {
