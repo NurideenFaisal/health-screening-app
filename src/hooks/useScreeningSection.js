@@ -78,6 +78,7 @@ export function useScreeningSection({ childId, cycleId, sectionNumber }) {
       // 1. Refresh relevant data caches
       queryClient.invalidateQueries({ queryKey })
       queryClient.invalidateQueries({ queryKey: ['screening-queue'] })
+      queryClient.invalidateQueries({ queryKey: ['children-deep-search'] })
       queryClient.invalidateQueries({ queryKey: ['clinician-stats'] })
 
       // 2. Trigger the appropriate Toast

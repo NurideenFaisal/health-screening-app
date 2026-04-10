@@ -1,10 +1,13 @@
 import { useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { useAuthStore } from '../store/authStore'
 import { useActiveCycleQuery } from './useActiveCycleQuery'
 
 export function useClinicianScreeningBootstrap({ childId, sectionNumber, initialPatient = null }) {
   const queryClient = useQueryClient()
+  const { profile } = useAuthStore()
+  const clinicId = profile?.clinic_id
   const activeCycleQuery = useActiveCycleQuery()
 
   const patientQuery = useQuery({
@@ -12,12 +15,16 @@ export function useClinicianScreeningBootstrap({ childId, sectionNumber, initial
     enabled: !!childId,
     initialData: initialPatient ?? undefined,
     queryFn: async () => {
-      const { data, error } = await supabase
+      let childQuery = supabase
         .from('children')
         .select('*')
         .eq('id', childId)
-        .single()
 
+      if (clinicId) {
+        childQuery = childQuery.eq('clinic_id', clinicId)
+      }
+
+      const { data, error } = await childQuery.single()
       if (error) throw error
       return data
     },

@@ -4,64 +4,45 @@ import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../store/authStore'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Search, X, ChevronRight, Loader2, WifiOff } from 'lucide-react'
+import { useActiveCycleQuery } from '../../hooks/useActiveCycleQuery'
 import {
-  SECTIONS,
   getSectionLabel,
   getSectionPills,
 } from '../../config/sections'
 
 const STATUS_WEIGHT = { done: 0, ready: 1, screened: 2 }
 
-function withDefaultSections(sectionsObj = {}) {
-  const next = { ...sectionsObj }
-  SECTIONS.forEach(s => {
-    if (next[`s${s.value}`] === undefined) {
-      next[`s${s.value}`] = false
-    }
-  })
-  return next
+const determinePatientStatus = (sections = {}, mySection) => {
+  const allComplete = [1, 2, 3, 4].every(num => sections[`s${num}`] === true)
+  if (allComplete) return 'screened'
+  if (sections[`s${mySection}`] === true) return 'done'
+  return 'ready'
 }
 
-function buildPatient(child, screeningMap, sectionsMap, mySection) {
-  const scrInfo = screeningMap[child.id]
-  const scrId = scrInfo?.id
-  const sections = withDefaultSections(sectionsMap[scrId])
-  const allComplete = SECTIONS.every(s => sections[`s${s.value}`] === true)
-  const doneHere = sections[`s${mySection}`] === true
-
-  let status = 'ready'
-  if (allComplete) {
-    status = 'screened'
-  } else if (doneHere) {
-    status = 'done'
-  }
-
-  return {
-    dbId: child.id,
-    first_name: child.first_name,
-    last_name: child.last_name,
-    code: child.child_code,
-    child_code: child.child_code,
-    name: `${child.first_name} ${child.last_name}`,
-    community: child.community,
-    birthdate: child.birthdate,
-    rawGender: child.gender,
-    gender: child.gender === 'M' ? 'Male' : 'Female',
-    updatedAt: scrInfo?.updated_at || '0',
-    sections,
-    status,
-  }
-}
+const mapRpcPatient = (row, mySection) => ({
+  ...row,
+  dbId: row.db_id ?? row.id,
+  code: row.child_code,
+  name: `${row.first_name} ${row.last_name}`,
+  gender: row.gender === 'M' ? 'Male' : row.gender === 'F' ? 'Female' : row.gender,
+  status: determinePatientStatus(row.section_data, mySection),
+  sections: row.section_data ?? {},
+  updatedAt: row.last_updated ?? '0',
+})
 
 export default function ClinicianScreeningData() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { profile, activeCycle, fetchActiveCycle } = useAuthStore()
+  const { profile } = useAuthStore()
+  const activeCycleQuery = useActiveCycleQuery()
+  const activeCycle = activeCycleQuery.data ?? null
   const [query, setQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
 
   const mySection = profile?.section ?? '1'
-  const queueCacheKey = `clinician-screening-queue-${mySection}`
+  const clinicId = profile?.clinic_id
+  const activeCycleId = activeCycle?.id ?? 'none'
+  const queueCacheKey = `clinician-queue-${clinicId ?? 'all'}-${mySection}-${activeCycleId}`
 
   const cachedQueueData = useMemo(() => {
     try {
@@ -71,11 +52,6 @@ export default function ClinicianScreeningData() {
       return undefined
     }
   }, [queueCacheKey])
-
-  // Fetch active cycle once on mount (uses cached value if available)
-  useEffect(() => {
-    fetchActiveCycle()
-  }, [])
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -97,7 +73,7 @@ export default function ClinicianScreeningData() {
       child_code: patient.child_code,
       community: patient.community,
       birthdate: patient.birthdate,
-      gender: patient.rawGender,
+      gender: patient.gender === 'Female' ? 'F' : 'M',
     }
 
     queryClient.setQueryData(['child', patient.dbId], current => current ?? patientSnapshot)
@@ -134,72 +110,26 @@ export default function ClinicianScreeningData() {
     })
   }
 
-  // ── FETCH: Direct query to show all patients in the cycle ──────────────────────────
   const { data: queueData, isLoading, isFetching, error: queryError } = useQuery({
-    queryKey: ['screening-queue', mySection],
+    queryKey: ['screening-queue', clinicId, mySection, activeCycleId],
+    enabled: !activeCycleQuery.isLoading,
     initialData: cachedQueueData,
     queryFn: async () => {
-      // Use cached active cycle if available
-      let cycle = activeCycle
-      if (!cycle) {
-        cycle = await fetchActiveCycle()
-      }
+      if (!activeCycle) return { cycle: null, patients: [] }
 
-      if (!cycle) {
-        if (cachedQueueData) return cachedQueueData
-        return { cycle: null, patients: [] }
-      }
-
-      const { data: screenings, error: screeningsError } = await supabase
-        .from('screenings')
-        .select('id, child_id, updated_at')
-        .eq('cycle_id', cycle.id)
-
-      if (screeningsError) throw screeningsError
-
-      const screeningIds = screenings?.map(s => s.id) ?? []
-      const childIds = [...new Set(screenings?.map(s => s.child_id).filter(Boolean) ?? [])]
-
-      const { data: children, error: childrenError } = childIds.length > 0
-        ? await supabase
-          .from('children')
-          .select('id, child_code, first_name, last_name, gender, birthdate, community')
-          .in('id', childIds)
-          .order('last_name', { ascending: true })
-          .order('first_name', { ascending: true })
-        : { data: [], error: null }
-
-      if (childrenError) throw childrenError
-
-      const { data: allSections, error: sectionsError } = screeningIds.length > 0
-        ? await supabase
-          .from('screening_sections')
-          .select('screening_id, section_number, is_complete')
-          .in('screening_id', screeningIds)
-        : { data: [], error: null }
-
-      if (sectionsError) throw sectionsError
-
-      const screeningMap = {}
-      screenings?.forEach(s => {
-        screeningMap[s.child_id] = { id: s.id, updated_at: s.updated_at }
+      const { data, error } = await supabase.rpc('search_clinic_patients', {
+        search_term: '',
+        target_cycle_id: activeCycle.id,
+        target_clinic_id: clinicId,
       })
 
-      const sectionsMap = {}
-      ; (allSections ?? []).forEach(sec => {
-        const sId = sec.screening_id
-        if (!sectionsMap[sId]) sectionsMap[sId] = {}
-        sectionsMap[sId][`s${sec.section_number}`] = sec.is_complete
-      })
+      if (error) throw error
 
-      const patients = (children ?? []).map(child =>
-        buildPatient(child, screeningMap, sectionsMap, mySection)
-      )
-
-      return { cycle, patients }
+      const patients = (data ?? []).map(row => mapRpcPatient(row, mySection))
+      return { cycle: activeCycle, patients }
     },
     staleTime: 30000,
-    refetchInterval: () => (navigator.onLine ? 5000 : false),
+    refetchInterval: () => (navigator.onLine ? 10000 : false),
   })
 
   useEffect(() => {
@@ -212,122 +142,44 @@ export default function ClinicianScreeningData() {
     }
   }, [queueCacheKey, queueData])
 
-  const localMatches = useMemo(() => {
-    const searchTerm = debouncedQuery.toLowerCase()
-    if (!searchTerm) return []
-
-    return (queueData?.patients ?? [])
-      .filter(p =>
-        p.name.toLowerCase().includes(searchTerm) ||
-        p.code.toLowerCase().includes(searchTerm)
-      )
-      .sort((a, b) => {
-        const byStatus = STATUS_WEIGHT[a.status] - STATUS_WEIGHT[b.status]
-        if (byStatus !== 0) return byStatus
-        return new Date(b.updatedAt) - new Date(a.updatedAt)
-      })
-      .slice(0, 10)
-  }, [debouncedQuery, queueData])
-
-  const shouldRunRemoteSearch = debouncedQuery.length >= 3 && localMatches.length === 0
+  const shouldRunRemoteSearch = debouncedQuery.length >= 3
 
   const { data: remoteMatches = [], isFetching: isSearchingRemote } = useQuery({
-    queryKey: ['children-deep-search', mySection, activeCycle?.id ?? 'no-cycle', debouncedQuery],
-    enabled: shouldRunRemoteSearch,
-    staleTime: 30000,
+    queryKey: ['children-deep-search', clinicId, activeCycleId, debouncedQuery],
+    enabled: shouldRunRemoteSearch && !activeCycleQuery.isLoading,
+    staleTime: 60000,
     queryFn: async () => {
-      const cycle = activeCycle ?? await fetchActiveCycle()
-      const searchTerm = debouncedQuery.trim()
-      const searchPattern = `%${searchTerm}%`
-
-      const { data: children, error: childrenError } = await supabase
-        .from('children')
-        .select('id, child_code, first_name, last_name, gender, birthdate, community')
-        .or(`child_code.ilike.${searchPattern},first_name.ilike.${searchPattern},last_name.ilike.${searchPattern}`)
-        .order('last_name', { ascending: true })
-        .order('first_name', { ascending: true })
-        .limit(10)
-
-      if (childrenError) throw childrenError
-
-      if (!children?.length) return []
-
-      const childIds = children.map(child => child.id)
-
-      const { data: screenings, error: screeningsError } = cycle
-        ? await supabase
-          .from('screenings')
-          .select('id, child_id, updated_at')
-          .eq('cycle_id', cycle.id)
-          .in('child_id', childIds)
-        : { data: [], error: null }
-
-      if (screeningsError) throw screeningsError
-
-      const screeningIds = screenings?.map(s => s.id) ?? []
-      const { data: allSections, error: sectionsError } = screeningIds.length > 0
-        ? await supabase
-          .from('screening_sections')
-          .select('screening_id, section_number, is_complete')
-          .in('screening_id', screeningIds)
-        : { data: [], error: null }
-
-      if (sectionsError) throw sectionsError
-
-      const screeningMap = {}
-      ; (screenings ?? []).forEach(s => {
-        screeningMap[s.child_id] = { id: s.id, updated_at: s.updated_at }
+      const { data, error } = await supabase.rpc('search_clinic_patients', {
+        search_term: debouncedQuery,
+        target_cycle_id: activeCycle?.id ?? null,
+        target_clinic_id: clinicId,
       })
 
-      const sectionsMap = {}
-      ; (allSections ?? []).forEach(sec => {
-        if (!sectionsMap[sec.screening_id]) sectionsMap[sec.screening_id] = {}
-        sectionsMap[sec.screening_id][`s${sec.section_number}`] = sec.is_complete
-      })
-
-      return children.map(child => buildPatient(child, screeningMap, sectionsMap, mySection))
+      if (error) throw error
+      return (data ?? []).map(row => mapRpcPatient(row, mySection))
     },
   })
 
-  useEffect(() => {
-    if (!remoteMatches.length) return
-
-    queryClient.setQueryData(['screening-queue', mySection], current => {
-      const base = current ?? queueData ?? { cycle: activeCycle ?? null, patients: [] }
-      const mergedPatients = [...(base.patients ?? [])]
-
-      remoteMatches.forEach(match => {
-        const existingIndex = mergedPatients.findIndex(patient => patient.dbId === match.dbId)
-        if (existingIndex >= 0) {
-          mergedPatients[existingIndex] = match
-        } else {
-          mergedPatients.push(match)
-        }
-      })
-
-      return {
-        ...base,
-        cycle: base.cycle ?? activeCycle ?? null,
-        patients: mergedPatients,
-      }
-    })
-  }, [activeCycle, mySection, queryClient, queueData, remoteMatches])
-
   const filtered = useMemo(() => {
-    const allPatients = queueData?.patients ?? []
     const searchTerm = debouncedQuery.toLowerCase().trim()
-
     if (searchTerm.length > 0) {
-      return localMatches.length > 0 ? localMatches : remoteMatches
+      const source = remoteMatches.length > 0 ? remoteMatches : (queueData?.patients ?? [])
+      return source
+        .filter(p =>
+          p.name.toLowerCase().includes(searchTerm) ||
+          p.child_code.toLowerCase().includes(searchTerm)
+        )
+        .sort((a, b) => STATUS_WEIGHT[a.status] - STATUS_WEIGHT[b.status])
+        .slice(0, 15)
     }
 
-    return allPatients
+    return (queueData?.patients ?? [])
       .filter(p => p.status === 'done')
       .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
       .slice(0, 5)
-  }, [debouncedQuery, localMatches, queueData, remoteMatches])
+  }, [debouncedQuery, queueData, remoteMatches])
 
-  if (isLoading && !queueData) {
+  if ((activeCycleQuery.isLoading || isLoading) && !queueData) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <Loader2 className="animate-spin text-emerald-500" size={32} />
@@ -338,12 +190,12 @@ export default function ClinicianScreeningData() {
   const sectionPills = getSectionPills()
 
   return (
-    <div className="min-h-screen bg-gray-100 p-3 sm:p-6 lg:p-10 font-sans">
-      <div className="bg-white rounded-2xl shadow-sm overflow-hidden w-full sm:max-w-lg sm:mx-auto lg:max-w-2xl">
+    <div className="min-h-screen bg-gray-100 p-4 sm:p-6 lg:p-10 font-sans">
+      <div className="bg-white rounded-2xl shadow-sm overflow-hidden w-full max-w-[1440px] mx-auto">
 
         {/* HEADER & SEARCH */}
         <div className="px-4 pt-4 pb-3 sm:px-6 sm:pt-6 sm:pb-4 border-b border-gray-100 space-y-3">
-          {queryError && (
+          {(queryError || activeCycleQuery.error) && (
             <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
               <WifiOff size={14} className="mt-0.5 shrink-0" />
               <div>
@@ -353,11 +205,11 @@ export default function ClinicianScreeningData() {
           )}
 
           <div className="flex items-start justify-between">
-            <div className="flex flex-col">
-              <h2 className="text-sm sm:text-base font-bold text-gray-900 tracking-tight">
+            <div className="flex flex-col min-w-0">
+              <h2 className="text-base sm:text-lg font-semibold text-slate-900 tracking-tight">
                 Section {mySection}
               </h2>
-              <p className="text-xs text-gray-400 mt-0.5">{getSectionLabel(mySection)}</p>
+              <p className="text-sm text-slate-500 mt-1">{getSectionLabel(mySection)}</p>
             </div>
 
             <div className="flex flex-col items-end gap-1.5">

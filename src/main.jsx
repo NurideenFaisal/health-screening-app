@@ -10,11 +10,24 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5,
-      cacheTime: 1000 * 60 * 30,
+      gcTime: 1000 * 60 * 30,
       refetchOnWindowFocus: false,
     },
   },
 })
+
+async function loadClinicName(profile) {
+  if (!profile?.clinic_id) return profile
+
+  const { data: clinic, error } = await supabase
+    .from('clinics')
+    .select('name')
+    .eq('id', profile.clinic_id)
+    .single()
+
+  if (error) return profile
+  return { ...profile, clinic_name: clinic?.name || profile.clinic_name }
+}
 
 async function init() {
   const { setAuth, clearAuth } = useAuthStore.getState()
@@ -29,9 +42,11 @@ async function init() {
       .eq('id', session.user.id)
       .single()
 
+    const profileWithClinic = await loadClinicName(profile)
+
     // Handle case where profile doesn't exist or has NULL clinic_id (super-admin)
     // We proceed even without a profile - the app will handle it
-    setAuth(session.user, error ? null : profile)
+    setAuth(session.user, error ? null : profileWithClinic)
   } else {
     clearAuth()
   }
@@ -46,7 +61,8 @@ async function init() {
         .eq('id', session.user.id)
         .single()
 
-      setAuth(session.user, error ? null : profile)
+      const profileWithClinic = await loadClinicName(profile)
+      setAuth(session.user, error ? null : profileWithClinic)
     } else {
       clearAuth()
     }

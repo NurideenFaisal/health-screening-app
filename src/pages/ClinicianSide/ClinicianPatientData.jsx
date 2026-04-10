@@ -132,7 +132,7 @@ export default function PatientSearch() {
 
   return (
     <div className="min-h-screen bg-gray-100 p-3 sm:p-6 lg:p-10 font-sans">
-      <div className="bg-white rounded-2xl shadow-sm overflow-hidden w-full sm:max-w-lg sm:mx-auto lg:max-w-2xl">
+      <div className="bg-white rounded-2xl shadow-sm overflow-hidden w-full max-w-[1440px] mx-auto">
 
         {/* Header */}
         <div className="px-4 pt-4 pb-3 sm:px-6 sm:pt-6 sm:pb-4 border-b border-gray-100 space-y-3">
@@ -170,7 +170,7 @@ export default function PatientSearch() {
               {form.id ? 'Edit Patient' : 'New Patient'}
             </p>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {field('firstName', 'First name', 'text', 'Kwame')}
               {field('lastName',  'Last name',  'text', 'Mensah')}
             </div>
