@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../store/authStore'
 
@@ -41,6 +42,25 @@ export function usePatientRegistry() {
     gcTime: 1000 * 60 * 30,
     enabled: !!profile, // Only run when profile is loaded
   })
+
+  // Real-time subscription for children
+  useEffect(() => {
+    const channel = supabase
+      .channel('children_changes')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'children',
+        filter: !isSuperAdmin && profile?.clinic_id ? `clinic_id=eq.${profile.clinic_id}` : undefined
+      }, () => {
+        queryClient.invalidateQueries({ queryKey: ['patients'] })
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [queryClient, isSuperAdmin, profile?.clinic_id])
 
   const addPatient = useMutation({
     mutationFn: async (newPatient) => {

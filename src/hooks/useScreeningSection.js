@@ -16,6 +16,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { toast } from 'sonner' // Using Sonner for global notifications
 import { useActiveCycleQuery } from './useActiveCycleQuery'
@@ -57,6 +58,27 @@ export function useScreeningSection({ childId, cycleId, sectionNumber }) {
       return section
     },
   })
+
+  // Real-time subscription for section updates
+  useEffect(() => {
+    if (!childId || !cycleId || !sectionNumber) return
+
+    const channel = supabase
+      .channel(`section-${childId}-${cycleId}-${sectionNumber}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'screening_sections',
+        filter: `screenings.child_id=eq.${childId}`
+      }, () => {
+        queryClient.invalidateQueries({ queryKey })
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [queryClient, childId, cycleId, sectionNumber, queryKey])
 
   // ── WRITE ─────────────────────────────────────────────────────────────────
   const mutation = useMutation({

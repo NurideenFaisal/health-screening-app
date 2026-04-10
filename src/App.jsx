@@ -3,6 +3,7 @@ import { useAuthStore } from './store/authStore'
 import { lazy, Suspense } from 'react'
 // Import the Toaster for global notifications
 import { Toaster } from 'sonner' 
+import { useConnectivity } from './hooks/useConnectivity' 
 
 import Login from './pages/Login'
 
@@ -61,6 +62,8 @@ function SectionLoader() {
 
 function App() {
   const { user, profile, loading } = useAuthStore()
+  // Monitor connectivity for user feedback
+  useConnectivity()
 
   if (loading) {
     return (
