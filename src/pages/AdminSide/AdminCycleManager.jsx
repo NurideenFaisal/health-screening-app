@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { Power, Trash2, Calendar, Pencil, Check, X, Lock, Unlock } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -113,6 +113,25 @@ export default function AdminCycleManager() {
       alert(`Could not rename cycle: ${error.message}`)
     }
   })
+
+  // Real-time subscription for cycles
+  useEffect(() => {
+    const channel = supabase
+      .channel('cycles_changes')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'cycles',
+        filter: isClinicAdmin ? `clinic_id=eq.${profile.clinic_id}` : undefined
+      }, () => {
+        queryClient.invalidateQueries({ queryKey: cycleQueryKey })
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [queryClient, cycleQueryKey, isClinicAdmin, profile?.clinic_id])
 
   // --- HANDLERS (Maintaining your logic) ---
   const handleCreate = (e) => {

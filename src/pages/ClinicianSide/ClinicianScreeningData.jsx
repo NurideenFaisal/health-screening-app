@@ -142,6 +142,35 @@ export default function ClinicianScreeningData() {
     }
   }, [queueCacheKey, queueData])
 
+  // Real-time subscription for screening updates
+  useEffect(() => {
+    if (!activeCycle) return
+
+    const channel = supabase
+      .channel('screening_updates')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'screening_sections',
+        filter: `screenings.cycle_id=eq.${activeCycle.id}`
+      }, () => {
+        queryClient.invalidateQueries({ queryKey: ['screening-queue'] })
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'screenings',
+        filter: `cycle_id=eq.${activeCycle.id}`
+      }, () => {
+        queryClient.invalidateQueries({ queryKey: ['screening-queue'] })
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [queryClient, activeCycle?.id])
+
   const shouldRunRemoteSearch = debouncedQuery.length >= 3
 
   const { data: remoteMatches = [], isFetching: isSearchingRemote } = useQuery({

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../store/authStore'
-import { ClipboardList, Users, Clock, RefreshCw, FileText } from 'lucide-react'
+import { ClipboardList, Users, RefreshCw } from 'lucide-react'
 
 async function fetchClinicianStats(userId) {
   const patientsRes = await supabase
@@ -58,19 +58,14 @@ function QuickAction({ icon: Icon, label, description, onClick, iconBg, iconColo
   )
 }
 
-function StatCard({ icon: Icon, value, label, iconColor, loading }) {
+function StatCard({ value, label, loading }) {
   return (
-    <div className="flex w-full flex-col gap-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md sm:p-6">
-      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100">
-        <Icon size={24} className={iconColor} />
-      </div>
-
+    <div className="flex w-full flex-col gap-1.5 rounded-2xl border border-slate-200 bg-white px-5 py-4 transition hover:shadow-sm">
       {loading
-        ? <div className="h-10 w-20 animate-pulse rounded bg-slate-200" />
-        : <p className="text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">{value ?? '—'}</p>
+        ? <div className="h-7 w-16 animate-pulse rounded bg-slate-200" />
+        : <p className="text-2xl font-bold tracking-tight text-slate-950">{value ?? '—'}</p>
       }
-
-      <p className="text-sm font-medium text-slate-500">{label}</p>
+      <p className="text-sm text-slate-500">{label}</p>
     </div>
   )
 }
@@ -92,7 +87,7 @@ export default function ClinicianDashboardStats() {
 
   return (
     <div className="w-full font-sans">
-      <div className="mx-auto w-full max-w-[1440px] overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 px-5 py-5 sm:px-8 sm:py-7">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
@@ -124,11 +119,11 @@ export default function ClinicianDashboardStats() {
           <p className="mb-4 text-xs font-bold uppercase tracking-[0.22em] text-slate-400">
             Quick Actions
           </p>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-4 xl:grid-cols-2">
             <QuickAction
               icon={ClipboardList}
               label="New Screening"
-              description="Open the live queue and continue patient assessments."
+              description=""
               iconBg="bg-emerald-100"
               iconColor="text-emerald-600"
               onClick={() => navigate('/clinician/screening-data')}
@@ -146,7 +141,7 @@ export default function ClinicianDashboardStats() {
         </div>
 
         <div className="px-5 py-6 sm:px-8 sm:py-8">
-          <p className="mb-6 text-xs font-bold uppercase tracking-[0.22em] text-slate-400">
+          <p className="mb-4 text-xs font-bold uppercase tracking-[0.22em] text-slate-400">
             Your Activity
           </p>
 
@@ -158,28 +153,20 @@ export default function ClinicianDashboardStats() {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 xl:gap-6">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
               <StatCard
-                icon={Users}
                 value={stats?.totalPatients}
                 label="Total Enrolled Children"
-                iconColor="text-emerald-500"
                 loading={isLoading}
               />
-
               <StatCard
-                icon={FileText}
                 value={stats?.screeningsToday}
                 label="Screenings Logged Today"
-                iconColor="text-blue-500"
                 loading={isLoading}
               />
-
               <StatCard
-                icon={Clock}
                 value={stats?.drafts}
                 label="Incomplete Sections"
-                iconColor="text-amber-500"
                 loading={isLoading}
               />
             </div>
