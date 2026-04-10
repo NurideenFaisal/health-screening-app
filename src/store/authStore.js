@@ -19,15 +19,20 @@ export const useAuthStore = create((set, get) => ({
 
   // Fetch and cache the active cycle - call once and reuse
   fetchActiveCycle: async () => {
-    const { activeCycle } = get()
+    const { activeCycle, profile } = get()
     // Return cached cycle if already fetched
     if (activeCycle) return activeCycle
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('cycles')
       .select('id, name, is_active')
       .eq('is_active', true)
-      .maybeSingle()
+    
+    if (profile?.clinic_id) {
+      query = query.eq('clinic_id', profile.clinic_id)
+    }
+    
+    const { data, error } = await query.maybeSingle()
 
     if (!error && data) {
       set({ activeCycle: data, activeCycleError: null })

@@ -91,10 +91,10 @@ export default function AdminSidebar() {
         {!collapsed && (
           <div className="min-w-0">
             <h1 className="font-bold text-gray-900 text-lg truncate">
-              Screening
+              {profile?.clinic_name || 'Screening'}
             </h1>
             <p className="text-xs text-gray-500 truncate">
-              Admin Panel
+              {profile?.clinic_name ? 'Clinic Admin' : 'Admin Panel'}
             </p>
           </div>
         )}

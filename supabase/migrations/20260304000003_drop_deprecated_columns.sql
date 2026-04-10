@@ -38,7 +38,7 @@ SELECT
   c.last_name,
   c.gender,
   c.birthdate,
-  c.parent_name,
+  NULL AS parent_name,
   -- Calculate section completion from screening_sections
   COALESCE(
     (SELECT COUNT(*) FROM screening_sections ss 

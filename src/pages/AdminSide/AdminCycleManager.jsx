@@ -1,10 +1,13 @@
 import React, { useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { Plus, Power, Trash2, Calendar, Pencil, Check, X, Lock, Unlock } from 'lucide-react'
+import { Power, Trash2, Calendar, Pencil, Check, X, Lock, Unlock } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useAuthStore } from '../../store/authStore'
 
 export default function AdminCycleManager() {
   const queryClient = useQueryClient()
+  const { profile } = useAuthStore()
+  const isClinicAdmin = profile?.role === 'admin' && profile?.clinic_id
   const [newName, setNewName] = useState('')
   const [editingId, setEditingId] = useState(null)
   const [editValue, setEditValue] = useState('')
@@ -12,42 +15,76 @@ export default function AdminCycleManager() {
 
   // --- QUERIES ---
   const { data: cycles = [], isLoading } = useQuery({
-    queryKey: ['cycles'],
+    queryKey: ['cycles', isClinicAdmin ? profile?.clinic_id : 'all'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('cycles')
         .select('*')
         .order('created_at', { ascending: false })
+
+      if (isClinicAdmin) {
+        query = query.eq('clinic_id', profile.clinic_id)
+      }
+
+      const { data, error } = await query
       if (error) throw error
       return data
     }
   })
 
+  const cycleQueryKey = ['cycles', isClinicAdmin ? profile?.clinic_id : 'all']
+  const invalidateCycleViews = async () => {
+    useAuthStore.getState().clearActiveCycle()
+
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['cycles'] }),
+      queryClient.invalidateQueries({ queryKey: ['active-cycle'] }),
+      queryClient.invalidateQueries({ queryKey: ['screening-queue'] }),
+      queryClient.invalidateQueries({ queryKey: ['children-deep-search'] }),
+    ])
+  }
+
   // --- MUTATIONS ---
   const createMutation = useMutation({
-    mutationFn: async (name) => {
-      const { error } = await supabase.from('cycles').insert({ name, is_active: false })
+    mutationFn: async (rawName) => {
+      const name = rawName.trim()
+      const insertData = { name, is_active: false }
+      if (isClinicAdmin) {
+        insertData.clinic_id = profile.clinic_id
+      }
+      const { error } = await supabase.from('cycles').insert(insertData)
       if (error) throw error
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       setNewName('')
-      queryClient.invalidateQueries(['cycles'])
+      await queryClient.invalidateQueries({ queryKey: cycleQueryKey })
+    },
+    onError: (error) => {
+      console.error('Create cycle failed:', error)
+      alert(`Could not create cycle: ${error.message}`)
     }
   })
 
   const toggleMutation = useMutation({
-    mutationFn: async ({ id, currentState }) => {
-      // If activating, turn others off first
+    mutationFn: async ({ id, currentState, clinicId }) => {
+      // If activating, turn off others in the same clinic
       if (!currentState) {
         await supabase
           .from('cycles')
           .update({ is_active: false })
-          .neq('id', '00000000-0000-0000-0000-000000000000')
+          .eq('clinic_id', clinicId)
+          .neq('id', id)
       }
       const { error } = await supabase.from('cycles').update({ is_active: !currentState }).eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries(['cycles'])
+    onSuccess: async () => {
+      await invalidateCycleViews()
+    },
+    onError: (error) => {
+      console.error('Toggle cycle state failed:', error)
+      alert(`Could not update cycle status: ${error.message}`)
+    }
   })
 
   const deleteMutation = useMutation({
@@ -55,7 +92,11 @@ export default function AdminCycleManager() {
       const { error } = await supabase.from('cycles').delete().eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries(['cycles'])
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: cycleQueryKey }),
+    onError: (error) => {
+      console.error('Delete cycle failed:', error)
+      alert(`Could not delete cycle: ${error.message}`)
+    }
   })
 
   const editMutation = useMutation({
@@ -63,18 +104,27 @@ export default function AdminCycleManager() {
       const { error } = await supabase.from('cycles').update({ name }).eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       setEditingId(null)
-      queryClient.invalidateQueries(['cycles'])
+      await invalidateCycleViews()
+    },
+    onError: (error) => {
+      console.error('Edit cycle failed:', error)
+      alert(`Could not rename cycle: ${error.message}`)
     }
   })
 
   // --- HANDLERS (Maintaining your logic) ---
-  const handleCreate = () => {
-    if (!newName.trim()) return
-    createMutation.mutate(newName)
-  }
+  const handleCreate = (e) => {
+    e.preventDefault()
+    const submittedName = String(new FormData(e.currentTarget).get('cycleName') ?? newName).trim()
 
+    if (!submittedName) {
+      return
+    }
+
+    createMutation.mutate(submittedName)
+  }
   const handleDelete = (id, isActive) => {
     if (isActive) return alert("Security Block: Deactivate cycle before deleting.")
     if (window.confirm("FINAL WARNING: Deleting this cycle will orphan all medical screenings attached to it. Proceed?")) {
@@ -85,15 +135,15 @@ export default function AdminCycleManager() {
   return (
     <div className="min-h-screen bg-gray-100 p-3 sm:p-6 lg:p-10 font-sans">
       <div className="bg-white rounded-2xl shadow-sm overflow-hidden w-full sm:max-w-lg sm:mx-auto lg:max-w-2xl">
-        
+
         {/* Header */}
         <div className="px-4 pt-4 pb-3 sm:px-6 border-b border-gray-100 flex justify-between items-center">
           <div>
             <h2 className="text-sm sm:text-base font-bold text-gray-900 tracking-tight">Screening Cycles</h2>
             <p className="text-xs text-gray-400 mt-0.5">Define outreach periods</p>
           </div>
-          
-          <button 
+
+          <button
             onClick={() => setIsUnlocked(!isUnlocked)}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all
               ${isUnlocked ? 'bg-red-100 text-red-600 ring-2 ring-red-200' : 'bg-gray-100 text-gray-500'}`}
@@ -104,21 +154,23 @@ export default function AdminCycleManager() {
         </div>
 
         {/* Create Input */}
-        <div className="p-4 sm:px-6 bg-gray-50 flex gap-2 border-b border-gray-100">
-          <input 
+        <form className="p-4 sm:px-6 bg-gray-50 flex gap-2 border-b border-gray-100" onSubmit={handleCreate}>
+          <input
+            name="cycleName"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder="New Cycle Name..."
             className="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-400"
+            autoComplete="off"
           />
-          <button 
-            disabled={createMutation.isLoading}
-            onClick={handleCreate} 
+          <button
+            type="submit"
+            disabled={createMutation.isPending}
             className="bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-emerald-600 transition disabled:opacity-50"
           >
-            {createMutation.isLoading ? '...' : 'Create'}
+            {createMutation.isPending ? '...' : 'Create'}
           </button>
-        </div>
+        </form>
 
         {/* List */}
         <ul className="divide-y divide-gray-100">
@@ -130,18 +182,18 @@ export default function AdminCycleManager() {
                 <div className={`p-2 rounded-lg shrink-0 ${c.is_active ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-400'}`}>
                   <Calendar size={18} />
                 </div>
-                
+
                 <div className="flex-1 min-w-0">
                   {editingId === c.id ? (
                     <div className="flex items-center gap-2">
-                      <input 
+                      <input
                         value={editValue}
                         onChange={(e) => setEditValue(e.target.value)}
                         className="flex-1 bg-white border border-gray-200 rounded-lg px-2 py-1 text-sm outline-none ring-2 ring-emerald-400"
                         autoFocus
                       />
-                      <button onClick={() => editMutation.mutate({ id: c.id, name: editValue })} className="text-emerald-600"><Check size={18}/></button>
-                      <button onClick={() => setEditingId(null)} className="text-gray-400"><X size={18}/></button>
+                      <button onClick={() => editMutation.mutate({ id: c.id, name: editValue })} className="text-emerald-600"><Check size={18} /></button>
+                      <button onClick={() => setEditingId(null)} className="text-gray-400"><X size={18} /></button>
                     </div>
                   ) : (
                     <>
@@ -162,20 +214,19 @@ export default function AdminCycleManager() {
               </div>
 
               <div className="flex items-center gap-3">
-                <button 
-                  onClick={() => toggleMutation.mutate({ id: c.id, currentState: c.is_active })}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                    c.is_active 
-                    ? 'bg-amber-100 text-amber-700' 
-                    : 'bg-emerald-50 text-emerald-600'
-                  }`}
+                <button
+                  onClick={() => toggleMutation.mutate({ id: c.id, currentState: c.is_active, clinicId: c.clinic_id })}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${c.is_active
+                      ? 'bg-amber-100 text-amber-700'
+                      : 'bg-emerald-50 text-emerald-600'
+                    }`}
                 >
                   <Power size={14} />
                   {c.is_active ? 'Stop' : 'Start'}
                 </button>
 
                 {isUnlocked && !c.is_active && (
-                  <button 
+                  <button
                     onClick={() => handleDelete(c.id, c.is_active)}
                     className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg transition-all scale-110"
                   >

@@ -205,13 +205,13 @@ export default function ClinicianSidebar() {
         `}
       >
         {/* Mobile Header */}
-        <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-          <div>
-            <h1 className="font-bold text-gray-900 text-lg">
-              Screening
+        <div className="p-4 border-b border-gray-200 flex items-center justify-between min-w-0">
+          <div className="min-w-0">
+            <h1 className="font-bold text-gray-900 text-lg truncate">
+              {profile?.clinic_name || 'Screening'}
             </h1>
-            <p className="text-xs text-gray-500">
-              Clinician Panel
+            <p className="text-xs text-gray-500 truncate">
+              {profile?.clinic_name ? 'Clinician Panel' : 'Clinician Panel'}
             </p>
           </div>
 
@@ -254,7 +254,7 @@ export default function ClinicianSidebar() {
           {!collapsed && (
             <div className="min-w-0">
               <h1 className="font-bold text-gray-900 text-lg truncate">
-                Screening
+                {profile?.clinic_name || 'Screening'}
               </h1>
               <p className="text-xs text-gray-500 truncate">
                 Clinician Panel

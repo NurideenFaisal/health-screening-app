@@ -68,7 +68,7 @@ export default function ClinicianScreeningForm() {
 
         {tabs.length > 0 && (
           <div className="px-4 sm:px-6 border-t border-gray-100">
-            <div className="flex">
+            <div className="flex gap-1 overflow-x-auto">
               {tabs.map(tab => (
                 <NavLink
                   key={tab.path}
@@ -89,7 +89,7 @@ export default function ClinicianScreeningForm() {
       </div>
 
       <div className="p-3 sm:p-6 lg:p-10">
-        <div className="bg-white rounded-2xl shadow-sm w-full sm:max-w-lg sm:mx-auto lg:max-w-2xl overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-sm w-full max-w-[1240px] mx-auto overflow-hidden">
           <div className="p-4 sm:p-6">
             {bootstrapError ? (
               <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-800">

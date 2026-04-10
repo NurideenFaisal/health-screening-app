@@ -31,15 +31,17 @@ export default function ClinicianDashboard() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-slate-100 overflow-hidden">
 
       {/* Sidebar */}
       <ClinicianSidebar />
 
       {/* Main content — Outlet renders the active child route */}
       <div className="flex-1 overflow-y-auto min-w-0">
-        <div className="p-4 lg:p-8 mt-12 lg:mt-0">
-          <Outlet />
+        <div className="mt-14 px-4 pb-6 pt-4 sm:px-6 sm:pb-8 sm:pt-5 lg:mt-0 lg:px-8 lg:py-8">
+          <div className="mx-auto w-full max-w-[1600px]">
+            <Outlet />
+          </div>
         </div>
       </div>
 

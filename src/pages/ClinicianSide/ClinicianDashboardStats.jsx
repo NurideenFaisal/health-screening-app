@@ -5,38 +5,30 @@ import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../store/authStore'
 import { ClipboardList, Users, Clock, RefreshCw, FileText } from 'lucide-react'
 
-
-// ========= FETCH =========
-
 async function fetchClinicianStats(userId) {
-  // Get total children count
   const patientsRes = await supabase
     .from('children')
     .select('id', { count: 'exact', head: true })
-  
+
   if (patientsRes.error) throw new Error(patientsRes.error.message)
 
-  // Get screenings created by this clinician today
   const today = new Date().toISOString().split('T')[0]
-  
-  // Get unique screening IDs for this clinician today
+
   const screeningsRes = await supabase
     .from('screenings')
     .select('id, screening_date')
     .eq('created_by', userId)
-  
+
   if (screeningsRes.error) throw new Error(screeningsRes.error.message)
-  
+
   const allScreenings = screeningsRes.data ?? []
   const screeningsToday = allScreenings.filter(s => s.screening_date === today).length
-  
-  // Get draft count from screening_sections (is_complete = false)
-  // Get unique screening IDs that have incomplete sections
+
   const draftsRes = await supabase
     .from('screening_sections')
     .select('screening_id', { count: 'exact', head: true })
     .eq('is_complete', false)
-  
+
   const drafts = draftsRes.count ?? 0
 
   return {
@@ -46,53 +38,44 @@ async function fetchClinicianStats(userId) {
   }
 }
 
-
-// ========= QUICK ACTION =========
-
-function QuickAction({ icon: Icon, label, onClick, iconBg, iconColor }) {
+function QuickAction({ icon: Icon, label, description, onClick, iconBg, iconColor }) {
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-4 p-5 w-full text-left bg-white rounded-2xl border border-gray-200 hover:border-emerald-200 hover:shadow-md active:scale-[0.98] transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+      className="flex w-full items-center gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-5 text-left transition-all duration-150 hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-100"
     >
-      <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0">
-        <div className={`${iconBg} w-full h-full rounded-xl flex items-center justify-center`}>
+      <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl">
+        <div className={`${iconBg} flex h-full w-full items-center justify-center rounded-xl`}>
           <Icon size={22} className={iconColor} />
         </div>
       </div>
 
-      <p className="font-semibold text-gray-800 text-base">{label}</p>
+      <div className="min-w-0">
+        <p className="text-base font-semibold text-slate-900">{label}</p>
+        <p className="mt-1 text-sm text-slate-500">{description}</p>
+      </div>
     </button>
   )
 }
 
-
-// ========= STAT CARD =========
-
 function StatCard({ icon: Icon, value, label, iconColor, loading }) {
   return (
-    <div className="w-full bg-gradient-to-b from-white to-gray-50 border border-gray-100 rounded-2xl p-7 flex flex-col items-center text-center gap-4 shadow-sm hover:shadow-md transition">
-
-      <div className="w-14 h-14 rounded-xl bg-gray-100 flex items-center justify-center">
+    <div className="flex w-full flex-col gap-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md sm:p-6">
+      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100">
         <Icon size={24} className={iconColor} />
       </div>
 
       {loading
-        ? <div className="h-10 w-16 bg-gray-200 rounded animate-pulse" />
-        : <p className="text-5xl font-bold text-gray-900">{value ?? '—'}</p>
+        ? <div className="h-10 w-20 animate-pulse rounded bg-slate-200" />
+        : <p className="text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">{value ?? '—'}</p>
       }
 
-      <p className="text-sm font-semibold text-gray-500">{label}</p>
-
+      <p className="text-sm font-medium text-slate-500">{label}</p>
     </div>
   )
 }
 
-
-// ========= PAGE =========
-
 export default function ClinicianDashboardStats() {
-
   const navigate = useNavigate()
   const { profile, user } = useAuthStore()
 
@@ -108,51 +91,44 @@ export default function ClinicianDashboardStats() {
   const section = profile?.section
 
   return (
-
-    <div className="min-h-screen bg-gray-100 p-6 sm:p-8 lg:p-12 font-sans">
-
-      <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-
-        {/* HEADER */}
-        <div className="px-8 py-7 border-b border-gray-100">
-          <div className="flex items-center justify-between">
+    <div className="w-full font-sans">
+      <div className="mx-auto w-full max-w-[1440px] overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 px-5 py-5 sm:px-8 sm:py-7">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                Hey, {firstName}
+              <h1 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
+                {firstName}, welcome back
               </h1>
 
-              <div className="flex items-center gap-3 mt-2">
-                {section &&
-                  <span className="px-3 py-1 bg-emerald-100 text-emerald-700 text-sm font-semibold rounded-full">
+              <div className="mt-3 flex flex-wrap items-center gap-2.5">
+                {section && (
+                  <span className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700">
                     Section {section}
                   </span>
-                }
-                <p className="text-sm text-gray-400">
-                  Child health screenings
-                </p>
+                )}
+                <p className="text-sm text-slate-500">Child health screening workspace</p>
               </div>
-
             </div>
+
             <button
               onClick={refetch}
               disabled={isFetching}
-              className="p-3 rounded-xl hover:bg-gray-100 transition text-gray-300 hover:text-gray-500 disabled:opacity-40"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-slate-400 transition hover:bg-slate-50 hover:text-slate-600 disabled:opacity-40"
             >
-              <RefreshCw size={18} className={isFetching ? 'animate-spin' : ''}/>
+              <RefreshCw size={18} className={isFetching ? 'animate-spin' : ''} />
             </button>
           </div>
         </div>
 
-        {/* QUICK ACTIONS */}
-
-        <div className="px-8 py-7 border-b border-gray-100 bg-gray-50/60">
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">
+        <div className="border-b border-slate-200 bg-slate-50/80 px-5 py-5 sm:px-8 sm:py-7">
+          <p className="mb-4 text-xs font-bold uppercase tracking-[0.22em] text-slate-400">
             Quick Actions
           </p>
-          <div className="grid gap-4">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <QuickAction
               icon={ClipboardList}
               label="New Screening"
+              description="Open the live queue and continue patient assessments."
               iconBg="bg-emerald-100"
               iconColor="text-emerald-600"
               onClick={() => navigate('/clinician/screening-data')}
@@ -161,6 +137,7 @@ export default function ClinicianDashboardStats() {
             <QuickAction
               icon={Users}
               label="Enroll Patient"
+              description="Register a new child or update an existing record."
               iconBg="bg-blue-100"
               iconColor="text-blue-500"
               onClick={() => navigate('/clinician/patient-data')}
@@ -168,37 +145,20 @@ export default function ClinicianDashboardStats() {
           </div>
         </div>
 
-
-
-        {/* STATS */}
-
-        <div className="px-8 py-8">
-
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-6">
+        <div className="px-5 py-6 sm:px-8 sm:py-8">
+          <p className="mb-6 text-xs font-bold uppercase tracking-[0.22em] text-slate-400">
             Your Activity
           </p>
 
-
           {isError ? (
-            <div className="text-center py-6">
-
-              <p className="text-base text-red-400">
-                Couldn't load stats
-              </p>
- 
-              <button
-                onClick={refetch}
-                className="text-sm text-red-300 underline mt-2"
-              >
+            <div className="py-6 text-center">
+              <p className="text-base text-red-400">Couldn't load stats</p>
+              <button onClick={refetch} className="mt-2 text-sm text-red-300 underline">
                 Retry
               </button>
-
             </div>
-
           ) : (
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 xl:gap-6">
               <StatCard
                 icon={Users}
                 value={stats?.totalPatients}
@@ -210,7 +170,7 @@ export default function ClinicianDashboardStats() {
               <StatCard
                 icon={FileText}
                 value={stats?.screeningsToday}
-                label="Today"
+                label="Screenings Logged Today"
                 iconColor="text-blue-500"
                 loading={isLoading}
               />
@@ -222,17 +182,10 @@ export default function ClinicianDashboardStats() {
                 iconColor="text-amber-500"
                 loading={isLoading}
               />
-
             </div>
-
           )}
-
         </div>
-
       </div>
-
     </div>
-
   )
-
 }
