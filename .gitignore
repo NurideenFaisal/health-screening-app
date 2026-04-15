@@ -42,3 +42,6 @@ backup_*.sql
 # Supabase access token (stored by CLI login)
 # Located at: ~/.supabase/access-token
 # Not in project dir, but listed for awareness
+
+# Local config files
+new-config.yaml
