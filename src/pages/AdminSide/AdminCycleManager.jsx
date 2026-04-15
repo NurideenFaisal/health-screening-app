@@ -8,6 +8,7 @@ export default function AdminCycleManager() {
   const queryClient = useQueryClient()
   const { profile } = useAuthStore()
   const isClinicAdmin = profile?.role === 'admin' && profile?.clinic_id
+  const cycleScope = isClinicAdmin ? profile?.clinic_id : 'all'
   const [newName, setNewName] = useState('')
   const [editingId, setEditingId] = useState(null)
   const [editValue, setEditValue] = useState('')
@@ -15,7 +16,7 @@ export default function AdminCycleManager() {
 
   // --- QUERIES ---
   const { data: cycles = [], isLoading } = useQuery({
-    queryKey: ['cycles', isClinicAdmin ? profile?.clinic_id : 'all'],
+    queryKey: ['cycles', cycleScope],
     queryFn: async () => {
       let query = supabase
         .from('cycles')
@@ -32,10 +33,7 @@ export default function AdminCycleManager() {
     }
   })
 
-  const cycleQueryKey = ['cycles', isClinicAdmin ? profile?.clinic_id : 'all']
   const invalidateCycleViews = async () => {
-    useAuthStore.getState().clearActiveCycle()
-
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['cycles'] }),
       queryClient.invalidateQueries({ queryKey: ['active-cycle'] }),
@@ -57,7 +55,7 @@ export default function AdminCycleManager() {
     },
     onSuccess: async () => {
       setNewName('')
-      await queryClient.invalidateQueries({ queryKey: cycleQueryKey })
+      await queryClient.invalidateQueries({ queryKey: ['cycles', cycleScope] })
     },
     onError: (error) => {
       console.error('Create cycle failed:', error)
@@ -92,7 +90,7 @@ export default function AdminCycleManager() {
       const { error } = await supabase.from('cycles').delete().eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: cycleQueryKey }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['cycles', cycleScope] }),
     onError: (error) => {
       console.error('Delete cycle failed:', error)
       alert(`Could not delete cycle: ${error.message}`)
@@ -124,14 +122,14 @@ export default function AdminCycleManager() {
         table: 'cycles',
         filter: isClinicAdmin ? `clinic_id=eq.${profile.clinic_id}` : undefined
       }, () => {
-        queryClient.invalidateQueries({ queryKey: cycleQueryKey })
+        queryClient.invalidateQueries({ queryKey: ['cycles', cycleScope] })
       })
       .subscribe()
 
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [queryClient, cycleQueryKey, isClinicAdmin, profile?.clinic_id])
+  }, [queryClient, cycleScope, isClinicAdmin, profile?.clinic_id])
 
   // --- HANDLERS (Maintaining your logic) ---
   const handleCreate = (e) => {

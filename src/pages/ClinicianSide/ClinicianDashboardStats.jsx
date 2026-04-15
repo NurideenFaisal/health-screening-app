@@ -91,18 +91,11 @@ export default function ClinicianDashboardStats() {
         <div className="border-b border-slate-200 px-5 py-5 sm:px-8 sm:py-7">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
-                {firstName}, welcome back
-              </h1>
-
-              <div className="mt-3 flex flex-wrap items-center gap-2.5">
-                {section && (
-                  <span className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700">
-                    Section {section}
-                  </span>
-                )}
-                <p className="text-sm text-slate-500">Child health screening workspace</p>
-              </div>
+              {section && (
+                <span className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700">
+                  Section {section}
+                </span>
+              )}
             </div>
 
             <button

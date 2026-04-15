@@ -27,12 +27,11 @@ import { useActiveCycleQuery } from './useActiveCycleQuery'
  */
 export function useScreeningSection({ childId, cycleId, sectionNumber }) {
   const queryClient = useQueryClient()
-  const queryKey = ['screening-section', childId, cycleId, sectionNumber]
 
   // ── READ ──────────────────────────────────────────────────────────────────
   // Optimized to use a single join query instead of two separate hits
   const { data, isLoading, error } = useQuery({
-    queryKey,
+    queryKey: ['screening-section', childId, cycleId, sectionNumber],
     enabled: !!childId && !!cycleId && !!sectionNumber,
     staleTime: 1000 * 30, // 30 seconds
     queryFn: async () => {
@@ -71,14 +70,16 @@ export function useScreeningSection({ childId, cycleId, sectionNumber }) {
         table: 'screening_sections',
         filter: `screenings.child_id=eq.${childId}`
       }, () => {
-        queryClient.invalidateQueries({ queryKey })
+        queryClient.invalidateQueries({
+          queryKey: ['screening-section', childId, cycleId, sectionNumber],
+        })
       })
       .subscribe()
 
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [queryClient, childId, cycleId, sectionNumber, queryKey])
+  }, [queryClient, childId, cycleId, sectionNumber])
 
   // ── WRITE ─────────────────────────────────────────────────────────────────
   const mutation = useMutation({
@@ -98,7 +99,9 @@ export function useScreeningSection({ childId, cycleId, sectionNumber }) {
     // Handle UI Feedback automatically based on "Draft" vs "Complete"
     onSuccess: (data, variables) => {
       // 1. Refresh relevant data caches
-      queryClient.invalidateQueries({ queryKey })
+      queryClient.invalidateQueries({
+        queryKey: ['screening-section', childId, cycleId, sectionNumber],
+      })
       queryClient.invalidateQueries({ queryKey: ['screening-queue'] })
       queryClient.invalidateQueries({ queryKey: ['children-deep-search'] })
       queryClient.invalidateQueries({ queryKey: ['clinician-stats'] })

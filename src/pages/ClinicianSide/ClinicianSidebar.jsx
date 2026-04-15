@@ -11,6 +11,7 @@ export default function ClinicianSidebar() {
 
   // Mobile menu state
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false)
+  const [loggingOut, setLoggingOut] = React.useState(false)
 
   // Desktop collapsed state (persistent in localStorage)
   const [collapsed, setCollapsed] = React.useState(() => {
@@ -62,17 +63,25 @@ export default function ClinicianSidebar() {
 
   // Logout handler
   async function handleLogout() {
+    if (loggingOut) return
+    
     const confirmLogout = window.confirm('Are you sure you want to logout?')
     if (!confirmLogout) return
 
+    setLoggingOut(true)
+    
     try {
       const { error } = await supabase.auth.signOut()
       if (error) throw error
+      
       clearAuth()
-      navigate('/login', { replace: true })
+      
+      // Force navigation with full page reload to ensure clean state
+      window.location.href = '/login'
     } catch (err) {
       console.error('Logout failed:', err)
       alert('Logout failed. Please try again.')
+      setLoggingOut(false)
     }
   }
 
@@ -171,7 +180,7 @@ export default function ClinicianSidebar() {
       {/* ================= MOBILE HAMBURGER BUTTON ================= */}
       <button
         onClick={() => setMobileMenuOpen(true)}
-        className="lg:hidden fixed top-4 left-4 z-40 p-2 bg-white rounded-lg shadow-lg hover:bg-gray-50 transition"
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-white rounded-lg shadow-lg hover:bg-gray-50 transition"
         aria-label="Open menu"
       >
         <Menu size={24} className="text-gray-700" />
@@ -180,7 +189,7 @@ export default function ClinicianSidebar() {
       {/* ================= MOBILE MENU OVERLAY ================= */}
       {mobileMenuOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-black/50 z-50 transition-opacity"
+          className="lg:hidden fixed inset-0 bg-black/50 z-40 transition-opacity"
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
@@ -200,6 +209,7 @@ export default function ClinicianSidebar() {
           flex-col
           transition-transform
           duration-300
+          will-change-transform
           z-50
           ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
         `}

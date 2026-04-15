@@ -23,6 +23,7 @@ export default function AdminSidebar() {
     const stored = localStorage.getItem('adminSidebarCollapsed')
     return stored ? JSON.parse(stored) : false
   })
+  const [loggingOut, setLoggingOut] = React.useState(false)
 
   const toggleSidebar = () => {
     setCollapsed(prev => {
@@ -57,17 +58,23 @@ export default function AdminSidebar() {
   }
 
   async function handleLogout() {
+    if (loggingOut) return
+    
     const confirmLogout = window.confirm('Are you sure you want to logout?')
     if (!confirmLogout) return
 
+    setLoggingOut(true)
+    
     try {
       const { error } = await supabase.auth.signOut()
       if (error) throw error
+      
       clearAuth()
-      navigate('/login', { replace: true })
+      window.location.href = '/login'
     } catch (err) {
       console.error('Logout failed:', err)
       alert('Logout failed. Please try again.')
+      setLoggingOut(false)
     }
   }
 
