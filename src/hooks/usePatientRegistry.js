@@ -83,6 +83,20 @@ export function usePatientRegistry() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['patients'] }),
   })
 
+  const bulkAddPatients = useMutation({
+    mutationFn: async (rows) => {
+      const patientRows = rows.map(row => ({
+        ...row,
+        clinic_id: profile?.clinic_id,
+        created_by: profile?.id,
+      }))
+
+      const { error } = await supabase.from('children').insert(patientRows)
+      if (error) throw error
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['patients'] }),
+  })
+
   const deletePatients = useMutation({
     mutationFn: async (ids) => {
       const { error } = await supabase.from('children').delete().in('id', ids)
@@ -96,8 +110,9 @@ export function usePatientRegistry() {
     isLoading,
     addPatient: addPatient.mutateAsync,
     editPatient: editPatient.mutateAsync,
+    bulkAddPatients: bulkAddPatients.mutateAsync,
     deletePatients: deletePatients.mutateAsync,
     // Updated for v5
-    isProcessing: addPatient.isPending || editPatient.isPending || deletePatients.isPending
+    isProcessing: addPatient.isPending || editPatient.isPending || bulkAddPatients.isPending || deletePatients.isPending
   }
 }

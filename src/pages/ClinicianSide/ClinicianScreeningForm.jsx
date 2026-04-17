@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useLocation, useNavigate, useParams, NavLink, Outlet } from 'react-router-dom'
 import { AlertCircle, ChevronLeft, Loader2, RefreshCw } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
@@ -34,6 +35,19 @@ export default function ClinicianScreeningForm() {
     cycleId,
     sectionNumber,
     mySection,
+  }
+
+  const sectionRoute = sectionNumber === 1 ? null : `section${sectionNumber}`
+
+  useEffect(() => {
+    const currentSegment = location.pathname.split('/').filter(Boolean).pop()
+    if (sectionRoute && currentSegment !== sectionRoute) {
+      navigate(sectionRoute, { replace: true })
+    }
+  }, [location.pathname, navigate, sectionRoute])
+
+  const renderContent = () => {
+    return <Outlet context={contextValue} />
   }
 
   return (
@@ -118,7 +132,7 @@ export default function ClinicianScreeningForm() {
                 </div>
               </div>
             ) : (
-              <Outlet context={contextValue} />
+              renderContent()
             )}
           </div>
         </div>

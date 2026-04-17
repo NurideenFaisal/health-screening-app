@@ -47,6 +47,7 @@ export default function PeopleData() {
     isLoading, 
     addPatient, 
     editPatient, 
+    bulkAddPatients,
     deletePatients, 
     isProcessing 
   } = usePatientRegistry()
@@ -314,15 +315,12 @@ export default function PeopleData() {
           show={showImport} 
           onClose={() => setShowImport(false)}
           onImport={async (rows, onDone) => {
-            // This is still simple, but you can move this to the hook later too
             try {
-              for (const row of rows) {
-                await addPatient({ ...row, created_by: profile?.id });
-              }
-              setShowImport(false);
-              onDone();
+              await bulkAddPatients(rows)
+              setShowImport(false)
+              onDone()
             } catch (err) {
-              alert('Import failed: ' + err.message);
+              alert('Import failed: ' + err.message)
             }
           }} 
           importing={isProcessing} 

@@ -11,7 +11,7 @@ export default function ClinicianSidebar() {
 
   // Mobile menu state
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false)
-  const [loggingOut, setLoggingOut] = React.useState(false)
+  const [showLogoutConfirm, setShowLogoutConfirm] = React.useState(false)
 
   // Desktop collapsed state (persistent in localStorage)
   const [collapsed, setCollapsed] = React.useState(() => {
@@ -63,25 +63,13 @@ export default function ClinicianSidebar() {
 
   // Logout handler
   async function handleLogout() {
-    if (loggingOut) return
-    
-    const confirmLogout = window.confirm('Are you sure you want to logout?')
-    if (!confirmLogout) return
-
-    setLoggingOut(true)
-    
     try {
-      const { error } = await supabase.auth.signOut()
-      if (error) throw error
-      
+      await supabase.auth.signOut()
       clearAuth()
-      
-      // Force navigation with full page reload to ensure clean state
-      window.location.href = '/login'
+      navigate('/login')
     } catch (err) {
       console.error('Logout failed:', err)
       alert('Logout failed. Please try again.')
-      setLoggingOut(false)
     }
   }
 
@@ -159,7 +147,7 @@ export default function ClinicianSidebar() {
 
       {/* Logout */}
       <button
-        onClick={handleLogout}
+        onClick={() => setShowLogoutConfirm(true)}
         className="mt-3 w-full flex items-center px-3 py-2 rounded-lg text-sm font-medium transition bg-gray-100 hover:bg-red-500 hover:text-white min-w-0"
       >
         <div className="w-6 flex justify-center flex-shrink-0">
@@ -289,6 +277,32 @@ export default function ClinicianSidebar() {
         {/* Desktop User Section */}
         {renderUserSection(false)}
       </div>
+
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+            <h2 className="text-lg font-semibold text-gray-900">Confirm Logout</h2>
+            <p className="mt-2 text-sm text-gray-600">Are you sure you want to log out?</p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => setShowLogoutConfirm(false)}
+                className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  await handleLogout()
+                  setShowLogoutConfirm(false)
+                }}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 } 
