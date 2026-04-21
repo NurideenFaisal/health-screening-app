@@ -140,7 +140,7 @@ function App() {
                 <RoleRoute requiredRole="admin" user={user} profile={profile}>
                   <AdminDashboard />
                 </RoleRoute>
-              </Suspense>
+              </Suspense>  
             }
           >
             <Route

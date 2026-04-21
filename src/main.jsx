@@ -6,6 +6,12 @@ import { supabase } from './lib/supabase'
 import { useAuthStore } from './store/authStore'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
+
+
+// test form builder
+import FormBuilder from './pages/FormBuilder/FormBuilder.jsx'
+
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -32,7 +38,7 @@ async function loadClinicName(profile) {
 async function init() {
   const { setAuth, clearAuth } = useAuthStore.getState()
 
-  // ── 1. Load the session once on startup ────────────────────────────────────
+  // ── 1. Load the session once on startup
   const { data: { session } } = await supabase.auth.getSession()
 
   if (session) {
@@ -72,7 +78,10 @@ async function init() {
   createRoot(document.getElementById('root')).render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>
-        <App />
+        {/* <App /> */}
+
+        {/* test */}
+        <FormBuilder />
       </QueryClientProvider>
     </StrictMode>
   )

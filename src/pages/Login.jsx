@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { supabase } from '../lib/supabase'
-import { loadSession } from '../lib/loadSession'
+import { loadSession} from '../lib/loadSession'
+
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -93,7 +94,6 @@ export default function Login() {
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 transform animate-in fade-in zoom-in duration-200">
 
             <div className="flex flex-col items-center text-center gap-4">
-
               <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
                 <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}

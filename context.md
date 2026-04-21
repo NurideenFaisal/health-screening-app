@@ -175,3 +175,86 @@ Right now the app is structured for fixed sections with a central section config
 
 ### 2. The Skeleton Screen (The "Progress")The Vibe:
 The room is ready, I'm just bringing in the furniture."The Psychological Weight: It focuses the user's attention on the content. Because the user can see the "shape" of where the patient names and vitals will be, it feels like the app is already working for them.Best Use Case: Content-heavy screens like the Patient Queue or Search Results. It makes the transition from "empty" to "full" feel seamless rather than a sudden "pop."Which one should you use?FeatureRecommended ChoiceWhy?Initial App LoadSkeletonMakes the app feel high-end and ready for use.Patient Queue ListSkeletonUsers can see where the names will appear before they load.Saving a FormSpinnerYou want the clinician to know the "Save" is in progress so they don't click twice.Searching for a ChildSpinner (in input)It signals that the "Deep Search" is currently digging through the database.
+
+
+
+# Transitioning from UI Builder to Supabase Backend
+
+Moving from **volatile memory** (where everything disappears on refresh) to **persistent, relational storage** means rethinking how data is synchronized and identified. Your current "Canonical Form Schema" is well suited for this transition, but several changes are needed.
+
+---
+
+## 1. ID Generation Strategy
+Currently:
+- `_id = 200` and `genId()` create local strings like `f201`.
+
+**The Change:**  
+In a database environment, IDs must be globally unique to prevent collisions when multiple clinicians are creating forms.
+
+**The Move:**  
+Switch to **UUIDs** (Universally Unique Identifiers). Supabase can generate these automatically, or you can use `crypto.randomUUID()` in the browser before saving.
+
+---
+
+## 2. From Nested State to Relational Tables
+Right now:
+- `groups` array contains `fields` as a nested list.
+
+Options with Supabase:
+- **JSONB column type**: Save the entire structure as one blob (matches your current CFS v1 design).
+- **Relational approach**:  
+  - `form_groups`: Stores `id`, `label`, `color`, `sort_order`.  
+  - `form_fields`: Stores `id`, `group_id` (foreign key), `type`, `label`, `logic_config`.
+
+> **Note:** Since you mentioned using **JSONB** for clinical data orchestration, you might keep the *schema* in structured tables but store the *responses* in a flexible JSONB column to handle high‑volume, varying pediatric data.
+
+---
+
+## 3. Real-Time Sync & "Dirty" States
+Currently:
+- `isDirty` is a simple boolean.
+
+In the backend version, decide on a **Persistence Strategy**:
+- **Auto-save:** Every time `handleDragEnd` or `updateField` finishes, send a `PATCH` request to Supabase.
+- **Manual Save:** Keep the "Publish" button, which sends the entire `groups` state to Supabase via `.upsert()` or RPC.
+
+---
+
+## 4. Logic Validation
+Currently:
+- `computed` fields and `conditions` run only in the browser’s `PreviewModal`.
+
+**The Change:**  
+Backend must not just trust the UI.
+
+**The Move:**  
+Use **Database Functions** (PostgreSQL) or **Edge Functions** to re‑validate:
+- Required fields are not skipped.  
+- Computed values are mathematically correct.  
+
+This ensures integrity before committing to the clinical record.
+
+---
+
+## Implementation Mapping
+
+| Current UI Feature       | Supabase Equivalent / Change                          |
+|--------------------------|-------------------------------------------------------|
+| `INITIAL_GROUPS` constant | `.select()` query on mount to fetch the saved schema |
+| `handlePublish` function | `.upsert()` call to the `form_templates` table        |
+| `genId('f')`             | Use PostgreSQL `uuid_generate_v4()` or browser UUIDs |
+| `isVisible` logic        | Share with submission handler to verify integrity     |
+
+---
+
+## Monitoring
+Since you are already using the **Supabase Web Dashboard** for managing environment variables and edge functions, you’ll be able to monitor schema updates and clinical data rows directly as they come in from the field.
+
+---
+
+## Key Question
+How would you like to handle the **clinical responses**?
+
+- **Flat table** (structured, relational, easier queries)  
+- **Flexible JSONB** (better for variable pediatric data, schema‑less storage)  
+
