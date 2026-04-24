@@ -1,4 +1,4 @@
-import { createClient } from 'npm:@supabase/supabase-js@2'
+import { createClient } from 'jsr:@supabase/supabase-js'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -170,6 +170,7 @@ Deno.serve(async (req) => {
           full_name: adminFullName,
           role: 'admin',
           section: null,
+          section_number: null,
         },
       })
 
@@ -186,6 +187,7 @@ Deno.serve(async (req) => {
           full_name: adminFullName,
           role: 'admin',
           section: null,
+          section_number: null,
           clinic_id: clinic.id,
         })
 

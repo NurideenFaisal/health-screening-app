@@ -20,9 +20,9 @@ export default function Login() {
       if (profile.role === 'super-admin') {
         navigate('/super-admin/dashboard')
       } else if (profile.role === 'admin') {
-        navigate('/admin')
+        navigate('/admin/dashboard')
       } else if (profile.role === 'clinician') {
-        navigate('/clinician')
+        navigate('/clinician/dashboard')
       }
     }
   }, [user, profile, navigate])
@@ -53,7 +53,7 @@ export default function Login() {
     setError(null)
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
       })
@@ -62,12 +62,11 @@ export default function Login() {
         throw error
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 300))
-      await loadSession()
+      await loadSession(data.session)
 
-      const { profile: authProfile } = useAuthStore.getState()
+      const { user: authUser, profile: authProfile } = useAuthStore.getState()
 
-      if (!authProfile) {
+      if (!authUser || !authProfile) {
         throw new Error('Profile access denied by RLS')
       }
 

@@ -13,7 +13,7 @@ export default function ClinicianDashboard() {
     if (profile?.role === 'super-admin') {
       navigate('/super-admin/dashboard', { replace: true })
     } else if (profile?.role === 'admin') {
-      navigate('/admin', { replace: true })
+      navigate('/admin/dashboard', { replace: true })
     } else if (user === null) {
       navigate('/login', { replace: true })
     }

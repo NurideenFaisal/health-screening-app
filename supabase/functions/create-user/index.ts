@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from 'jsr:@supabase/supabase-js'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -65,6 +65,7 @@ Deno.serve(async (req) => {
       password, 
       role, 
       assignedSection,
+      section_number,
       clinic_id,
       full_name 
     } = await req.json()
@@ -96,6 +97,9 @@ Deno.serve(async (req) => {
         full_name: userFullName,
         role: role.toLowerCase(),
         section: role === 'clinician' ? assignedSection : null,
+        section_number: role === 'clinician'
+          ? (section_number ?? Number.parseInt(String(assignedSection), 10))
+          : null,
       },
     })
 
@@ -107,10 +111,16 @@ Deno.serve(async (req) => {
     }
 
     // Create profile record with clinic_id if provided
-    if (clinic_id && newUser?.user) {
+    if (newUser?.user) {
       const { error: profileError } = await supabaseAdmin
         .from('profiles')
-        .update({ clinic_id })
+        .update({
+          clinic_id: clinic_id ?? null,
+          section: role === 'clinician' ? assignedSection : null,
+          section_number: role === 'clinician'
+            ? (section_number ?? Number.parseInt(String(assignedSection), 10))
+            : null,
+        })
         .eq('id', newUser.user.id)
 
       if (profileError) {

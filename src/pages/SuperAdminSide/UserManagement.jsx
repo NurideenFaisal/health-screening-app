@@ -32,7 +32,7 @@ export default function UserManagement() {
             id,
             full_name,
             role,
-            section,
+            section_number,
             clinic_id,
             created_at,
             clinics:clinic_id (name, code)
@@ -242,8 +242,8 @@ export default function UserManagement() {
                       {getScopeBadge(user)}
                     </td>
                     <td className="px-6 py-4">
-                      {user.section ? (
-                        <span className="text-sm text-gray-600">Section {user.section}</span>
+                      {user.section_number ? (
+                        <span className="text-sm text-gray-600">Section {user.section_number}</span>
                       ) : (
                         <span className="text-sm text-gray-400">—</span>
                       )}

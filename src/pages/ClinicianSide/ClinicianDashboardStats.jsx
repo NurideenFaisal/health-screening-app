@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../store/authStore'
 import { ClipboardList, Users, RefreshCw } from 'lucide-react'
+import { getProfileSectionNumber } from '../../lib/sectionUtils'
 
 async function fetchClinicianStats(userId) {
   const patientsRes = await supabase
@@ -83,7 +84,7 @@ export default function ClinicianDashboardStats() {
   })
 
   const firstName = profile?.full_name?.split(' ')[0] ?? 'Clinician'
-  const section = profile?.section
+  const section = getProfileSectionNumber(profile)
 
   return (
     <div className="w-full font-sans">

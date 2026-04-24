@@ -5,27 +5,25 @@ import { useAuthStore } from '../../store/authStore'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Search, X, ChevronRight, Loader2, WifiOff } from 'lucide-react'
 import { useActiveCycleQuery } from '../../hooks/useActiveCycleQuery'
-import {
-  getSectionLabel,
-  getSectionPills,
-} from '../../config/sections'
+import { useSectionDefinitions } from '../../hooks/useSectionDefinitions'
+import { getProfileSectionNumber, getSectionColorClasses, normalizeSectionOrder } from '../../lib/sectionUtils'
 
 const STATUS_WEIGHT = { done: 0, ready: 1, screened: 2 }
 
-const determinePatientStatus = (sections = {}, mySection) => {
-  const allComplete = [1, 2, 3, 4].every(num => sections[`s${num}`] === true)
+const determinePatientStatus = (sections = {}, mySection, sectionOrder) => {
+  const allComplete = sectionOrder.every(num => sections[`s${num}`] === true)
   if (allComplete) return 'screened'
   if (sections[`s${mySection}`] === true) return 'done'
   return 'ready'
 }
 
-const mapRpcPatient = (row, mySection) => ({
+const mapRpcPatient = (row, mySection, sectionOrder) => ({
   ...row,
   dbId: row.db_id ?? row.id,
   code: row.child_code,
   name: `${row.first_name} ${row.last_name}`,
   gender: row.gender === 'M' ? 'Male' : row.gender === 'F' ? 'Female' : row.gender,
-  status: determinePatientStatus(row.section_data, mySection),
+  status: determinePatientStatus(row.section_data, mySection, sectionOrder),
   sections: row.section_data ?? {},
   updatedAt: row.last_updated ?? '0',
 })
@@ -39,9 +37,12 @@ export default function ClinicianScreeningData() {
   const [query, setQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
 
-  const mySection = profile?.section ?? '1'
+  const mySectionNumber = getProfileSectionNumber(profile) ?? 1
+  const mySection = String(mySectionNumber)
   const clinicId = profile?.clinic_id
   const activeCycleId = activeCycle?.id ?? 'none'
+  const sectionOrder = normalizeSectionOrder(activeCycle?.section_order, mySectionNumber)
+  const { sections: sectionDefinitions, sectionMap } = useSectionDefinitions(sectionOrder)
   const queueCacheKey = `clinician-queue-${clinicId ?? 'all'}-${mySection}-${activeCycleId}`
 
   const cachedQueueData = useMemo(() => {
@@ -125,7 +126,7 @@ export default function ClinicianScreeningData() {
 
       if (error) throw error
 
-      const patients = (data ?? []).map(row => mapRpcPatient(row, mySection))
+      const patients = (data ?? []).map(row => mapRpcPatient(row, mySection, sectionOrder))
       return { cycle: activeCycle, patients }
     },
     staleTime: 30000,
@@ -185,7 +186,7 @@ export default function ClinicianScreeningData() {
       })
 
       if (error) throw error
-      return (data ?? []).map(row => mapRpcPatient(row, mySection))
+      return (data ?? []).map(row => mapRpcPatient(row, mySection, sectionOrder))
     },
   })
 
@@ -216,7 +217,12 @@ export default function ClinicianScreeningData() {
     )
   }
 
-  const sectionPills = getSectionPills()
+  const sectionPills = sectionDefinitions.map(section => ({
+    key: `s${section.section_number}`,
+    label: section.short_name || `S${section.section_number}`,
+    doneColor: getSectionColorClasses(section.color).dot,
+    title: section.name || `Section ${section.section_number}`,
+  }))
 
   return (
     <div className="min-h-screen bg-gray-100 p-4 sm:p-6 lg:p-10 font-sans">
@@ -238,7 +244,9 @@ export default function ClinicianScreeningData() {
               <h2 className="text-base sm:text-lg font-semibold text-slate-900 tracking-tight">
                 Section {mySection}
               </h2>
-              <p className="text-sm text-slate-500 mt-1">{getSectionLabel(mySection)}</p>
+              <p className="text-sm text-slate-500 mt-1">
+                {sectionMap.get(mySectionNumber)?.name || `Section ${mySection}`}
+              </p>
             </div>
 
             <div className="flex flex-col items-end gap-1.5">

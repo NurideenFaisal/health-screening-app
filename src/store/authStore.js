@@ -5,6 +5,9 @@ export const useAuthStore = create((set) => ({
   profile: null,
   loading: true,
 
+  beginAuthLoad: () =>
+    set((state) => ({ ...state, loading: true })),
+
   setAuth: (user, profile) =>
     set({ user, profile, loading: false }),
 

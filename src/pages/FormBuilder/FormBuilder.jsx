@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   DndContext, DragOverlay, closestCenter, PointerSensor,
   useSensor, useSensors
@@ -8,6 +9,8 @@ import {
   arrayMove
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { supabase } from '../../lib/supabase'
+import { dryRunSchema, transformGroupsToSchema, transformSchemaToGroups } from '../../lib/logicEngine'
 
 const TYPE_META = {
   text:     { icon: 'T',  bg: '#ede9fe', color: '#6d28d9', label: 'Text' },
@@ -29,19 +32,7 @@ const PALETTE_GROUPS = [
 const GROUP_COLORS = ['#059669','#7c3aed','#0284c7','#d97706','#dc2626','#db2777','#0891b2','#65a30d']
 
 const INITIAL_GROUPS = [
-  { id: 'g1', label: 'Vital signs', color: '#059669', fields: [
-    { id: 'f1', type: 'number', label: 'Weight (kg)', required: true, help: '', step: '0.1', min: '', max: '', options: [], formula: '', conditions: [] },
-    { id: 'f2', type: 'number', label: 'Height (cm)', required: true, help: '', step: '0.1', min: '', max: '', options: [], formula: '', conditions: [] },
-    { id: 'f3', type: 'computed', label: 'BMI', required: false, help: 'Auto-calculated', step: '', min: '', max: '', options: [], formula: 'weight/(height/100)^2', conditions: [] },
-  ]},
-  { id: 'g2', label: 'Physical appearance', color: '#7c3aed', fields: [
-    { id: 'f4', type: 'checkbox', label: 'Normal appearance', required: false, help: '', step: '', min: '', max: '', options: [], formula: '', conditions: [] },
-    { id: 'f5', type: 'checkbox', label: 'Edema', required: false, help: '', step: '', min: '', max: '', options: [], formula: '', conditions: [] },
-  ]},
-  { id: 'g3', label: 'Signs of abuse / neglect', color: '#dc2626', fields: [
-    { id: 'f6', type: 'radio', label: 'Signs of abuse', required: true, help: '', step: '', min: '', max: '', options: [{v:'no',l:'No'},{v:'suspected',l:'Suspected'},{v:'confirmed',l:'Confirmed'}], formula: '', conditions: [] },
-    { id: 'f7', type: 'textarea', label: 'Comments / details', required: false, help: 'Provide details if suspected or confirmed', step: '', min: '', max: '', options: [], formula: '', conditions: [{field:'f6',op:'notEquals',value:'no'}] },
-  ]},
+  { id: 'g1', label: 'New Section', color: '#059669', fields: [] },
 ]
 
 let _id = 200
@@ -320,15 +311,97 @@ function PreviewModal({ groups, onClose }) {
 }
 
 export default function App() {
+  const [searchParams] = useSearchParams()
   const [groups, setGroups] = useState(INITIAL_GROUPS)
   const [selectedFieldId, setSelectedFieldId] = useState(null)
   const [showPreview, setShowPreview] = useState(false)
   const [published, setPublished] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [publishError, setPublishError] = useState(null)
   const [savedDraft, setSavedDraft] = useState(false)
-  const [version, setVersion] = useState(1)
+  const [version, setVersion] = useState('1.0')
   const [isDirty, setIsDirty] = useState(false)
   const [activeId, setActiveId] = useState(null)
   const [activeType, setActiveType] = useState(null)
+  const [activeTab, setActiveTab] = useState('design') // 'design' | 'preview'
+  const [configPanelOpen, setConfigPanelOpen] = useState(true)
+  
+  // Form metadata
+  const [formName, setFormName] = useState('')
+  const [formDescription, setFormDescription] = useState('')
+  const [templates, setTemplates] = useState([])
+  const [selectedTemplateId, setSelectedTemplateId] = useState('')
+  const [loadingTemplates, setLoadingTemplates] = useState(false)
+  const [templateError, setTemplateError] = useState(null)
+  const requestedTemplateId = searchParams.get('templateId')
+
+  const loadTemplates = async () => {
+    setLoadingTemplates(true)
+    setTemplateError(null)
+    try {
+      const { data, error } = await supabase.rpc('list_templates')
+      if (error) throw error
+      setTemplates(data || [])
+    } catch (err) {
+      console.error('Failed to load templates:', err)
+      setTemplateError(err.message)
+    } finally {
+      setLoadingTemplates(false)
+    }
+  }
+  
+
+  // Load templates on mount
+  useEffect(() => {
+    loadTemplates()
+  }, [])
+
+  useEffect(() => {
+    if (!requestedTemplateId || requestedTemplateId === selectedTemplateId) return
+    if (!templates.some(template => template.id === requestedTemplateId)) return
+
+    handleSelectTemplate(requestedTemplateId)
+  }, [requestedTemplateId, selectedTemplateId, templates])
+
+  // Handle template selection
+  const handleSelectTemplate = async (templateId) => {
+    if (!templateId) {
+      setSelectedTemplateId('')
+      setFormName('')
+      setFormDescription('')
+      setGroups(INITIAL_GROUPS)
+      setVersion('1.0')
+      setIsDirty(false)
+      return
+    }
+
+    setSelectedTemplateId(templateId)
+    setLoadingTemplates(true)
+
+    try {
+      const { data, error } = await supabase.rpc('get_template_by_id', {
+        p_template_id: templateId,
+      })
+
+      if (error) throw error
+
+      if (data) {
+        const loadedSchema = data.fieldSchema || data.field_schema
+        if (loadedSchema?.groups) {
+          setGroups(transformSchemaToGroups(loadedSchema))
+          setFormName(data.name || '')
+          setFormDescription(data.description || '')
+          setVersion(data.version || '1.0')
+          setIsDirty(false)
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load template:', err)
+      setTemplateError(err.message)
+    } finally {
+      setLoadingTemplates(false)
+    }
+  }
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const activeDragField = activeType === 'field' ? allFields(groups).find(f => f.id === activeId) : null
@@ -381,45 +454,136 @@ export default function App() {
     setIsDirty(true)
   }
 
-  const handleSaveDraft = () => { setSavedDraft(true); setIsDirty(false); setTimeout(() => setSavedDraft(false), 2000) }
-  const handlePublish = () => { setPublished(true); setVersion(v => v + 1); setIsDirty(false); setTimeout(() => setPublished(false), 2500) }
+  const persistTemplate = async (nextStatus) => {
+    if (!formName.trim()) {
+      setPublishError('Form name is required')
+      return null
+    }
+
+    const schema = transformGroupsToSchema(groups)
+
+    if (nextStatus === 'published') {
+      if (groups.every(group => group.fields.length === 0)) {
+        setPublishError('Add at least one field before publishing')
+        return null
+      }
+
+      const dryRun = dryRunSchema(schema)
+      if (!dryRun.valid) {
+        setPublishError(dryRun.errors[0])
+        return null
+      }
+    }
+
+    setSaving(true)
+    setPublishError(null)
+
+    try {
+      const { data: templateId, error } = await supabase.rpc('save_template', {
+        p_name: formName.trim(),
+        p_field_schema: schema,
+        p_description: formDescription.trim() || null,
+        p_status: nextStatus,
+        p_template_id: selectedTemplateId || null,
+      })
+
+      if (error) throw error
+
+      setSelectedTemplateId(templateId)
+      await loadTemplates()
+      await handleSelectTemplate(templateId)
+      setIsDirty(false)
+      return templateId
+    } catch (err) {
+      console.error('Template save error:', err)
+      setPublishError(err.message || `Failed to save ${nextStatus} template`)
+      return null
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleSaveDraft = async () => {
+    const templateId = await persistTemplate('draft')
+    if (!templateId) return
+
+    setSavedDraft(true)
+    setTimeout(() => setSavedDraft(false), 2000)
+  }
+  
+  const handlePublish = async () => {
+    const templateId = await persistTemplate('published')
+    if (!templateId) return
+
+    setPublished(true)
+    setTimeout(() => setPublished(false), 2500)
+  }
 
   const groupIds = groups.map(g => g.id)
   const totalFields = groups.reduce((a, g) => a + g.fields.length, 0)
 
   return (
-    <div className="flex flex-col h-screen bg-[#f4f5f7]">
-      {/* Toolbar */}
-      <header className="flex items-center justify-between px-5 py-3 bg-white border-b border-gray-200 shadow-sm z-10 flex-shrink-0">
-        <div className="flex items-center gap-3">
-          
-          <div className="flex items-center gap-2">
-            <span className="text-[14px] font-semibold text-gray-900">Form Builder</span>
-            <span className="text-gray-300">·</span>
-            {/* <span className="text-[12px] text-gray-400">Section 1 — Vitals tab</span> */}
-          </div>
+    <div className="flex flex-col h-screen bg-gray-50">
+      {/* Three-Zone Header */}
+      <header className="sticky top-0 z-20 flex items-center justify-between px-6 py-3 bg-white border-b border-gray-200 shadow-sm flex-shrink-0">
+        {/* Zone 1 - Identity */}
+        <div className="flex-1 flex items-center gap-3">
+          <span className="text-[14px] font-semibold text-gray-900">Form Builder</span>
           <span className={`text-[11px] px-2.5 py-0.5 rounded-full border font-medium transition-colors ${isDirty ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`}>
             v{version} {isDirty ? 'unsaved' : 'saved'}
           </span>
+          <span className="text-[13px] text-gray-600 truncate max-w-[200px]">{formName || 'Untitled form'}</span>
+          {publishError && (
+            <span className="text-[11px] px-2 py-0.5 rounded-full border font-medium bg-red-50 text-red-600 border-red-200">
+              {publishError}
+            </span>
+          )}
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-[12px] text-gray-400 mr-1">{totalFields} fields · {groups.length} groups</span>
-          <div className="w-px h-4 bg-gray-200" />
-          <button onClick={() => setShowPreview(true)}
-            className="px-3 py-1.5 text-[13px] text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-all font-medium">Preview</button>
+
+        {/* Zone 2 - Workspace Toggle */}
+        <div className="flex-1 flex justify-center">
+          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
+            <button onClick={() => setActiveTab('design')}
+              className={`px-4 py-1.5 text-[12px] font-medium rounded-md transition-all ${activeTab === 'design' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+              Design
+            </button>
+            <button onClick={() => setActiveTab('preview')}
+              className={`px-4 py-1.5 text-[12px] font-medium rounded-md transition-all ${activeTab === 'preview' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+              Preview
+            </button>
+          </div>
+        </div>
+
+        {/* Zone 3 - Actions */}
+        <div className="flex-1 flex items-center justify-end gap-2">
+          <select
+            value={selectedTemplateId}
+            onChange={e => handleSelectTemplate(e.target.value)}
+            disabled={loadingTemplates}
+            className="w-36 text-[12px] border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-700 outline-none focus:border-emerald-400 transition-all"
+          >
+            <option value="">{loadingTemplates ? 'Loading...' : templates.length === 0 ? 'Templates' : 'Load template'}</option>
+            {templates.map(t => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
+          </select>
           <button onClick={handleSaveDraft}
             className={`px-3 py-1.5 text-[13px] border rounded-lg transition-all font-medium ${savedDraft ? 'border-emerald-300 text-emerald-600 bg-emerald-50' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-            {savedDraft ? '✓ Saved' : 'Save draft'}</button>
-          <button onClick={handlePublish}
-            className={`px-4 py-1.5 text-[13px] font-medium rounded-lg transition-all shadow-sm ${published ? 'bg-emerald-800 shadow-emerald-200 text-white' : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200'}`}>
-            {published ? '✓ Published!' : 'Publish'}</button>
+            {savedDraft ? '✓ Saved' : 'Save draft'}
+          </button>
+          <button 
+            onClick={handlePublish} 
+            disabled={saving}
+            className={`px-4 py-1.5 text-[13px] font-medium rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${published ? 'bg-emerald-800 shadow-emerald-200 text-white' : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200'}`}>
+            {saving ? 'Publishing...' : published ? '✓ Published!' : 'Publish'}
+          </button>
         </div>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
         {/* Palette */}
         <aside className="w-48 bg-white border-r border-gray-200 overflow-y-auto flex-shrink-0 py-4 px-3">
-          {PALETTE_GROUPS.map((pg, pi) => (
+          {activeTab === 'design' && PALETTE_GROUPS.map((pg, pi) => (
             <div key={pg.label} className={pi < PALETTE_GROUPS.length - 1 ? "mb-5" : ""}>
               <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2 px-1">{pg.label}</p>
               {pg.types.map(type => {
@@ -437,48 +601,85 @@ export default function App() {
           ))}
         </aside>
 
-        {/* Canvas */}
+        {/* Main Content Area */}
         <main className="flex-1 overflow-y-auto p-5">
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-            <SortableContext items={groupIds} strategy={verticalListSortingStrategy}>
-              {groups.map(g => (
-                <SortableGroup key={g.id} group={g} selectedFieldId={selectedFieldId}
-                  onSelectField={setSelectedFieldId} onDeleteField={deleteField}
-                  onAddField={addField} onUpdateGroup={updateGroup} onDeleteGroup={deleteGroup}
-                  onDropFromPalette={(gid, type) => addField(gid, type)} />
-              ))}
-            </SortableContext>
-            <DragOverlay dropAnimation={{ duration: 150, easing: 'ease' }}>
-              {activeDragField && (
-                <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-emerald-300 bg-white shadow-lg w-64">
-                  <TypeIcon type={activeDragField.type} />
-                  <span className="text-[13px] text-gray-700 truncate">{activeDragField.label || 'Untitled'}</span>
-                </div>
-              )}
-              {activeDragGroup && (
-                <div className="rounded-xl border border-emerald-300 bg-white shadow-xl w-80 overflow-hidden">
-                  <div className="flex items-center gap-2.5 px-4 py-3 bg-gray-50">
-                    <span className="w-3 h-3 rounded-full" style={{background:activeDragGroup.color}} />
-                    <span className="text-[13px] font-semibold text-gray-800">{activeDragGroup.label}</span>
-                    <span className="ml-auto text-[11px] text-gray-400">{activeDragGroup.fields.length} fields</span>
-                  </div>
-                </div>
-              )}
-            </DragOverlay>
-          </DndContext>
-          <button onClick={addGroup}
-            className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-gray-200 rounded-xl text-[13px] text-gray-400 hover:border-emerald-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all font-medium mt-1">
-            + Add group
-          </button>
+          {activeTab === 'design' && (
+            <>
+              {/* Master Identity Card */}
+              <div className="bg-white rounded-xl border-t-[10px] border-emerald-500 border border-gray-200 shadow-sm mb-4 p-6">
+                <input type="text" value={formName}
+                  onChange={e => { setFormName(e.target.value); setIsDirty(true); }}
+                  className="w-full text-[18px] font-semibold text-gray-900 border-none outline-none focus:ring-0 placeholder:text-gray-400 mb-2"
+                  placeholder="Form name..." />
+                <input type="text" value={formDescription}
+                  onChange={e => { setFormDescription(e.target.value); setIsDirty(true); }}
+                  className="w-full text-[13px] text-gray-500 border-none outline-none focus:ring-0 placeholder:text-gray-400"
+                  placeholder="Add a description..." />
+                {/* <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
+                  <span className={`text-[11px] px-2.5 py-0.5 rounded-full border font-medium ${isDirty ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`}>
+                    v{version} {isDirty ? 'unsaved' : 'saved'}
+                  </span>
+                  <span className="text-[11px] text-gray-400">{totalFields} fields</span>
+                </div> */}
+              </div>
+              
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+                <SortableContext items={groupIds} strategy={verticalListSortingStrategy}>
+                  {groups.map(g => (
+                    <SortableGroup key={g.id} group={g} selectedFieldId={selectedFieldId}
+                      onSelectField={setSelectedFieldId} onDeleteField={deleteField}
+                      onAddField={addField} onUpdateGroup={updateGroup} onDeleteGroup={deleteGroup}
+                      onDropFromPalette={(gid, type) => addField(gid, type)} />
+                  ))}
+                </SortableContext>
+                <DragOverlay dropAnimation={{ duration: 150, easing: 'ease' }}>
+                  {activeDragField && (
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-emerald-300 bg-white shadow-lg w-64">
+                      <TypeIcon type={activeDragField.type} />
+                      <span className="text-[13px] text-gray-700 truncate">{activeDragField.label || 'Untitled'}</span>
+                    </div>
+                  )}
+                  {activeDragGroup && (
+                    <div className="rounded-xl border border-emerald-300 bg-white shadow-xl w-80 overflow-hidden">
+                      <div className="flex items-center gap-2.5 px-4 py-3 bg-gray-50">
+                        <span className="w-3 h-3 rounded-full" style={{background:activeDragGroup.color}} />
+                        <span className="text-[13px] font-semibold text-gray-800">{activeDragGroup.label}</span>
+                        <span className="ml-auto text-[11px] text-gray-400">{activeDragGroup.fields.length} fields</span>
+                      </div>
+                    </div>
+                  )}
+                </DragOverlay>
+              </DndContext>
+              <button onClick={addGroup}
+                className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-gray-200 rounded-xl text-[13px] text-gray-400 hover:border-emerald-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all font-medium mt-1">
+                + Add group
+              </button>
+            </>
+          )}
+          {activeTab === 'preview' && (
+            <div className="max-w-xl mx-auto">
+              <PreviewModal groups={groups} onClose={() => setActiveTab('design')} />
+            </div>
+          )}
         </main>
 
-        {/* Config Panel */}
-        <aside className="w-64 bg-white border-l border-gray-200 overflow-y-auto flex-shrink-0">
-          <div className="px-4 py-3 border-b border-gray-100">
-            <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">Field settings</p>
-          </div>
-          <ConfigPanel groups={groups} selectedFieldId={selectedFieldId} onUpdateField={updateField} onDeleteField={deleteField} />
-        </aside>
+        {/* Config Panel - Collapsible */}
+        {activeTab === 'design' && configPanelOpen && (
+          <aside className="w-64 bg-white border-l border-gray-200 overflow-y-auto flex-shrink-0">
+            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">Field settings</p>
+              <button onClick={() => setConfigPanelOpen(false)}
+                className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
+            </div>
+            <ConfigPanel groups={groups} selectedFieldId={selectedFieldId} onUpdateField={updateField} onDeleteField={deleteField} />
+          </aside>
+        )}
+        {activeTab === 'design' && !configPanelOpen && (
+          <button onClick={() => setConfigPanelOpen(true)}
+            className="absolute right-4 top-1/2 w-6 h-12 bg-white border border-gray-200 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-50 text-xs">
+            ⚙
+          </button>
+        )}
       </div>
 
       {showPreview && <PreviewModal groups={groups} onClose={() => setShowPreview(false)} />}

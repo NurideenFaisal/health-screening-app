@@ -1,24 +1,29 @@
-import { useEffect } from 'react'
-import { useLocation, useNavigate, useParams, NavLink, Outlet } from 'react-router-dom'
+import { useEffect, useState, useMemo, Suspense, lazy } from 'react'
+import { useLocation, useNavigate, useParams, NavLink } from 'react-router-dom'
 import { AlertCircle, ChevronLeft, Loader2, RefreshCw } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
-import { getSectionByValue } from '../../config/sections'
 import { useClinicianScreeningBootstrap } from '../../hooks/useClinicianScreeningBootstrap'
+import { useSectionDefinitions } from '../../hooks/useSectionDefinitions'
+import { supabase } from '../../lib/supabase'
+import { getProfileSectionNumber, normalizeSectionOrder } from '../../lib/sectionUtils'
+
+const DynamicRenderer = lazy(() => import('../../components/DynamicRenderer'))
 
 export default function ClinicianScreeningForm() {
   const { id } = useParams()
   const location = useLocation()
   const navigate = useNavigate()
   const { profile } = useAuthStore()
-  const mySection = String(profile?.section || '1')
-  const sectionNumber = parseInt(mySection, 10)
+  const sectionNumber = getProfileSectionNumber(profile) ?? 1
+  const mySection = String(sectionNumber)
   const initialPatient = location.state?.patient ?? null
 
-  const currentSection = getSectionByValue(mySection)
-  const tabs = currentSection?.tabs || []
+  const [hasDynamicSchema, setHasDynamicSchema] = useState(false)
+  const [schemaLoading, setSchemaLoading] = useState(true)
 
   const {
     patient,
+    cycle,
     cycleId,
     isBootstrapping,
     bootstrapError,
@@ -28,26 +33,82 @@ export default function ClinicianScreeningForm() {
     sectionNumber,
     initialPatient,
   })
-
-  const contextValue = {
-    patientId: id,
-    patient,
-    cycleId,
-    sectionNumber,
-    mySection,
-  }
-
-  const sectionRoute = sectionNumber === 1 ? null : `section${sectionNumber}`
+  const sectionOrder = normalizeSectionOrder(cycle?.section_order, sectionNumber)
+  const { sectionMap } = useSectionDefinitions(sectionOrder)
+  const currentSection = sectionMap.get(sectionNumber)
+  const tabs = Array.isArray(currentSection?.tabs_config) ? currentSection.tabs_config : []
 
   useEffect(() => {
-    const currentSegment = location.pathname.split('/').filter(Boolean).pop()
-    if (sectionRoute && currentSegment !== sectionRoute) {
-      navigate(sectionRoute, { replace: true })
+    async function checkDynamicSchema() {
+      if (!profile?.clinic_id || !cycleId) {
+        setSchemaLoading(false)
+        return
+      }
+      try {
+        const { data, error } = await supabase.rpc('get_clinic_template', {
+          p_clinic_id: profile.clinic_id,
+          p_cycle_id: cycleId,
+          p_section_number: sectionNumber,
+        })
+        
+        if (error) throw error
+        
+        const hasSchema = data?.fieldSchema?.groups?.length > 0
+        setHasDynamicSchema(!!hasSchema)
+      } catch (err) {
+        console.error('Error checking template:', err)
+        setHasDynamicSchema(false)
+      } finally {
+        setSchemaLoading(false)
+      }
     }
-  }, [location.pathname, navigate, sectionRoute])
+    
+    setSchemaLoading(true)
+    checkDynamicSchema()
+  }, [sectionNumber, profile?.clinic_id, cycleId])
 
   const renderContent = () => {
-    return <Outlet context={contextValue} />
+    if (schemaLoading) {
+      return (
+        <div className="flex min-h-[220px] items-center justify-center">
+          <div className="flex items-center gap-3 text-sm text-gray-500">
+            <Loader2 className="h-5 w-5 animate-spin text-emerald-600" />
+            Checking template...
+          </div>
+        </div>
+      )
+    }
+    
+    if (hasDynamicSchema) {
+      return (
+        <Suspense fallback={
+          <div className="flex min-h-[220px] items-center justify-center">
+            <div className="flex items-center gap-3 text-sm text-gray-500">
+              <Loader2 className="h-5 w-5 animate-spin text-emerald-600" />
+              Loading dynamic form...
+            </div>
+          </div>
+        }>
+          <DynamicRenderer sectionNumber={sectionNumber} />
+        </Suspense>
+      )
+    }
+    
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-8">
+        <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mb-4">
+          <AlertCircle className="w-8 h-8 text-amber-600" />
+        </div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">Waiting for Template Assignment</h3>
+        <p className="text-sm text-gray-500 mb-1">
+          No template has been activated for your assigned section
+          {currentSection?.name && <span className="font-medium text-gray-700"> ({currentSection.name})</span>}.
+        </p>
+        <p className="text-xs text-gray-400">
+          Please contact your clinic administrator to activate a template for this section.
+        </p>
+      </div>
+    )
   }
 
   return (
@@ -74,7 +135,7 @@ export default function ClinicianScreeningForm() {
               <p className="text-xs text-gray-400 truncate">
                 {patient?.child_code} {patient?.community && `· ${patient.community}`}
                 {patient?.child_code && <span className="mx-1.5 text-gray-200">·</span>}
-                <span className="text-emerald-600 font-medium">Section {mySection}</span>
+                <span className="text-emerald-600 font-medium">{currentSection?.name || `Section ${mySection}`}</span>
               </p>
             </div>
           </div>

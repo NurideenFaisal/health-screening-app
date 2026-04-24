@@ -1,6 +1,111 @@
-import React, { useState, useEffect } from 'react'
-import { Plus, Edit2, Search, X, AlertCircle, CheckCircle2, Copy, Check, Trash2, Shield, User, KeyRound } from 'lucide-react'
-import { SECTIONS, getSectionByValue } from '../../config/sections'
+import { useState, useEffect } from 'react'
+import { Plus, Edit2, Search, X, AlertCircle, CheckCircle2, Copy, Check, Trash2, Shield, User, KeyRound, Eye, FileText } from 'lucide-react'
+import { supabase } from '../../lib/supabase'
+
+// ─── Section Picker with Preview ─────────────────────────────────────────────
+function SectionPickerWithPreview({ value, onChange, clinicId, cycleId, sectionOptions = [] }) {
+  const [showPreview, setShowPreview] = useState(false)
+  const [template, setTemplate] = useState(null)
+  const [loading, setLoading] = useState(false)
+
+  const selectedSection = sectionOptions.find(option => option.value === String(value))
+
+  const loadTemplate = async () => {
+    if (!clinicId || !cycleId || !value) return
+    setLoading(true)
+    try {
+      const { data } = await supabase.rpc('get_clinic_template', {
+        p_clinic_id: clinicId,
+        p_cycle_id: cycleId,
+        p_section_number: Number.parseInt(value, 10),
+      })
+      if (data?.fieldSchema?.groups) {
+        setTemplate(data.fieldSchema)
+      } else {
+        setTemplate(null)
+      }
+    } catch (err) {
+      console.error('Error loading template:', err)
+      setTemplate(null)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handlePreview = () => {
+    if (!showPreview && !template) {
+      loadTemplate()
+    }
+    setShowPreview(!showPreview)
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <label className="block text-sm font-medium text-slate-700">Section</label>
+        <button 
+          type="button"
+          onClick={handlePreview}
+          className="flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 font-medium"
+        >
+          <Eye size={12} />
+          {showPreview ? 'Hide Preview' : 'Preview Form'}
+        </button>
+      </div>
+      <select 
+        value={value} 
+        onChange={e => { onChange(e.target.value); setShowPreview(false); }} 
+        className="w-full border border-slate-200 p-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+      >
+        {sectionOptions.map(section => (
+          <option key={section.value} value={section.value}>
+            {section.label}
+          </option>
+        ))}
+      </select>
+
+      {showPreview && (
+        <div className="mt-3 border border-slate-200 rounded-lg overflow-hidden">
+          <div className="bg-slate-50 px-3 py-2 border-b border-slate-200 flex items-center justify-between">
+            <span className="text-xs font-medium text-slate-600">
+              {selectedSection?.label || `Section ${value}`} Preview
+            </span>
+            {loading && <span className="text-xs text-slate-400">Loading...</span>}
+          </div>
+          <div className="max-h-48 overflow-y-auto p-3 space-y-3">
+            {template?.fieldSchema?.groups?.length > 0 ? (
+              template.fieldSchema.groups.map(group => (
+                <div key={group.id}>
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: group.color }} />
+                    <span className="text-xs font-medium text-slate-700">{group.label}</span>
+                  </div>
+                  <div className="pl-3.5 space-y-1">
+                    {group.fields?.slice(0, 5).map(field => (
+                      <div key={field.id} className="flex items-center justify-between text-xs">
+                        <span className="text-slate-600">{field.label}</span>
+                        <span className="text-slate-400 capitalize">{field.type}</span>
+                      </div>
+                    ))}
+                    {group.fields?.length > 5 && (
+                      <span className="text-xs text-slate-400">+{group.fields.length - 5} more fields</span>
+                    )}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-4 text-xs text-slate-400">
+                <FileText size={20} className="mx-auto mb-1" />
+                <p>No template activated</p>
+                <p className="text-xs mt-0.5">Activate a template in Role Management</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 // ─── Reusable Components ──────────────────────────────────────────────────────
 export const Button = ({ children, className = '', ...props }) => (
@@ -96,48 +201,66 @@ export const CredentialsModal = ({ show, onClose, credentials }) => {
 
 // ─── Add User Modal ──────────────────────────────────────────────────────────
 export const AddUserModal = ({
-  show, onClose, newUser, setNewUser, errors, setErrors, onAddUser, saving
-}) => (
-  <Modal
-    show={show}
-    onClose={() => { onClose(); setErrors({}) }}
-    title="Add User"
-    actions={[
-      <Button key="c" className="bg-slate-100 text-slate-700 flex-1" onClick={onClose}>Cancel</Button>,
-      <Button key="a" className="bg-emerald-600 text-white flex-1" onClick={onAddUser} disabled={saving}>
-        {saving ? 'Creating...' : 'Add User'}
-      </Button>
-    ]}
-  >
-    <div className="grid grid-cols-2 gap-3">
-      <Input label="First Name" value={newUser.firstName} onChange={e => setNewUser({ ...newUser, firstName: e.target.value })} error={errors.firstName} />
-      <Input label="Last Name" value={newUser.lastName} onChange={e => setNewUser({ ...newUser, lastName: e.target.value })} error={errors.lastName} />
-    </div>
-    <Input label="Email" value={newUser.email} onChange={e => setNewUser({ ...newUser, email: e.target.value })} error={errors.email} />
-    <Input label="Password" type="password" value={newUser.password} onChange={e => setNewUser({ ...newUser, password: e.target.value })} error={errors.password} />
-    <div className="space-y-3">
-      <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1">Role</label>
-        <select value={newUser.role} onChange={e => setNewUser({ ...newUser, role: e.target.value })} className="w-full border border-slate-200 p-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500">
-          <option value="Admin">Admin</option>
-          <option value="Clinician">Clinician</option>
-        </select>
+  show, onClose, newUser, setNewUser, errors, setErrors, onAddUser, saving, clinicId, cycleId, sectionOptions = []
+}) => {
+  const [showPassword, setShowPassword] = useState(false)
+  return (
+    <Modal
+      show={show}
+      onClose={() => { onClose(); setErrors({}) }}
+      title="Add User"
+      actions={[
+        <Button key="c" className="bg-slate-100 text-slate-700 flex-1" onClick={onClose}>Cancel</Button>,
+        <Button key="a" className="bg-emerald-600 text-white flex-1" onClick={onAddUser} disabled={saving}>
+          {saving ? 'Creating...' : 'Add User'}
+        </Button>
+      ]}
+    >
+      <div className="grid grid-cols-2 gap-3">
+        <Input label="First Name" value={newUser.firstName} onChange={e => setNewUser({ ...newUser, firstName: e.target.value })} error={errors.firstName} />
+        <Input label="Last Name" value={newUser.lastName} onChange={e => setNewUser({ ...newUser, lastName: e.target.value })} error={errors.lastName} />
       </div>
-      {newUser.role === 'Clinician' && (
+      <Input label="Email" value={newUser.email} onChange={e => setNewUser({ ...newUser, email: e.target.value })} error={errors.email} />
+      <Input 
+        label="Password" 
+        type={showPassword ? 'text' : 'password'} 
+        value={newUser.password} 
+        onChange={e => setNewUser({ ...newUser, password: e.target.value })} 
+        error={errors.password}
+      >
+        <button
+          type="button"
+          onClick={() => setShowPassword(!showPassword)}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+        >
+          <Eye size={16} />
+        </button>
+      </Input>
+      <div className="space-y-3">
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Section</label>
-          <select value={newUser.assignedSection} onChange={e => setNewUser({ ...newUser, assignedSection: e.target.value })} className="w-full border border-slate-200 p-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500">
-            {SECTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+          <label className="block text-sm font-medium text-slate-700 mb-1">Role</label>
+          <select value={newUser.role} onChange={e => setNewUser({ ...newUser, role: e.target.value })} className="w-full border border-slate-200 p-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500">
+            <option value="Admin">Admin</option>
+            <option value="Clinician">Clinician</option>
           </select>
         </div>
-      )}
-    </div>
-  </Modal>
-)
+        {newUser.role === 'Clinician' && (
+          <SectionPickerWithPreview 
+            value={newUser.assignedSection} 
+            onChange={(value) => setNewUser({ ...newUser, assignedSection: value })} 
+            clinicId={clinicId}
+            cycleId={cycleId}
+            sectionOptions={sectionOptions}
+          />
+        )}
+      </div>
+    </Modal>
+  )
+}
 
 // ─── Edit Role/Section Modal ─────────────────────────────────────────────────
 export const EditUserModal = ({
-  show, onClose, editingUser, editForm, setEditForm, editErrors, onSaveEdit, saving
+  show, onClose, editingUser, editForm, setEditForm, editErrors, onSaveEdit, saving, sectionOptions = [], clinicId, cycleId
 }) => (
   <Modal
     show={show}
@@ -175,25 +298,13 @@ export const EditUserModal = ({
 
     {/* Section selector — only for clinicians */}
     {editForm.role === 'clinician' && (
-      <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1">Section</label>
-        <div className="grid grid-cols-3 gap-2">
-          {SECTIONS.map(s => {
-            const isSelected = editForm.section === s.value
-            return (
-              <button
-                key={s.value}
-                onClick={() => setEditForm(f => ({ ...f, section: s.value }))}
-                className={`py-2 rounded-lg border text-sm font-medium transition
-                  ${isSelected ? `${s.doneColor} text-white border-transparent` : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}
-              >
-                {s.label}
-              </button>
-            )
-          })}
-        </div>
-        {editErrors.section && <p className="text-xs text-red-500 mt-1">{editErrors.section}</p>}
-      </div>
+        <SectionPickerWithPreview 
+          value={editForm.section} 
+          onChange={(value) => setEditForm(f => ({ ...f, section: value }))} 
+          clinicId={clinicId}
+          cycleId={cycleId}
+          sectionOptions={sectionOptions}
+        />
     )}
 
     {/* Preview */}

@@ -9,7 +9,10 @@ import {
   LogOut,
   Menu,
   ChevronLeft,
-  Rocket
+  Rocket,
+  FileText,
+  Layout,
+  ClipboardList
 } from "lucide-react"
 
 export default function SuperAdminSidebar() {
@@ -36,6 +39,8 @@ export default function SuperAdminSidebar() {
   const pages = [
     { name: 'Dashboard', route: 'dashboard', icon: LayoutDashboard },
     { name: 'Clinic Registry', route: 'clinics', icon: Building2 },
+    { name: 'Form Builder', route: 'form-builder', icon: Layout },
+    { name: 'Templates', route: 'templates', icon: FileText },
     { name: 'User Management', route: 'users', icon: Users },
     { name: 'Launch Clinic', route: 'launch-clinic', icon: Rocket },
   ]
@@ -58,24 +63,121 @@ export default function SuperAdminSidebar() {
     }
   }
 
-  const sidebarContent = (
+  // Render navigation items
+  const renderNavItems = (isMobile = false) => (
+    <ul className="space-y-2">
+      {pages.map((page) => {
+        const Icon = page.icon
+        const active = isActive(page.route)
+
+        return (
+          <li key={page.name}>
+            <button
+              onClick={() => {
+                navigate(`/super-admin/${page.route}`)
+                if (isMobile) setMobileOpen(false)
+              }}
+              className={`
+                w-full
+                flex
+                items-center
+                px-4
+                py-3
+                rounded-lg
+                transition
+                font-medium
+                min-w-0
+                ${active
+                  ? 'bg-white text-emerald-800 shadow-lg'
+                  : 'text-emerald-100 hover:bg-emerald-700 hover:text-white'
+                }
+              `}
+            >
+              <div className="w-6 flex justify-center flex-shrink-0">
+                <Icon size={20} />
+              </div>
+
+              {(!collapsed || isMobile) && (
+                <span className="ml-3 truncate">
+                  {page.name}
+                </span>
+              )}
+            </button>
+          </li>
+        )
+      })}
+    </ul>
+  )
+
+  // Render user section
+  const renderUserSection = (isMobile = false) => (
+    <div className="p-3 border-t border-emerald-700 overflow-x-hidden">
+      <div
+        className={`
+          flex
+          items-center
+          px-3
+          py-3
+          rounded-lg
+          bg-emerald-800/50
+          min-w-0
+          ${(collapsed && !isMobile) ? 'justify-center' : 'gap-3'}
+        `}
+      >
+        <div className="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center font-semibold text-white flex-shrink-0">
+          {profile?.full_name
+            ? profile.full_name.charAt(0).toUpperCase()
+            : 'S'}
+        </div>
+
+        {(!collapsed || isMobile) && (
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-white truncate">
+              {profile?.full_name || 'Super Admin'}
+            </p>
+            <p className="text-xs text-emerald-300 truncate">
+              {user?.email}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Logout */}
+      <button
+        onClick={() => setShowLogoutConfirm(true)}
+        className="mt-3 w-full flex items-center px-3 py-2 rounded-lg text-sm font-medium transition bg-emerald-800 hover:bg-red-600 hover:text-white min-w-0"
+      >
+        <div className="w-6 flex justify-center flex-shrink-0">
+          <LogOut size={20} />
+        </div>
+
+        {(!collapsed || isMobile) && (
+          <span className="ml-3 truncate">
+            Logout
+          </span>
+        )}
+      </button>
+    </div>
+  )
+
+  // Render sidebar content
+  const renderSidebar = (isMobile = false) => (
     <div
       className={`
-        ${collapsed ? 'w-20' : 'w-64'}
+        ${!isMobile && collapsed ? 'w-20' : 'w-64'}
         h-screen
         bg-gradient-to-b from-emerald-900 to-emerald-800
         shadow-xl
         flex
         flex-col
-        transition-all
-        duration-300
+        ${isMobile ? '' : 'transition-all duration-300'}
         overflow-y-auto
         overflow-x-hidden
       `}
     >
       {/* ================= HEADER ================= */}
       <div className="p-4 border-b border-emerald-700 flex items-center justify-between min-w-0">
-        {!collapsed && (
+        {(!collapsed || isMobile) && (
           <div className="min-w-0">
             <h1 className="font-bold text-white text-lg truncate">
               Mission Control
@@ -86,105 +188,32 @@ export default function SuperAdminSidebar() {
           </div>
         )}
 
-        <button
-          onClick={toggleSidebar}
-          className="p-2 rounded-lg hover:bg-emerald-700 transition text-emerald-100"
-        >
-          {collapsed ? <Menu size={20} /> : <ChevronLeft size={20} />}
-        </button>
+        {!isMobile && (
+          <button
+            onClick={toggleSidebar}
+            className="p-2 rounded-lg hover:bg-emerald-700 transition text-emerald-100"
+          >
+            {collapsed ? <Menu size={20} /> : <ChevronLeft size={20} />}
+          </button>
+        )}
+
+        {isMobile && (
+          <button
+            onClick={() => setMobileOpen(false)}
+            className="p-2 rounded-lg hover:bg-emerald-700 transition text-emerald-100"
+          >
+            <ChevronLeft size={20} />
+          </button>
+        )}
       </div>
 
       {/* ================= NAVIGATION ================= */}
       <nav className="flex-1 p-3 overflow-y-auto overflow-x-hidden">
-        <ul className="space-y-2">
-          {pages.map((page) => {
-            const Icon = page.icon
-            const active = isActive(page.route)
-
-            return (
-              <li key={page.name}>
-                <button
-                  onClick={() => navigate(`/super-admin/${page.route}`)}
-                  className={`
-                    w-full
-                    flex
-                    items-center
-                    px-4
-                    py-3
-                    rounded-lg
-                    transition
-                    font-medium
-                    min-w-0
-                    ${active
-                      ? 'bg-white text-emerald-800 shadow-lg'
-                      : 'text-emerald-100 hover:bg-emerald-700 hover:text-white'
-                    }
-                  `}
-                >
-                  <div className="w-6 flex justify-center flex-shrink-0">
-                    <Icon size={20} />
-                  </div>
-
-                  {!collapsed && (
-                    <span className="ml-3 truncate">
-                      {page.name}
-                    </span>
-                  )}
-                </button>
-              </li>
-            )
-          })}
-        </ul>
+        {renderNavItems(isMobile)}
       </nav>
 
       {/* ================= USER SECTION ================= */}
-      <div className="p-3 border-t border-emerald-700 overflow-x-hidden">
-        <div
-          className={`
-            flex
-            items-center
-            px-3
-            py-3
-            rounded-lg
-            bg-emerald-800/50
-            min-w-0
-            ${collapsed ? 'justify-center' : 'gap-3'}
-          `}
-        >
-          <div className="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center font-semibold text-white flex-shrink-0">
-            {profile?.full_name
-              ? profile.full_name.charAt(0).toUpperCase()
-              : 'S'}
-          </div>
-
-          {!collapsed && (
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-white truncate">
-                {profile?.full_name || 'Super Admin'}
-              </p>
-              <p className="text-xs text-emerald-300 truncate">
-                {user?.email}
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Logout */}
-        <button
-          onClick={() => setShowLogoutConfirm(true)}
-          className="mt-3 w-full flex items-center px-3 py-2 rounded-lg text-sm font-medium transition bg-emerald-800 hover:bg-red-600 hover:text-white min-w-0"
-        >
-          <div className="w-6 flex justify-center flex-shrink-0">
-            <LogOut size={20} />
-          </div>
-
-          {!collapsed && (
-            <span className="ml-3 truncate">
-              Logout
-            </span>
-          )}
-        </button>
-      </div>
+      {renderUserSection(isMobile)}
     </div>
   )
 
@@ -210,7 +239,7 @@ export default function SuperAdminSidebar() {
 
       {/* Sidebar - desktop */}
       <div className="hidden lg:block">
-        {sidebarContent}
+        {renderSidebar(false)}
       </div>
 
       {/* Sidebar - mobile */}
@@ -226,7 +255,7 @@ export default function SuperAdminSidebar() {
         duration-300
         will-change-transform
       `}>
-        {sidebarContent}
+        {renderSidebar(true)}
       </div>
 
       {showLogoutConfirm && (

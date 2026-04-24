@@ -46,14 +46,16 @@ export default function ClinicianSidebar() {
 
   // Clinician pages
   const pages = [
-    { name: 'Dashboard', route: '', icon: LayoutDashboard },
+    { name: 'Dashboard', route: 'dashboard', icon: LayoutDashboard },
     { name: 'Patient Data', route: 'patient-data', icon: Users },
     { name: 'Screening Data', route: 'screening-data', icon: ClipboardList }
   ]
 
   // Active route helper
   const isActive = (route) => {
-    if (route === '') return location.pathname === '/clinician' || location.pathname === '/clinician/'
+    if (route === 'dashboard') {
+      return location.pathname === '/clinician' || location.pathname === '/clinician/' || location.pathname === '/clinician/dashboard'
+    }
     if (route === 'screening-data') {
       return location.pathname.startsWith('/clinician/screening-data') ||
              location.pathname.startsWith('/clinician/patient/')

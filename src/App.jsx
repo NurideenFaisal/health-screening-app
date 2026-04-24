@@ -34,6 +34,8 @@ const SuperAdminDashboardStats = lazy(() => import('./pages/SuperAdminSide/Super
 const ClinicRegistry = lazy(() => import('./pages/SuperAdminSide/ClinicRegistry'))
 const LaunchClinicWizard = lazy(() => import('./pages/SuperAdminSide/LaunchClinicWizard'))
 const UserManagement = lazy(() => import('./pages/SuperAdminSide/UserManagement'))
+const TemplateManagement = lazy(() => import('./pages/SuperAdminSide/TemplateManagement'))
+const FormBuilder = lazy(() => import('./pages/FormBuilder/FormBuilder'))
 
 // --- Lazy-loaded additional sections ---
 const LAZY_SECTIONS = {
@@ -80,7 +82,7 @@ function App() {
 
           {/* SUPER ADMIN */}
           <Route
-            path="/super-admin/*"
+            path="/super-admin"
             element={
               <Suspense fallback={<SectionLoader />}>
                 <RoleRoute requiredRole="super-admin" user={user} profile={profile}>
@@ -130,11 +132,28 @@ function App() {
                 </Suspense>
               }
             />
+            <Route
+              path="templates"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <TemplateManagement />
+                </Suspense>
+              }
+            />
+            <Route
+              path="form-builder"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <FormBuilder />
+                </Suspense>
+              }
+            />
+            <Route path="*" element={<Navigate replace to="/super-admin/dashboard" />} />
           </Route>
 
           {/* ADMIN */}
           <Route
-            path="/admin/*"
+            path="/admin"
             element={
               <Suspense fallback={<SectionLoader />}>
                 <RoleRoute requiredRole="admin" user={user} profile={profile}>
@@ -145,6 +164,14 @@ function App() {
           >
             <Route
               index
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <DashboardStats />
+                </Suspense>
+              }
+            />
+            <Route
+              path="dashboard"
               element={
                 <Suspense fallback={<SectionLoader />}>
                   <DashboardStats />
@@ -183,11 +210,12 @@ function App() {
                 </Suspense>
               }
             />
+            <Route path="*" element={<Navigate replace to="/admin/dashboard" />} />
           </Route>
 
           {/* CLINICIAN */}
           <Route
-            path="/clinician/*"
+            path="/clinician"
             element={
               <Suspense fallback={<SectionLoader />}>
                 <RoleRoute requiredRole="clinician" user={user} profile={profile}>
@@ -198,6 +226,14 @@ function App() {
           >
             <Route
               index
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <ClinicianDashboardStats />
+                </Suspense>
+              }
+            />
+            <Route
+              path="dashboard"
               element={
                 <Suspense fallback={<SectionLoader />}>
                   <ClinicianDashboardStats />
@@ -267,6 +303,7 @@ function App() {
               ))}
 
             </Route>
+            <Route path="*" element={<Navigate replace to="/clinician/dashboard" />} />
           </Route>
 
           {/* ROOT */}
@@ -274,13 +311,15 @@ function App() {
             path="/"
             element={
               user
-                ? <Navigate replace to={
-                  profile?.role === 'super-admin'
-                    ? '/super-admin/dashboard'
-                    : profile?.role === 'admin'
-                      ? '/admin'
-                      : '/clinician'
-                } />
+                ? profile
+                  ? <Navigate replace to={
+                    profile.role === 'super-admin'
+                      ? '/super-admin/dashboard'
+                      : profile.role === 'admin'
+                        ? '/admin/dashboard'
+                        : '/clinician/dashboard'
+                  } />
+                  : <Navigate replace to="/login" />
                 : <Navigate replace to="/login" />
             }
           />

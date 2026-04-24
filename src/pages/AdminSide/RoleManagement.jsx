@@ -1,32 +1,53 @@
-import React, { useState, useEffect } from 'react'
-import { Plus, Edit2, Search, KeyRound, Trash2, Shield, User } from 'lucide-react'
-import { supabase } from '../../lib/supabase'
+import React, { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Plus, Search } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
-import { SECTIONS, getSectionByValue } from '../../config/sections'
+import { supabase } from '../../lib/supabase'
+import { useActiveCycleQuery } from '../../hooks/useActiveCycleQuery'
+import { useSectionDefinitions } from '../../hooks/useSectionDefinitions'
+import { normalizeSectionOrder } from '../../lib/sectionUtils'
+import { useUsersManagement, getInitial, getRoleColor, getSectionOption } from '../../hooks/useUsersManagement'
+import { useTemplateActivation } from '../../hooks/useTemplateActivation'
 import {
   Button, Toast, CredentialsModal, AddUserModal, EditUserModal,
   ResetPasswordModal, DeleteUserModal
 } from '../../components/RoleManagement/RoleManagementModals'
+import UsersTable from '../../components/RoleManagement/UsersTable'
+import TemplateActivationPanel from '../../components/RoleManagement/TemplateActivationPanel'
 
-// ─── Local Storage Keys ──────────────────────────────────────────────────────
-const STORAGE_KEY = 'roleManagement_users'
-const STORAGE_TIMESTAMP = 'roleManagement_timestamp'
-
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ─── Main Component ───────────────────────────────────────────────────
 export default function RoleManagement() {
   const { profile } = useAuthStore()
-  const isSuperAdmin = profile?.role === 'super-admin'
   const isClinicAdmin = profile?.role === 'admin' && profile?.clinic_id
+  const navigate = useNavigate()
 
-  // Core state
-  const [users, setUsers] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [saving, setSaving] = useState(false)
+  const activeCycleQuery = useActiveCycleQuery()
+  const activeCycle = activeCycleQuery.data ?? null
+  const sectionOrder = useMemo(
+    () => normalizeSectionOrder(activeCycle?.section_order),
+    [activeCycle?.section_order]
+  )
+  const { sections: sectionDefinitions } = useSectionDefinitions(sectionOrder)
+  const sectionOptions = sectionDefinitions.map(section => ({
+    value: String(section.section_number),
+    label: section.name || `Section ${section.section_number}`,
+    shortLabel: section.short_name || `S${section.section_number}`,
+    color: section.color,
+  }))
+
+  // Use custom hooks
+  const {
+    users, loading, searchQuery, setSearchQuery, filtered, fetchUsers
+  } = useUsersManagement()
+
+  const {
+    publishedTemplates, templateAssignments, templateSelections, setTemplateSelections,
+    loadingTemplatePanel, activatingSection, handleActivateTemplate
+  } = useTemplateActivation(sectionOrder, activeCycle, profile)
 
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false)
-  const [newUser, setNewUser] = useState({ firstName: '', lastName: '', email: '', password: '', role: 'Clinician', assignedSection: '1' })
+  const [newUser, setNewUser] = useState({ firstName: '', lastName: '', email: '', password: '', role: 'Clinician', assignedSection: '' })
   const [errors, setErrors] = useState({})
 
   const [showEditModal, setShowEditModal] = useState(false)
@@ -44,109 +65,27 @@ export default function RoleManagement() {
 
   const [toast, setToast] = useState(null)
   const [credentials, setCredentials] = useState(null)
+  const [saving, setSaving] = useState(false)
 
-  // ─── Local Storage Helpers ─────────────────────────────────────────────────
-  const saveToCache = (data) => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
-      localStorage.setItem(STORAGE_TIMESTAMP, Date.now().toString())
-    } catch (err) {
-      console.warn('Failed to save to localStorage:', err)
-    }
-  }
-
-  const loadFromCache = () => {
-    try {
-      const cached = localStorage.getItem(STORAGE_KEY)
-      return cached ? JSON.parse(cached) : []
-    } catch (err) {
-      console.warn('Failed to load from localStorage:', err)
-      return []
-    }
-  }
-
-  // ─── Real-time Subscription Setup ──────────────────────────────────────────
-  useEffect(() => {
-    // Load cached data immediately
-    const cachedUsers = loadFromCache()
-    if (cachedUsers.length > 0) {
-      setUsers(cachedUsers)
-      setLoading(false)
-    }
-
-    // Set up real-time subscription
-    const setupSubscription = () => {
-      const channel = supabase
-        .channel('profiles_changes')
-        .on('postgres_changes', {
-          event: '*',
-          schema: 'public',
-          table: 'profiles'
-        }, (payload) => {
-          console.log('Real-time update:', payload)
-          fetchUsers() // Refresh data when changes occur
-        })
-        .subscribe()
-
-      return () => {
-        supabase.removeChannel(channel)
-      }
-    }
-
-    const cleanup = setupSubscription()
-
-    // Fetch fresh data in background
-    fetchUsers()
-
-    return cleanup
-  }, [])
-
-  // ─── Fetch Users ──────────────────────────────────────────────────────────
-  const fetchUsers = async () => {
-    try {
-      let query = supabase
-        .from('profiles')
-        .select('id, full_name, role, section, clinic_id')
-        .order('created_at', { ascending: false })
-
-      // For clinic admins: filter by their clinic_id AND exclude super-admin
-      if (isClinicAdmin && profile?.clinic_id) {
-        query = query
-          .eq('clinic_id', profile.clinic_id)
-          .neq('role', 'super-admin')
-      }
-      // For super-admin: show all users (no filter)
-
-      const { data, error } = await query
-
-      if (error) {
-        showToast('Failed to load users', 'error')
-      } else {
-        setUsers(data || [])
-        saveToCache(data || [])
-      }
-    } catch (err) {
-      showToast('Network error loading users', 'error')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // ─── Toast Helper ─────────────────────────────────────────────────────────
+  // ─── Toast Helper ─────────────────────────────────────────────────
   const showToast = (message, type = 'success') => setToast({ message, type })
 
-  // ─── Validation ───────────────────────────────────────────────────────────
+  // ─── Validation ───────────────────────────────────────────────────
   const validate = u => {
     const errs = {}
     if (!u.firstName) errs.firstName = 'Required'
     if (!u.lastName) errs.lastName = 'Required'
     if (!u.email) errs.email = 'Required'
-    if (!u.password) errs.password = 'Required'
+    if (!u.password) {
+      errs.password = 'Required'
+    } else if (u.password.length < 6) {
+      errs.password = 'Must be at least 6 characters'
+    }
     if (u.role === 'Clinician' && !u.assignedSection) errs.assignedSection = 'Required'
     return errs
   }
 
-  // ─── Add User ─────────────────────────────────────────────────────────────
+  // ─── Add User ─────────────────────────────────────────────────────
   const handleAddUser = async () => {
     const errs = validate(newUser)
     setErrors(errs)
@@ -161,7 +100,7 @@ export default function RoleManagement() {
         return
       }
 
-      const res = await fetch('https://klxhsbawtdcftfqirtcw.supabase.co/functions/v1/create-user', {
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-user`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -174,6 +113,7 @@ export default function RoleManagement() {
           password: newUser.password,
           role: newUser.role.toLowerCase(),
           assignedSection: newUser.role.toLowerCase() === 'clinician' ? newUser.assignedSection : null,
+          section_number: newUser.role.toLowerCase() === 'clinician' ? Number.parseInt(newUser.assignedSection, 10) : null,
           clinic_id: isClinicAdmin ? profile?.clinic_id : null,
         })
       })
@@ -189,8 +129,14 @@ export default function RoleManagement() {
           password: newUser.password,
         })
         setShowAddModal(false)
-        setNewUser({ firstName: '', lastName: '', email: '', password: '', role: 'Clinician', assignedSection: '1' })
-        // No manual fetchUsers() - subscription will handle the update
+        setNewUser({
+          firstName: '',
+          lastName: '',
+          email: '',
+          password: '',
+          role: 'Clinician',
+          assignedSection: sectionOptions[0]?.value || '',
+        })
       }
     } catch (err) {
       showToast('Network error: ' + err.message, 'error')
@@ -198,7 +144,7 @@ export default function RoleManagement() {
     setSaving(false)
   }
 
-  // ─── Edit User ────────────────────────────────────────────────────────────
+  // ─── Edit User ────────────────────────────────────────────────────
   const openEditModal = (user) => {
     if (user.role === 'super-admin') {
       showToast('System accounts are protected', 'error')
@@ -207,7 +153,7 @@ export default function RoleManagement() {
     setEditingUser(user)
     setEditForm({
       role: user.role || 'clinician',
-      section: user.section || '1',
+      section: String(user.section_number ?? user.section ?? sectionOptions[0]?.value ?? ''),
     })
     setEditErrors({})
     setShowEditModal(true)
@@ -230,6 +176,7 @@ export default function RoleManagement() {
     const updates = {
       role: editForm.role,
       section: editForm.role === 'clinician' ? editForm.section : null,
+      section_number: editForm.role === 'clinician' ? Number.parseInt(editForm.section, 10) : null,
     }
 
     const { error } = await supabase
@@ -243,12 +190,11 @@ export default function RoleManagement() {
       showToast(`${editingUser.full_name} updated successfully`)
       setShowEditModal(false)
       setEditingUser(null)
-      // No manual fetchUsers() - subscription will handle the update
     }
     setSaving(false)
   }
 
-  // ─── Reset Password ───────────────────────────────────────────────────────
+  // ─── Reset Password ───────────────────────────────────────────────
   const openResetModal = (user) => {
     setResetUser(user)
     setNewPassword('')
@@ -265,7 +211,7 @@ export default function RoleManagement() {
     setSaving(true)
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch('https://klxhsbawtdcftfqirtcw.supabase.co/functions/v1/reset-password', {
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/reset-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -287,7 +233,7 @@ export default function RoleManagement() {
     setSaving(false)
   }
 
-  // ─── Delete User ──────────────────────────────────────────────────────────
+  // ─── Delete User ──────────────────────────────────────────────────
   const openDeleteModal = (user) => {
     if (user.role === 'super-admin') {
       showToast('System accounts are protected', 'error')
@@ -311,7 +257,7 @@ export default function RoleManagement() {
       let deleted = false
       if (session) {
         try {
-          const res = await fetch('https://klxhsbawtdcftfqirtcw.supabase.co/functions/v1/delete-user', {
+          const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-user`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -341,21 +287,11 @@ export default function RoleManagement() {
       showToast(`${deletingUser.full_name} removed`)
       setShowDeleteModal(false)
       setDeletingUser(null)
-      // No manual fetchUsers() - subscription will handle the update
     } catch (err) {
       showToast('Error: ' + err.message, 'error')
     }
     setSaving(false)
   }
-
-  // ─── Helpers ──────────────────────────────────────────────────────────────
-  const getInitial = name => name?.charAt(0).toUpperCase() || '?'
-  const getRoleColor = role => role === 'admin' ? 'bg-emerald-500 text-white' : 'bg-blue-500 text-white'
-
-  // ─── Filtered Users ───────────────────────────────────────────────────────
-  const filtered = users.filter(u =>
-    u.full_name?.toLowerCase().includes(searchQuery.toLowerCase())
-  )
 
   return (
     <div className="w-full p-6 space-y-6">
@@ -382,83 +318,31 @@ export default function RoleManagement() {
         </div>
       </div>
 
+      {isClinicAdmin && (
+        <TemplateActivationPanel
+          activeCycle={activeCycle}
+          activeCycleQuery={activeCycleQuery}
+          publishedTemplates={publishedTemplates}
+          templateAssignments={templateAssignments}
+          templateSelections={templateSelections}
+          setTemplateSelections={setTemplateSelections}
+          activatingSection={activatingSection}
+          handleActivateTemplate={handleActivateTemplate}
+          sectionOptions={sectionOptions}
+          navigate={navigate}
+        />
+      )}
+
       {/* Users Table */}
-      <div className="bg-white rounded-xl shadow border border-slate-200 overflow-hidden">
-        {loading && users.length === 0 ? (
-          <div className="text-center py-12 text-slate-400">Loading users...</div>
-        ) : filtered.length === 0 ? (
-          <div className="text-center py-12 text-slate-400">No users found</div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-b border-slate-200">
-              <tr>
-                <th className="text-left p-3 font-semibold text-slate-600">Name</th>
-                <th className="text-left p-3 font-semibold text-slate-600">Role</th>
-                <th className="text-left p-3 font-semibold text-slate-600">Section</th>
-                <th className="text-right p-3 font-semibold text-slate-600">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(u => (
-                <tr key={u.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                  <td className="p-3">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-8 h-8 rounded-full ${getRoleColor(u.role)} flex items-center justify-center font-semibold text-xs`}>
-                        {getInitial(u.full_name)}
-                      </div>
-                      <span className="font-medium text-slate-800">{u.full_name}</span>
-                    </div>
-                  </td>
-                  <td className="p-3">
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium capitalize
-                      ${u.role === 'admin' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
-                      {u.role === 'admin' ? <Shield size={10} /> : <User size={10} />}
-                      {u.role}
-                    </span>
-                  </td>
-                  <td className="p-3 text-slate-600">
-                    {u.role === 'admin' ? (
-                      <span className="text-slate-400 italic text-xs">Full Access</span>
-                    ) : u.section ? (
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium
-                        ${getSectionByValue(u.section)?.doneColor || 'bg-slate-100'} text-white`}>
-                        Section {u.section}
-                      </span>
-                    ) : (
-                      <span className="text-slate-400">—</span>
-                    )}
-                  </td>
-                  <td className="p-3">
-                    <div className="flex items-center justify-end gap-1">
-                      <button
-                        onClick={() => openEditModal(u)}
-                        className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition"
-                        title="Edit role/section"
-                      >
-                        <Edit2 size={14} />
-                      </button>
-                      <button
-                        onClick={() => openResetModal(u)}
-                        className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition"
-                        title="Reset password"
-                      >
-                        <KeyRound size={14} />
-                      </button>
-                      <button
-                        onClick={() => openDeleteModal(u)}
-                        className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition"
-                        title="Remove user"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+      <UsersTable
+        users={users}
+        loading={loading}
+        filtered={filtered}
+        onEdit={openEditModal}
+        onReset={openResetModal}
+        onDelete={openDeleteModal}
+        sectionOptions={sectionOptions}
+      />
 
       {/* Modals */}
       <AddUserModal
@@ -470,6 +354,9 @@ export default function RoleManagement() {
         setErrors={setErrors}
         onAddUser={handleAddUser}
         saving={saving}
+        clinicId={profile?.clinic_id}
+        cycleId={activeCycle?.id}
+        sectionOptions={sectionOptions}
       />
 
       <EditUserModal
@@ -481,6 +368,9 @@ export default function RoleManagement() {
         editErrors={editErrors}
         onSaveEdit={handleSaveEdit}
         saving={saving}
+        sectionOptions={sectionOptions}
+        clinicId={profile?.clinic_id}
+        cycleId={activeCycle?.id}
       />
 
       <ResetPasswordModal

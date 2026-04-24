@@ -1,13 +1,11 @@
 import { Navigate } from 'react-router-dom'
 import { Users, Shield, ShieldAlert, ShieldCheck, AlertTriangle } from 'lucide-react'
+import { useAuthStore } from '../store/authStore'
 
 export default function RoleRoute({ requiredRole, user, profile, children }) {
-  if (!user) {
-    return <Navigate to="/login" replace />
-  }
+  const loading = useAuthStore(state => state.loading)
 
-  // Still loading profile for an authenticated user
-  if (!profile) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -16,6 +14,14 @@ export default function RoleRoute({ requiredRole, user, profile, children }) {
         </div>
       </div>
     )
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />
+  }
+
+  if (!profile) {
+    return <Navigate to="/login" replace />
   }
 
   // Convert to array if single role
@@ -68,7 +74,7 @@ export default function RoleRoute({ requiredRole, user, profile, children }) {
             <span>Your role: {profile.role}</span>
           </div>
           <a 
-            href={profile.role === 'admin' ? '/admin' : '/clinician'} 
+            href={profile.role === 'admin' ? '/admin/dashboard' : '/clinician/dashboard'} 
             className="mt-6 inline-flex items-center justify-center px-6 py-3 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition-colors"
           >
             Return to Dashboard

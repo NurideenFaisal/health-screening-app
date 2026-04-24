@@ -6,13 +6,13 @@ export function useActiveCycleQuery() {
   const profile = useAuthStore(state => state.profile)
 
   return useQuery({
-    queryKey: ['active-cycle', profile?.clinic_id],
+    queryKey: ['active-cycle', profile?.clinic_id ?? 'global'],
     enabled: !!profile,
     staleTime: 1000 * 60 * 5,
     queryFn: async () => {
       let query = supabase
         .from('cycles')
-        .select('id, name, is_active')
+        .select('id, name, is_active, clinic_id, section_order, section_config')
         .eq('is_active', true)
       
       if (profile?.clinic_id) {
