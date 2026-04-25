@@ -1,0 +1,55 @@
+[33m93e5b35[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mFormBuilder[m[33m)[m feat: land form builder and dynamic clinic template workflow
+[33m935db49[m add. Form Builder UI....
+[33m645b90b[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mmain[m[33m)[m Remove .env from repo
+[33m77bc9f4[m what a day - implemented the formbuilder and run into mess - i have reverse it all - next learn mre about the form builder appraocha and work on it
+[33m09dc1a1[m Ignore new-config.yaml
+[33m5eb6e20[m[33m ([m[1;33mtag: [m[1;33mv1.0[m[33m)[m Milestone... - Here i am thinking this shld be version 1
+[33m9c438d4[m feat: added an if online? toast
+[33m6af1e98[m feat: fix state synchronization and mobile layout - Resolve conflict between Zustand, TanStackQuery, and LocalStorage - Update ClinicianSide UI to be fully responsive for mobile devices - Ensure active cycle changes propagate to the screening queue
+[33md041f2c[m feat: implement core multi-tenant architecture and RBAC system
+[33m59ab32e[m stable login process
+[33m899e8c0[m[33m ([m[1;32mfeature/super-admin-auth[m[33m)[m feat: Update role-based routing and dashboard components
+[33m5bcdc1f[m feat: holistic implementation of super-admin architecture
+[33m6fe9413[m[33m ([m[1;32mVersion2OfflineCapabilities[m[33m)[m optimization: Added the concept of Lazy loading, so we dont prefect all data from the start, we get what we need
+[33mf802b72[m feat: Optimization of  Cycle, to be called onces instead of accross forms and users
+[33m08502c6[m fix: routing to same vital fixed again
+[33m87754fd[m fix: improve keep-alive workflow with robust curl command and workflow_dispatch trigger
+[33mcc46c14[m fix: restore and trigger keep-alive workflow
+[33mc45b6bd[m Add GitHub Actions workflow for Supabase keep-alive
+[33mf180715[m Merge branch 'RefactoringSections' of https://github.com/NurideenFaisal/health-screening-app into RefactoringSections
+[33m8e09c62[m Add GitHub Actions workflow for Supabase keep-alive
+[33m60e61e3[m chore: add supabase keep-alive heartbeat
+[33me558cbd[m chore: add supabase keep-alive heartbeat
+[33m79b353c[m fix: restore patient card routing and clinician dashboard UI
+[33m9d2c485[m Merge branch 'RefactoringSections' of https://github.com/NurideenFaisal/health-screening-app into RefactoringSections
+[33m17f7d92[m feat(db): implement universal clinical screening remote Procedure Callout(rpc) and audit trail
+[33m4c6bad5[m feat(db): implement universal clinical screening remote Procedure Callout(rpc) and audit trail
+[33m34523ac[m Backend Database and abstraction Complete 1. Adding more ScreeningSection is easier 2. Backend is fit to handle more sections now
+[33m374c55b[m fix: show all patients in clinician queue instead of only those with screening records
+[33mb955103[m fix: remove invalid GET DIAGNOSTICS from plain SQL in migrate_sections_data.sql
+[33mfd2f5ba[m fix: update migrations for PG15 compatibility and actual production schema
+[33m8dc2300[m feat: deploy normalized screening_sections + migrate existing data
+[33m62fac79[m v1 - next, we are about to optimize the code for more addition of forms
+[33mdbcbe33[m Merge branch 'main' of https://github.com/NurideenFaisal/health-screening-app
+[33me817b88[m milestone: V1 clinician system complete (dashboard + patient workflow)
+[33m21717ab[m milestone: V1 clinician system complete (dashboard + patient workflow)
+[33mcb03f1e[m[33m ([m[1;32mForms_Placeholder[m[33m)[m Version 1 of the software 1. AdminSide Complete 2. Clinician Side Complete, next is to tackle new changes from stakeholder 3. Routing Complete
+[33m6306e9a[m[33m ([m[1;31morigin/new_architecture[m[33m, [m[1;32mnew_architecture[m[33m)[m Fixed routing issues, next is with styling and linear architecture,
+[33m1deb60f[m feature: Add Patient from backend, AdminMangementCycle add to tell which screening we are working on, currently working on caching, next commit will be cashing all information
+[33m65f13d4[m Role Based enforeced via supabase dashboard, next commit will be add patients to system
+[33ma0c5300[m feat(ui): finalize clinician UI integration for Supabase backend
+[33m0d57723[m Form Restructuring + Clinician Page setup
+[33mae546be[m Met with Stakeholders, now about to make changes
+[33me7786c9[m WIP: pushing current work
+[33mf99eaa5[m Role Management UI/Ux works here
+[33m93a8322[m[33m ([m[1;32mPeople_data[m[33m)[m Fix changes on PeopleSidebar
+[33m79461b6[m feat(dashboard): add DashboardStats component and update default dashboard view
+[33m13d63fb[m[33m ([m[1;32mPatient_Data_Sidebar[m[33m)[m Sidebar icons fixed, will use modern later
+[33md658286[m feat(auth): allow admins and clinicians to access patient screening form
+[33m35816af[m feat(auth): allow admins and clinicians to access patient screening form
+[33m613ddce[m SideBar made collapsible whoth humbagar icon
+[33m1da9694[m[33m ([m[1;31morigin/Dashboard-feature[m[33m, [m[1;32mDashboard-feature[m[33m)[m Ensure dashboard loads properly and logout triggers only on button click
+[33m8dbd5d8[m Resolve merge conflict in Login.jsx
+[33m0a07f5f[m Fix Vercel routing
+[33m30f8b65[m Fundamental - Superbase + LoginPage Functional
+[33m9c75043[m[33m ([m[1;31morigin/deploy/vercel-mvp[m[33m, [m[1;32mdeploy/vercel-mvp[m[33m)[m Fundamental - Superbase + LoginPage Functional

@@ -19,8 +19,12 @@ const queryClient = new QueryClient({
 async function init() {
   await hydrateAuthSession()
 
-  supabase.auth.onAuthStateChange(async (_event, session) => {
-    await hydrateAuthSession(session)
+  supabase.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_OUT') {
+      useAuthStore.getState().clearAuth();
+    } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+      await hydrateAuthSession(session);
+    }
   })
 
   createRoot(document.getElementById('root')).render(

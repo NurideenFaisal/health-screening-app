@@ -20,8 +20,10 @@ async function loadClinicName(profile) {
 }
 
 export async function hydrateAuthSession(sessionOverride) {
-  const { beginAuthLoad, setAuth, clearAuth } = useAuthStore.getState()
-  beginAuthLoad()
+  const { user, beginAuthLoad, setAuth, clearAuth } = useAuthStore.getState() 
+  if (!user) {
+    beginAuthLoad()
+  }
 
   const session =
     sessionOverride !== undefined

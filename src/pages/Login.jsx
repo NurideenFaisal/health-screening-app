@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { supabase } from '../lib/supabase'
-import { loadSession} from '../lib/loadSession'
+import { loadSession } from '../lib/loadSession'
 
 
 export default function Login() {
@@ -28,21 +28,26 @@ export default function Login() {
   }, [user, profile, navigate])
 
   useEffect(() => {
-    if (!user || profile) {
+    // Get global loading state from store
+    const globalLoading = useAuthStore.getState().loading;
+
+    // IF no user OR we already have a profile OR the system is currently loading
+    // THEN do nothing.
+    if (!user || profile || globalLoading) {
       return
     }
 
     const timeoutId = setTimeout(async () => {
-      const { user: currentUser, profile: currentProfile } = useAuthStore.getState()
+      const { user: currentUser, profile: currentProfile, loading: currentlyLoading } = useAuthStore.getState()
 
-      if (!currentUser || currentProfile) {
-        return
+      // Final safety check: only sign out if NOT loading and STILL no profile
+      if (currentUser && !currentProfile && !currentlyLoading) {
+        await supabase.auth.signOut()
+        setError('Profile access denied by RLS')
+        // Note: your local loading state is for the login button
+        setLoading(false)
       }
-
-      await supabase.auth.signOut()
-      setError('Profile access denied by RLS')
-      setLoading(false)
-    }, 5000)
+    }, 7000) // Bump to 7s to account for slow Ghana-rural latency
 
     return () => clearTimeout(timeoutId)
   }, [user, profile])
