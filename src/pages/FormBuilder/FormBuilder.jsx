@@ -13,23 +13,23 @@ import { supabase } from '../../lib/supabase'
 import { dryRunSchema, transformGroupsToSchema, transformSchemaToGroups } from '../../lib/logicEngine'
 
 const TYPE_META = {
-  text:     { icon: 'T',  bg: '#ede9fe', color: '#6d28d9', label: 'Text' },
-  number:   { icon: '#',  bg: '#dbeafe', color: '#1d4ed8', label: 'Number' },
-  date:     { icon: 'D',  bg: '#d1fae5', color: '#065f46', label: 'Date' },
-  textarea: { icon: '¶',  bg: '#fef3c7', color: '#92400e', label: 'Textarea' },
-  dropdown: { icon: '▾',  bg: '#fce7f3', color: '#9d174d', label: 'Dropdown' },
-  radio:    { icon: '◉',  bg: '#e0f2fe', color: '#0369a1', label: 'Radio' },
-  checkbox: { icon: '✓',  bg: '#f0fdf4', color: '#166534', label: 'Checkbox' },
-  computed: { icon: 'ƒ',  bg: '#fdf2f8', color: '#701a75', label: 'Computed' },
+  text: { icon: 'T', bg: '#ede9fe', color: '#6d28d9', label: 'Text' },
+  number: { icon: '#', bg: '#dbeafe', color: '#1d4ed8', label: 'Number' },
+  date: { icon: 'D', bg: '#d1fae5', color: '#065f46', label: 'Date' },
+  textarea: { icon: '¶', bg: '#fef3c7', color: '#92400e', label: 'Textarea' },
+  dropdown: { icon: '▾', bg: '#fce7f3', color: '#9d174d', label: 'Dropdown' },
+  radio: { icon: '◉', bg: '#e0f2fe', color: '#0369a1', label: 'Radio' },
+  checkbox: { icon: '✓', bg: '#f0fdf4', color: '#166534', label: 'Checkbox' },
+  computed: { icon: 'ƒ', bg: '#fdf2f8', color: '#701a75', label: 'Computed' },
 }
 
 const PALETTE_GROUPS = [
-  { label: 'Input', types: ['text','number','date','textarea'] },
-  { label: 'Choice', types: ['dropdown','radio','checkbox'] },
+  { label: 'Input', types: ['text', 'number', 'date', 'textarea'] },
+  { label: 'Choice', types: ['dropdown', 'radio', 'checkbox'] },
   { label: 'Logic', types: ['computed'] },
 ]
 
-const GROUP_COLORS = ['#059669','#7c3aed','#0284c7','#d97706','#dc2626','#db2777','#0891b2','#65a30d']
+const GROUP_COLORS = ['#059669', '#7c3aed', '#0284c7', '#d97706', '#dc2626', '#db2777', '#0891b2', '#65a30d']
 
 const INITIAL_GROUPS = [
   { id: 'g1', label: 'New Section', color: '#059669', fields: [] },
@@ -199,20 +199,20 @@ function ConfigPanel({ groups, selectedFieldId, onUpdateField, onDeleteField }) 
           </section>
         )}
 
-        {['dropdown','radio'].includes(field.type) && (
+        {['dropdown', 'radio'].includes(field.type) && (
           <section>
             <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2.5">Options</p>
             <div className="space-y-1.5">
-              {(field.options||[]).map((opt,i) => (
+              {(field.options || []).map((opt, i) => (
                 <div key={i} className="flex items-center gap-1.5">
-                  <input value={opt.l} onChange={e => { const o=[...field.options]; o[i]={v:e.target.value.toLowerCase().replace(/\s+/g,'_'),l:e.target.value}; update({options:o}) }}
+                  <input value={opt.l} onChange={e => { const o = [...field.options]; o[i] = { v: e.target.value.toLowerCase().replace(/\s+/g, '_'), l: e.target.value }; update({ options: o }) }}
                     className="flex-1 px-2.5 py-1.5 text-[12px] border border-gray-200 rounded-lg bg-white outline-none focus:border-emerald-400 transition-all" placeholder="Label" />
-                  <button onClick={() => update({options:field.options.filter((_,j)=>j!==i)})}
+                  <button onClick={() => update({ options: field.options.filter((_, j) => j !== i) })}
                     className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-red-500 rounded transition-colors text-xs">✕</button>
                 </div>
               ))}
             </div>
-            <button onClick={() => update({options:[...(field.options||[]),{v:`option_${(field.options?.length||0)+1}`,l:`Option ${(field.options?.length||0)+1}`}]})}
+            <button onClick={() => update({ options: [...(field.options || []), { v: `option_${(field.options?.length || 0) + 1}`, l: `Option ${(field.options?.length || 0) + 1}` }] })}
               className="mt-2 text-[12px] text-emerald-600 hover:text-emerald-700 font-medium">+ Add option</button>
           </section>
         )}
@@ -220,29 +220,29 @@ function ConfigPanel({ groups, selectedFieldId, onUpdateField, onDeleteField }) 
         <section>
           <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2.5">Conditional logic</p>
           <div className="space-y-2">
-            {(field.conditions||[]).map((cond,i) => {
-              const siblings = allFields(groups).filter(f=>f.id!==field.id)
+            {(field.conditions || []).map((cond, i) => {
+              const siblings = allFields(groups).filter(f => f.id !== field.id)
               return (
                 <div key={i} className="bg-amber-50 rounded-lg p-3 border border-amber-100 space-y-1.5">
                   <div className="flex items-center justify-between"><p className="text-[11px] text-amber-700 font-semibold">Show when:</p>
-                    <button onClick={()=>update({conditions:field.conditions.filter((_,j)=>j!==i)})} className="text-[10px] text-amber-400 hover:text-red-500">✕</button></div>
-                  <select value={cond.field} onChange={e=>{const c=[...field.conditions];c[i]={...c[i],field:e.target.value};update({conditions:c})}}
+                    <button onClick={() => update({ conditions: field.conditions.filter((_, j) => j !== i) })} className="text-[10px] text-amber-400 hover:text-red-500">✕</button></div>
+                  <select value={cond.field} onChange={e => { const c = [...field.conditions]; c[i] = { ...c[i], field: e.target.value }; update({ conditions: c }) }}
                     className="w-full px-2 py-1.5 rounded-lg border border-amber-200 bg-white text-[12px] outline-none">
                     <option value="">Pick a field...</option>
-                    {siblings.map(f=><option key={f.id} value={f.id}>{f.label||'Untitled'}</option>)}
+                    {siblings.map(f => <option key={f.id} value={f.id}>{f.label || 'Untitled'}</option>)}
                   </select>
-                  <select value={cond.op} onChange={e=>{const c=[...field.conditions];c[i]={...c[i],op:e.target.value};update({conditions:c})}}
+                  <select value={cond.op} onChange={e => { const c = [...field.conditions]; c[i] = { ...c[i], op: e.target.value }; update({ conditions: c }) }}
                     className="w-full px-2 py-1.5 rounded-lg border border-amber-200 bg-white text-[12px] outline-none">
                     <option value="equals">equals</option>
                     <option value="notEquals">does not equal</option>
                   </select>
-                  <input value={cond.value} onChange={e=>{const c=[...field.conditions];c[i]={...c[i],value:e.target.value};update({conditions:c})}}
+                  <input value={cond.value} onChange={e => { const c = [...field.conditions]; c[i] = { ...c[i], value: e.target.value }; update({ conditions: c }) }}
                     placeholder="Value..." className="w-full px-2 py-1.5 rounded-lg border border-amber-200 bg-white text-[12px] outline-none" />
                 </div>
               )
             })}
           </div>
-          <button onClick={()=>update({conditions:[...(field.conditions||[]),{field:'',op:'equals',value:''}]})}
+          <button onClick={() => update({ conditions: [...(field.conditions || []), { field: '', op: 'equals', value: '' }] })}
             className="mt-2 w-full flex items-center justify-center gap-1 py-1.5 border border-dashed border-gray-200 rounded-lg text-[12px] text-gray-500 hover:border-amber-400 hover:text-amber-600 hover:bg-amber-50 transition-all">
             + Show only if...</button>
         </section>
@@ -256,10 +256,10 @@ function PreviewModal({ groups, onClose }) {
   const setValue = (id, val) => setFormData(p => ({ ...p, [id]: val }))
   const isVisible = f => {
     if (!f.conditions?.length) return true
-    return f.conditions.every(c => c.op === 'equals' ? (formData[c.field]??'') === c.value : (formData[c.field]??'') !== c.value)
+    return f.conditions.every(c => c.op === 'equals' ? (formData[c.field] ?? '') === c.value : (formData[c.field] ?? '') !== c.value)
   }
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-2xl w-full max-w-xl max-h-[85vh] flex flex-col shadow-2xl border border-gray-200">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-white rounded-t-2xl">
           <div><h2 className="text-[15px] font-semibold text-gray-900">Form preview</h2>
@@ -270,31 +270,31 @@ function PreviewModal({ groups, onClose }) {
           {groups.map(g => (
             <div key={g.id}>
               <div className="flex items-center gap-2 mb-3">
-                <span className="w-2.5 h-2.5 rounded-full" style={{background:g.color}} />
+                <span className="w-2.5 h-2.5 rounded-full" style={{ background: g.color }} />
                 <h3 className="text-[13px] font-semibold text-gray-800">{g.label}</h3>
               </div>
               <div className="space-y-3">
                 {g.fields.filter(isVisible).map(f => (
                   <div key={f.id}>
                     <label className="block text-[12px] text-gray-600 mb-1 font-medium">
-                      {f.label||'Untitled'}{f.required&&<span className="text-red-500 ml-0.5">*</span>}
-                      {f.conditions?.length>0&&<span className="ml-2 text-[10px] text-amber-500">(conditional)</span>}
+                      {f.label || 'Untitled'}{f.required && <span className="text-red-500 ml-0.5">*</span>}
+                      {f.conditions?.length > 0 && <span className="ml-2 text-[10px] text-amber-500">(conditional)</span>}
                     </label>
-                    {f.help&&<p className="text-[11px] text-gray-400 mb-1">{f.help}</p>}
-                    {f.type==='textarea'&&<textarea rows={2} value={formData[f.id]||''} onChange={e=>setValue(f.id,e.target.value)}
-                      className="w-full px-3 py-2 text-[13px] border border-gray-200 rounded-lg bg-gray-50 resize-none outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all"/>}
-                    {f.type==='radio'&&<div className="flex flex-wrap gap-3">{f.options.map(o=>(
+                    {f.help && <p className="text-[11px] text-gray-400 mb-1">{f.help}</p>}
+                    {f.type === 'textarea' && <textarea rows={2} value={formData[f.id] || ''} onChange={e => setValue(f.id, e.target.value)}
+                      className="w-full px-3 py-2 text-[13px] border border-gray-200 rounded-lg bg-gray-50 resize-none outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all" />}
+                    {f.type === 'radio' && <div className="flex flex-wrap gap-3">{f.options.map(o => (
                       <label key={o.v} className="flex items-center gap-1.5 text-[13px] cursor-pointer">
-                        <input type="radio" name={f.id} value={o.v} checked={formData[f.id]===o.v} onChange={()=>setValue(f.id,o.v)} className="text-emerald-600"/>{o.l}</label>))}</div>}
-                    {f.type==='checkbox'&&<label className="flex items-center gap-2 text-[13px] cursor-pointer">
-                      <input type="checkbox" checked={!!formData[f.id]} onChange={e=>setValue(f.id,e.target.checked)} className="w-4 h-4 text-emerald-600"/>{f.label}</label>}
-                    {f.type==='dropdown'&&<select value={formData[f.id]||''} onChange={e=>setValue(f.id,e.target.value)}
+                        <input type="radio" name={f.id} value={o.v} checked={formData[f.id] === o.v} onChange={() => setValue(f.id, o.v)} className="text-emerald-600" />{o.l}</label>))}</div>}
+                    {f.type === 'checkbox' && <label className="flex items-center gap-2 text-[13px] cursor-pointer">
+                      <input type="checkbox" checked={!!formData[f.id]} onChange={e => setValue(f.id, e.target.checked)} className="w-4 h-4 text-emerald-600" />{f.label}</label>}
+                    {f.type === 'dropdown' && <select value={formData[f.id] || ''} onChange={e => setValue(f.id, e.target.value)}
                       className="w-full px-3 py-2 text-[13px] border border-gray-200 rounded-lg bg-gray-50 outline-none focus:border-emerald-400 transition-all">
-                      <option value="">Select...</option>{f.options.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}</select>}
-                    {f.type==='computed'&&<input readOnly value="(auto)" className="w-full px-3 py-2 text-[13px] border border-purple-200 rounded-lg bg-purple-50 text-purple-700 font-mono"/>}
-                    {['text','number','date'].includes(f.type)&&<input type={f.type} value={formData[f.id]||''} onChange={e=>setValue(f.id,e.target.value)}
-                      step={f.step||undefined} min={f.min||undefined} max={f.max||undefined} placeholder={f.help||''}
-                      className="w-full px-3 py-2 text-[13px] border border-gray-200 rounded-lg bg-gray-50 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all"/>}
+                      <option value="">Select...</option>{f.options.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}</select>}
+                    {f.type === 'computed' && <input readOnly value="(auto)" className="w-full px-3 py-2 text-[13px] border border-purple-200 rounded-lg bg-purple-50 text-purple-700 font-mono" />}
+                    {['text', 'number', 'date'].includes(f.type) && <input type={f.type} value={formData[f.id] || ''} onChange={e => setValue(f.id, e.target.value)}
+                      step={f.step || undefined} min={f.min || undefined} max={f.max || undefined} placeholder={f.help || ''}
+                      className="w-full px-3 py-2 text-[13px] border border-gray-200 rounded-lg bg-gray-50 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all" />}
                   </div>
                 ))}
               </div>
@@ -325,7 +325,7 @@ export default function App() {
   const [activeType, setActiveType] = useState(null)
   const [activeTab, setActiveTab] = useState('design') // 'design' | 'preview'
   const [configPanelOpen, setConfigPanelOpen] = useState(true)
-  
+
   // Form metadata
   const [formName, setFormName] = useState('')
   const [formDescription, setFormDescription] = useState('')
@@ -349,7 +349,7 @@ export default function App() {
       setLoadingTemplates(false)
     }
   }
-  
+
 
   // Load templates on mount
   useEffect(() => {
@@ -420,7 +420,7 @@ export default function App() {
   const updateGroup = (gid, patch) => { setGroups(g => g.map(x => x.id === gid ? { ...x, ...patch } : x)); setIsDirty(true) }
   const addField = (gid, type) => {
     const fid = genId('f')
-    setGroups(g => g.map(x => x.id === gid ? { ...x, fields: [...x.fields, { id: fid, type, label: '', required: false, help: '', step: type === 'number' ? '1' : '', min: '', max: '', options: ['dropdown','radio'].includes(type) ? [{v:'option_1',l:'Option 1'}] : [], formula: '', conditions: [] }] } : x))
+    setGroups(g => g.map(x => x.id === gid ? { ...x, fields: [...x.fields, { id: fid, type, label: '', required: false, help: '', step: type === 'number' ? '1' : '', min: '', max: '', options: ['dropdown', 'radio'].includes(type) ? [{ v: 'option_1', l: 'Option 1' }] : [], formula: '', conditions: [] }] } : x))
     setSelectedFieldId(fid); setIsDirty(true)
   }
   const deleteField = (fid) => {
@@ -449,58 +449,35 @@ export default function App() {
         return next
       })
     } else {
-      setGroups(prev => { const oi = prev.findIndex(g => g.id === active.id); const ni = prev.findIndex(g => g.id === over.id); return (oi<0||ni<0) ? prev : arrayMove(prev, oi, ni) })
+      setGroups(prev => { const oi = prev.findIndex(g => g.id === active.id); const ni = prev.findIndex(g => g.id === over.id); return (oi < 0 || ni < 0) ? prev : arrayMove(prev, oi, ni) })
     }
     setIsDirty(true)
   }
 
   const persistTemplate = async (nextStatus) => {
-    if (!formName.trim()) {
-      setPublishError('Form name is required')
-      return null
-    }
-
+    if (!formName.trim()) { setPublishError('Form name is required'); return null }
     const schema = transformGroupsToSchema(groups)
-
     if (nextStatus === 'published') {
-      if (groups.every(group => group.fields.length === 0)) {
-        setPublishError('Add at least one field before publishing')
-        return null
-      }
-
-      const dryRun = dryRunSchema(schema)
-      if (!dryRun.valid) {
-        setPublishError(dryRun.errors[0])
-        return null
-      }
+      if (groups.every(g => g.fields.length === 0)) { setPublishError('Add at least one field before publishing'); return null }
+      const dryRun = dryRunSchema(schema); if (!dryRun.valid) { setPublishError(dryRun.errors[0]); return null }
     }
-
-    setSaving(true)
-    setPublishError(null)
-
+    setSaving(true); setPublishError(null)
     try {
-      const { data: templateId, error } = await supabase.rpc('save_template', {
-        p_name: formName.trim(),
-        p_field_schema: schema,
-        p_description: formDescription.trim() || null,
-        p_status: nextStatus,
-        p_template_id: selectedTemplateId || null,
-      })
-
+      const { data: templateId, error } = await supabase.rpc('save_template', { p_name: formName.trim(), p_field_schema: schema, p_description: formDescription.trim() || null, p_status: nextStatus, p_template_id: selectedTemplateId || null })
       if (error) throw error
-
-      setSelectedTemplateId(templateId)
-      await loadTemplates()
-      await handleSelectTemplate(templateId)
-      setIsDirty(false)
-      return templateId
-    } catch (err) {
-      console.error('Template save error:', err)
-      setPublishError(err.message || `Failed to save ${nextStatus} template`)
-      return null
-    } finally {
-      setSaving(false)
-    }
+      if (nextStatus === 'published') {
+        const { data: existing } = await supabase.from('section_definitions').select('section_number').eq('name', formName.trim()).maybeSingle()
+        if (existing) {
+          await supabase.from('section_definitions').update({ field_schema: schema, is_template: true, template_name: formName.trim(), updated_at: new Date().toISOString() }).eq('section_number', existing.section_number)
+        } else {
+          const { data: max } = await supabase.from('section_definitions').select('section_number').order('section_number', { ascending: false }).limit(1).maybeSingle()
+          const nextNum = max ? max.section_number + 1 : 1
+          await supabase.from('section_definitions').insert({ section_number: nextNum, name: formName.trim(), short_name: formName.trim().substring(0, 4).toUpperCase(), color: 'emerald', display_order: nextNum, is_active: true, is_template: true, field_schema: schema, template_name: formName.trim() })
+        }
+      }
+      setSelectedTemplateId(templateId); await loadTemplates(); await handleSelectTemplate(templateId); setIsDirty(false); return templateId
+    } catch (err) { console.error('Template save error:', err); setPublishError(err.message || `Failed to save ${nextStatus} template`); return null }
+    finally { setSaving(false) }
   }
 
   const handleSaveDraft = async () => {
@@ -510,7 +487,7 @@ export default function App() {
     setSavedDraft(true)
     setTimeout(() => setSavedDraft(false), 2000)
   }
-  
+
   const handlePublish = async () => {
     const templateId = await persistTemplate('published')
     if (!templateId) return
@@ -571,8 +548,8 @@ export default function App() {
             className={`px-3 py-1.5 text-[13px] border rounded-lg transition-all font-medium ${savedDraft ? 'border-emerald-300 text-emerald-600 bg-emerald-50' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
             {savedDraft ? '✓ Saved' : 'Save draft'}
           </button>
-          <button 
-            onClick={handlePublish} 
+          <button
+            onClick={handlePublish}
             disabled={saving}
             className={`px-4 py-1.5 text-[13px] font-medium rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${published ? 'bg-emerald-800 shadow-emerald-200 text-white' : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200'}`}>
             {saving ? 'Publishing...' : published ? '✓ Published!' : 'Publish'}
@@ -591,7 +568,7 @@ export default function App() {
                 return (
                   <div key={type} draggable onDragStart={e => e.dataTransfer.setData('palette-type', type)}
                     className="flex items-center gap-2.5 px-3 py-2 rounded-lg border border-gray-100 bg-white mb-1.5 select-none transition-all hover:border-gray-300 hover:bg-gray-50 hover:translate-x-0.5 active:scale-95 cursor-grab active:cursor-grabbing">
-                    <span className="w-6 h-6 rounded-md flex items-center justify-center text-[11px] font-semibold flex-shrink-0" style={{background:m.bg,color:m.color}}>{m.icon}</span>
+                    <span className="w-6 h-6 rounded-md flex items-center justify-center text-[11px] font-semibold flex-shrink-0" style={{ background: m.bg, color: m.color }}>{m.icon}</span>
                     <span className="text-[13px] text-gray-700">{m.label}</span>
                   </div>
                 )
@@ -622,7 +599,7 @@ export default function App() {
                   <span className="text-[11px] text-gray-400">{totalFields} fields</span>
                 </div> */}
               </div>
-              
+
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
                 <SortableContext items={groupIds} strategy={verticalListSortingStrategy}>
                   {groups.map(g => (
@@ -642,7 +619,7 @@ export default function App() {
                   {activeDragGroup && (
                     <div className="rounded-xl border border-emerald-300 bg-white shadow-xl w-80 overflow-hidden">
                       <div className="flex items-center gap-2.5 px-4 py-3 bg-gray-50">
-                        <span className="w-3 h-3 rounded-full" style={{background:activeDragGroup.color}} />
+                        <span className="w-3 h-3 rounded-full" style={{ background: activeDragGroup.color }} />
                         <span className="text-[13px] font-semibold text-gray-800">{activeDragGroup.label}</span>
                         <span className="ml-auto text-[11px] text-gray-400">{activeDragGroup.fields.length} fields</span>
                       </div>

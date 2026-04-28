@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useOutletContext } from 'react-router-dom'
+// ❌ REMOVED: import { useOutletContext } from 'react-router-dom'
 import { Loader } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useScreeningSection } from '../hooks/useScreeningSection'
@@ -204,8 +204,8 @@ function findFieldById(schema, fieldId) {
   return null
 }
 
-export default function DynamicRenderer({ sectionNumber }) {
-  const { patientId, cycleId, clinicId } = useOutletContext()
+// ✅ CHANGED: Now accepts props instead of using useOutletContext()
+export default function DynamicRenderer({ sectionNumber, patientId, cycleId, clinicId }) {
   const [schema, setSchema] = useState(null)
   const [loading, setLoading] = useState(true)
   const [formData, setFormData] = useState({})
@@ -240,16 +240,14 @@ export default function DynamicRenderer({ sectionNumber }) {
     }
     
     loadTemplate()
-  }, [clinicId, cycleId])
+  }, [clinicId, cycleId, sectionNumber])
   
   useEffect(() => {
-    if (sectionData) {
+    if (sectionData && schema?.groups) {
       const flatData = {}
-      if (schema?.groups) {
-        for (const group of schema.groups) {
-          for (const field of group.fields) {
-            flatData[field.id] = sectionData[field.id] ?? ''
-          }
+      for (const group of schema.groups) {
+        for (const field of group.fields) {
+          flatData[field.id] = sectionData[field.id] ?? ''
         }
       }
       setFormData(flatData)

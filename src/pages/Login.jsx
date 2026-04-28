@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { supabase } from '../lib/supabase'
-import { loadSession } from '../lib/loadSession'
 
 
 export default function Login() {
@@ -56,29 +55,14 @@ export default function Login() {
     e.preventDefault()
     setLoading(true)
     setError(null)
-
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      })
-
-      if (error) {
-        throw error
-      }
-
-      await loadSession(data.session)
-
-      const { user: authUser, profile: authProfile } = useAuthStore.getState()
-
-      if (!authUser || !authProfile) {
-        throw new Error('Profile access denied by RLS')
-      }
-
-      setLoading(false)
-    } catch (error) {
-      console.error('Supabase login error:', error)
-      setError(error.message || 'An unexpected error occurred. Please try again.')
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) throw error
+      const { data: p } = await supabase.from('profiles').select('*').eq('id', data.session.user.id).single()
+      if (!p) throw new Error('Profile not found')
+      useAuthStore.getState().setAuth(data.session.user, p)
+    } catch (err) {
+      setError(err.message || 'Login failed')
       setLoading(false)
     }
   }

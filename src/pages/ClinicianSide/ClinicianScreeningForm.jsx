@@ -20,6 +20,7 @@ export default function ClinicianScreeningForm() {
 
   const [hasDynamicSchema, setHasDynamicSchema] = useState(false)
   const [schemaLoading, setSchemaLoading] = useState(true)
+  const [schemaError, setSchemaError] = useState(null)
 
   const {
     patient,
@@ -41,10 +42,21 @@ export default function ClinicianScreeningForm() {
   useEffect(() => {
     async function checkDynamicSchema() {
       if (!profile?.clinic_id || !cycleId) {
+        console.log('Missing clinic_id or cycleId:', { 
+          clinic_id: profile?.clinic_id, 
+          cycleId 
+        })
         setSchemaLoading(false)
         return
       }
+      
       try {
+        console.log('Checking template for:', {
+          clinic_id: profile.clinic_id,
+          cycle_id: cycleId,
+          section_number: sectionNumber
+        })
+        
         const { data, error } = await supabase.rpc('get_clinic_template', {
           p_clinic_id: profile.clinic_id,
           p_cycle_id: cycleId,
@@ -53,10 +65,21 @@ export default function ClinicianScreeningForm() {
         
         if (error) throw error
         
+        console.log('Template response:', data)
+        
+        // Check if fieldSchema exists and has groups
         const hasSchema = data?.fieldSchema?.groups?.length > 0
+        
+        console.log('Has dynamic schema:', hasSchema, {
+          hasFieldSchema: !!data?.fieldSchema,
+          groupsLength: data?.fieldSchema?.groups?.length
+        })
+        
         setHasDynamicSchema(!!hasSchema)
+        setSchemaError(null)
       } catch (err) {
         console.error('Error checking template:', err)
+        setSchemaError(err.message)
         setHasDynamicSchema(false)
       } finally {
         setSchemaLoading(false)
@@ -64,6 +87,7 @@ export default function ClinicianScreeningForm() {
     }
     
     setSchemaLoading(true)
+    setSchemaError(null)
     checkDynamicSchema()
   }, [sectionNumber, profile?.clinic_id, cycleId])
 
@@ -79,6 +103,19 @@ export default function ClinicianScreeningForm() {
       )
     }
     
+    if (schemaError) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-8">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+            <AlertCircle className="w-8 h-8 text-red-600" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Template Error</h3>
+          <p className="text-sm text-gray-500 mb-2">{schemaError}</p>
+          <p className="text-xs text-gray-400">Check console for details</p>
+        </div>
+      )
+    }
+    
     if (hasDynamicSchema) {
       return (
         <Suspense fallback={
@@ -89,7 +126,12 @@ export default function ClinicianScreeningForm() {
             </div>
           </div>
         }>
-          <DynamicRenderer sectionNumber={sectionNumber} />
+          <DynamicRenderer 
+            sectionNumber={sectionNumber}
+            patientId={id}
+            cycleId={cycleId}
+            clinicId={profile?.clinic_id}
+          />
         </Suspense>
       )
     }
@@ -105,8 +147,13 @@ export default function ClinicianScreeningForm() {
           {currentSection?.name && <span className="font-medium text-gray-700"> ({currentSection.name})</span>}.
         </p>
         <p className="text-xs text-gray-400">
-          Please contact your clinic administrator to activate a template for this section.
+          Please follow these steps:
         </p>
+        <ol className="text-xs text-gray-400 mt-2 list-decimal list-inside">
+          <li>Super Admin: Create template in Form Builder</li>
+          <li>Admin: Activate template for your clinic in Template Activation Panel</li>
+          <li>Refresh this page</li>
+        </ol>
       </div>
     )
   }

@@ -1,8 +1,9 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './store/authStore'
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { Toaster } from 'sonner'
 import { useConnectivity } from './hooks/useConnectivity'
+import { supabase } from './lib/supabase'
 
 import Login from './pages/Login'
 
@@ -21,13 +22,6 @@ const ClinicianPatientData = lazy(() => import('./pages/ClinicianSide/ClinicianP
 const ClinicianScreeningData = lazy(() => import('./pages/ClinicianSide/ClinicianScreeningData'))
 const ClinicianScreeningForm = lazy(() => import('./pages/ClinicianSide/ClinicianScreeningForm'))
 
-// --- Section 1 Tabs ---
-const Vitals = lazy(() => import('./components/ScreeningSection1/Vitals'))
-const Immunization = lazy(() => import('./components/ScreeningSection1/Immunization'))
-const Development = lazy(() => import('./components/ScreeningSection1/Development'))
-
-import RoleRoute from './components/RoleRoute'
-
 // --- Super Admin ---
 const SuperAdminDashboard = lazy(() => import('./pages/SuperAdminSide/SuperAdminDashboard'))
 const SuperAdminDashboardStats = lazy(() => import('./pages/SuperAdminSide/SuperAdminDashboardStats'))
@@ -37,12 +31,7 @@ const UserManagement = lazy(() => import('./pages/SuperAdminSide/UserManagement'
 const TemplateManagement = lazy(() => import('./pages/SuperAdminSide/TemplateManagement'))
 const FormBuilder = lazy(() => import('./pages/FormBuilder/FormBuilder'))
 
-// --- Lazy-loaded additional sections ---
-const LAZY_SECTIONS = {
-  '2': lazy(() => import('./components/ScreeningSection2')),
-  '3': lazy(() => import('./components/ScreeningSection3')),
-  '4': lazy(() => import('./components/ScreeningSection4')),
-}
+import RoleRoute from './components/RoleRoute'
 
 function SectionLoader() {
   return (
@@ -54,8 +43,47 @@ function SectionLoader() {
 }
 
 function App() {
-  const { user, profile, loading } = useAuthStore()
+  const { user, profile, loading, setAuth, clearAuth } = useAuthStore()
   useConnectivity()
+
+  useEffect(() => {
+    const initAuth = async () => {
+      const CACHE_KEY = 'auth_profile_cache'
+      const cached = localStorage.getItem(CACHE_KEY)
+
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) {
+          try {
+            const { data: p } = await supabase.from('profiles').select('*').eq('id', session.user.id).single()
+            if (p) { setAuth(session.user, p); localStorage.setItem(CACHE_KEY, JSON.stringify(p)); return }
+          } catch { }
+          // Network failed, use cache
+          if (cached) { setAuth(session.user, JSON.parse(cached)); return }
+        }
+        // No session and no cache - redirect to login
+        if (!cached) clearAuth()
+      } catch {
+        // Completely offline, use cache
+        if (cached) {
+          const { data: { session } } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }))
+          if (session) setAuth(session.user, JSON.parse(cached))
+        }
+      }}
+
+      initAuth()
+
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (session) {
+          supabase.from('profiles').select('*').eq('id', session.user.id).single().then(({ data: p }) => {
+            if (p) setAuth(session.user, p)
+          })
+        }
+        // Don't clearAuth on SIGNED_OUT unless explicitly signed out
+      })
+
+      return () => subscription.unsubscribe()
+    }, [])
 
   if (loading) {
     return (
@@ -68,261 +96,68 @@ function App() {
 
   return (
     <>
-      <Toaster
-        position="top-right"
-        richColors
-        closeButton
-        expand={false}
-      />
-
+      <Toaster position="top-right" richColors closeButton expand={false} />
       <Router>
         <Routes>
-
-          <Route path="/login" element={<Login />} />
+          <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
 
           {/* SUPER ADMIN */}
-          <Route
-            path="/super-admin"
-            element={
-              <Suspense fallback={<SectionLoader />}>
-                <RoleRoute requiredRole="super-admin" user={user} profile={profile}>
-                  <SuperAdminDashboard />
-                </RoleRoute>
-              </Suspense>
-            }
-          >
-            <Route
-              index
-              element={
-                <Suspense fallback={<SectionLoader />}>
-                  <SuperAdminDashboardStats />
-                </Suspense>
-              }
-            />
-            <Route
-              path="dashboard"
-              element={
-                <Suspense fallback={<SectionLoader />}>
-                  <SuperAdminDashboardStats />
-                </Suspense>
-              }
-            />
-            <Route
-              path="clinics"
-              element={
-                <Suspense fallback={<SectionLoader />}>
-                  <ClinicRegistry />
-                </Suspense>
-              }
-            />
-            <Route
-              path="launch-clinic"
-              element={
-                <Suspense fallback={<SectionLoader />}>
-                  <LaunchClinicWizard />
-                </Suspense>
-              }
-            />
-            <Route path="settings" element={<Navigate replace to="/super-admin/launch-clinic" />} />
-            <Route
-              path="users"
-              element={
-                <Suspense fallback={<SectionLoader />}>
-                  <UserManagement />
-                </Suspense>
-              }
-            />
-            <Route
-              path="templates"
-              element={
-                <Suspense fallback={<SectionLoader />}>
-                  <TemplateManagement />
-                </Suspense>
-              }
-            />
-            <Route
-              path="form-builder"
-              element={
-                <Suspense fallback={<SectionLoader />}>
-                  <FormBuilder />
-                </Suspense>
-              }
-            />
+          <Route path="/super-admin" element={
+            <Suspense fallback={<SectionLoader />}>
+              <RoleRoute requiredRole="super-admin" user={user} profile={profile}>
+                <SuperAdminDashboard />
+              </RoleRoute>
+            </Suspense>
+          }>
+            <Route index element={<Suspense fallback={<SectionLoader />}><SuperAdminDashboardStats /></Suspense>} />
+            <Route path="dashboard" element={<Suspense fallback={<SectionLoader />}><SuperAdminDashboardStats /></Suspense>} />
+            <Route path="clinics" element={<Suspense fallback={<SectionLoader />}><ClinicRegistry /></Suspense>} />
+            <Route path="launch-clinic" element={<Suspense fallback={<SectionLoader />}><LaunchClinicWizard /></Suspense>} />
+            <Route path="users" element={<Suspense fallback={<SectionLoader />}><UserManagement /></Suspense>} />
+            <Route path="templates" element={<Suspense fallback={<SectionLoader />}><TemplateManagement /></Suspense>} />
+            <Route path="form-builder" element={<Suspense fallback={<SectionLoader />}><FormBuilder /></Suspense>} />
             <Route path="*" element={<Navigate replace to="/super-admin/dashboard" />} />
           </Route>
 
           {/* ADMIN */}
-          <Route
-            path="/admin"
-            element={
-              <Suspense fallback={<SectionLoader />}>
-                <RoleRoute requiredRole="admin" user={user} profile={profile}>
-                  <AdminDashboard />
-                </RoleRoute>
-              </Suspense>  
-            }
-          >
-            <Route
-              index
-              element={
-                <Suspense fallback={<SectionLoader />}>
-                  <DashboardStats />
-                </Suspense>
-              }
-            />
-            <Route
-              path="dashboard"
-              element={
-                <Suspense fallback={<SectionLoader />}>
-                  <DashboardStats />
-                </Suspense>
-              }
-            />
-            <Route
-              path="role-management"
-              element={
-                <Suspense fallback={<SectionLoader />}>
-                  <RoleManagement />
-                </Suspense>
-              }
-            />
-            <Route
-              path="cycle-manager"
-              element={
-                <Suspense fallback={<SectionLoader />}>
-                  <AdminCycleManager />
-                </Suspense>
-              }
-            />
-            <Route
-              path="patient-data"
-              element={
-                <Suspense fallback={<SectionLoader />}>
-                  <PatientData />
-                </Suspense>
-              }
-            />
-            <Route
-              path="screening-data"
-              element={
-                <Suspense fallback={<SectionLoader />}>
-                  <ScreeningData />
-                </Suspense>
-              }
-            />
+          <Route path="/admin" element={
+            <Suspense fallback={<SectionLoader />}>
+              <RoleRoute requiredRole="admin" user={user} profile={profile}>
+                <AdminDashboard />
+              </RoleRoute>
+            </Suspense>
+          }>
+            <Route index element={<Suspense fallback={<SectionLoader />}><DashboardStats /></Suspense>} />
+            <Route path="dashboard" element={<Suspense fallback={<SectionLoader />}><DashboardStats /></Suspense>} />
+            <Route path="role-management" element={<Suspense fallback={<SectionLoader />}><RoleManagement /></Suspense>} />
+            <Route path="cycle-manager" element={<Suspense fallback={<SectionLoader />}><AdminCycleManager /></Suspense>} />
+            <Route path="patient-data" element={<Suspense fallback={<SectionLoader />}><PatientData /></Suspense>} />
+            <Route path="screening-data" element={<Suspense fallback={<SectionLoader />}><ScreeningData /></Suspense>} />
             <Route path="*" element={<Navigate replace to="/admin/dashboard" />} />
           </Route>
 
           {/* CLINICIAN */}
-          <Route
-            path="/clinician"
-            element={
-              <Suspense fallback={<SectionLoader />}>
-                <RoleRoute requiredRole="clinician" user={user} profile={profile}>
-                  <ClinicianDashboard />
-                </RoleRoute>
-              </Suspense>
-            }
-          >
-            <Route
-              index
-              element={
-                <Suspense fallback={<SectionLoader />}>
-                  <ClinicianDashboardStats />
-                </Suspense>
-              }
-            />
-            <Route
-              path="dashboard"
-              element={
-                <Suspense fallback={<SectionLoader />}>
-                  <ClinicianDashboardStats />
-                </Suspense>
-              }
-            />
-            <Route
-              path="patient-data"
-              element={
-                <Suspense fallback={<SectionLoader />}>
-                  <ClinicianPatientData />
-                </Suspense>
-              }
-            />
-            <Route
-              path="screening-data"
-              element={
-                <Suspense fallback={<SectionLoader />}>
-                  <ClinicianScreeningData />
-                </Suspense>
-              }
-            />
-
-            <Route
-              path="patient/:id"
-              element={
-                <Suspense fallback={<SectionLoader />}>
-                  <ClinicianScreeningForm />
-                </Suspense>
-              }
-            >
-              <Route
-                index
-                element={
-                  <Suspense fallback={<SectionLoader />}>
-                    <Vitals />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="immunization"
-                element={
-                  <Suspense fallback={<SectionLoader />}>
-                    <Immunization />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="development"
-                element={
-                  <Suspense fallback={<SectionLoader />}>
-                    <Development />
-                  </Suspense>
-                }
-              />
-
-              {Object.entries(LAZY_SECTIONS).map(([sectionNum, LazyComponent]) => (
-                <Route
-                  key={sectionNum}
-                  path={`section${sectionNum}`}
-                  element={
-                    <Suspense fallback={<SectionLoader />}>
-                      <LazyComponent />
-                    </Suspense>
-                  }
-                />
-              ))}
-
-            </Route>
+          <Route path="/clinician" element={
+            <Suspense fallback={<SectionLoader />}>
+              <RoleRoute requiredRole="clinician" user={user} profile={profile}>
+                <ClinicianDashboard />
+              </RoleRoute>
+            </Suspense>
+          }>
+            <Route index element={<Suspense fallback={<SectionLoader />}><ClinicianDashboardStats /></Suspense>} />
+            <Route path="dashboard" element={<Suspense fallback={<SectionLoader />}><ClinicianDashboardStats /></Suspense>} />
+            <Route path="patient-data" element={<Suspense fallback={<SectionLoader />}><ClinicianPatientData /></Suspense>} />
+            <Route path="screening-data" element={<Suspense fallback={<SectionLoader />}><ClinicianScreeningData /></Suspense>} />
+            <Route path="patient/:id" element={<Suspense fallback={<SectionLoader />}><ClinicianScreeningForm /></Suspense>} />
             <Route path="*" element={<Navigate replace to="/clinician/dashboard" />} />
           </Route>
 
           {/* ROOT */}
-          <Route
-            path="/"
-            element={
-              user
-                ? profile
-                  ? <Navigate replace to={
-                    profile.role === 'super-admin'
-                      ? '/super-admin/dashboard'
-                      : profile.role === 'admin'
-                        ? '/admin/dashboard'
-                        : '/clinician/dashboard'
-                  } />
-                  : <Navigate replace to="/login" />
-                : <Navigate replace to="/login" />
-            }
-          />
+          <Route path="/" element={
+            user && profile
+              ? <Navigate replace to={profile.role === 'super-admin' ? '/super-admin/dashboard' : profile.role === 'admin' ? '/admin/dashboard' : '/clinician/dashboard'} />
+              : <Navigate replace to="/login" />
+          } />
           <Route path="*" element={<Navigate replace to="/" />} />
         </Routes>
       </Router>
