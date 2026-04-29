@@ -1,8 +1,10 @@
 export function getProfileSectionNumber(profile) {
-  const rawValue = profile?.section_number ?? profile?.section
-  const parsed = Number.parseInt(rawValue, 10)
-
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : null
+  const sections = profile?.assigned_sections
+  if (Array.isArray(sections) && sections.length > 0) {
+    const parsed = Number.parseInt(String(sections[0]), 10)
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : null
+  }
+  return null
 }
 
 export function normalizeSectionOrder(sectionOrder, fallbackSectionNumber = null) {

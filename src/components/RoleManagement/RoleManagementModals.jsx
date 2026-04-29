@@ -1,108 +1,31 @@
 import { useState, useEffect } from 'react'
 import { Plus, Edit2, Search, X, AlertCircle, CheckCircle2, Copy, Check, Trash2, Shield, User, KeyRound, Eye, FileText } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { getSectionColorClasses } from '../../lib/sectionUtils'
 
-// ─── Section Picker with Preview ─────────────────────────────────────────────
-function SectionPickerWithPreview({ value, onChange, clinicId, cycleId, sectionOptions = [] }) {
-  const [showPreview, setShowPreview] = useState(false)
-  const [template, setTemplate] = useState(null)
-  const [loading, setLoading] = useState(false)
-
-  const selectedSection = sectionOptions.find(option => option.value === String(value))
-
-  const loadTemplate = async () => {
-    if (!clinicId || !cycleId || !value) return
-    setLoading(true)
-    try {
-      const { data } = await supabase.rpc('get_clinic_template', {
-        p_clinic_id: clinicId,
-        p_cycle_id: cycleId,
-        p_section_number: Number.parseInt(value, 10),
-      })
-      if (data?.fieldSchema?.groups) {
-        setTemplate(data.fieldSchema)
-      } else {
-        setTemplate(null)
-      }
-    } catch (err) {
-      console.error('Error loading template:', err)
-      setTemplate(null)
-    } finally {
-      setLoading(false)
-    }
+// ─── Multi-Section Checkbox Picker ─────────────────────────────────────────
+function MultiSectionPicker({ selected = [], onChange, sectionOptions = [], error }) {
+  const toggle = (value) => {
+    const next = selected.includes(value) ? selected.filter(v => v !== value) : [...selected, value]
+    onChange(next)
   }
-
-  const handlePreview = () => {
-    if (!showPreview && !template) {
-      loadTemplate()
-    }
-    setShowPreview(!showPreview)
-  }
-
   return (
     <div>
-      <div className="flex items-center justify-between mb-1">
-        <label className="block text-sm font-medium text-slate-700">Section</label>
-        <button 
-          type="button"
-          onClick={handlePreview}
-          className="flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 font-medium"
-        >
-          <Eye size={12} />
-          {showPreview ? 'Hide Preview' : 'Preview Form'}
-        </button>
+      <label className="block text-sm font-medium text-slate-700 mb-1">Sections</label>
+      <div className="space-y-1.5 max-h-48 overflow-y-auto border border-slate-200 rounded-lg p-2">
+        {sectionOptions.map(s => {
+          const checked = selected.includes(s.value)
+          return (
+            <label key={s.value} className={`flex items-center gap-2 p-1.5 rounded cursor-pointer text-sm transition ${checked ? 'bg-emerald-50' : 'hover:bg-slate-50'}`}>
+              <input type="checkbox" checked={checked} onChange={() => toggle(s.value)} className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500" />
+              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: s.color || '#1f5745' }} />
+              <span className="text-slate-700">{s.label}</span>
+            </label>
+          )
+        })}
       </div>
-      <select 
-        value={value} 
-        onChange={e => { onChange(e.target.value); setShowPreview(false); }} 
-        className="w-full border border-slate-200 p-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-      >
-        {sectionOptions.map(section => (
-          <option key={section.value} value={section.value}>
-            {section.label}
-          </option>
-        ))}
-      </select>
-
-      {showPreview && (
-        <div className="mt-3 border border-slate-200 rounded-lg overflow-hidden">
-          <div className="bg-slate-50 px-3 py-2 border-b border-slate-200 flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-600">
-              {selectedSection?.label || `Section ${value}`} Preview
-            </span>
-            {loading && <span className="text-xs text-slate-400">Loading...</span>}
-          </div>
-          <div className="max-h-48 overflow-y-auto p-3 space-y-3">
-            {template?.fieldSchema?.groups?.length > 0 ? (
-              template.fieldSchema.groups.map(group => (
-                <div key={group.id}>
-                  <div className="flex items-center gap-1.5 mb-1.5">
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: group.color }} />
-                    <span className="text-xs font-medium text-slate-700">{group.label}</span>
-                  </div>
-                  <div className="pl-3.5 space-y-1">
-                    {group.fields?.slice(0, 5).map(field => (
-                      <div key={field.id} className="flex items-center justify-between text-xs">
-                        <span className="text-slate-600">{field.label}</span>
-                        <span className="text-slate-400 capitalize">{field.type}</span>
-                      </div>
-                    ))}
-                    {group.fields?.length > 5 && (
-                      <span className="text-xs text-slate-400">+{group.fields.length - 5} more fields</span>
-                    )}
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="text-center py-4 text-xs text-slate-400">
-                <FileText size={20} className="mx-auto mb-1" />
-                <p>No template activated</p>
-                <p className="text-xs mt-0.5">Activate a template in Role Management</p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+      {selected.length > 0 && <p className="text-xs text-slate-400 mt-1">{selected.length} section{selected.length > 1 ? 's' : ''} selected</p>}
     </div>
   )
 }
@@ -221,11 +144,11 @@ export const AddUserModal = ({
         <Input label="Last Name" value={newUser.lastName} onChange={e => setNewUser({ ...newUser, lastName: e.target.value })} error={errors.lastName} />
       </div>
       <Input label="Email" value={newUser.email} onChange={e => setNewUser({ ...newUser, email: e.target.value })} error={errors.email} />
-      <Input 
-        label="Password" 
-        type={showPassword ? 'text' : 'password'} 
-        value={newUser.password} 
-        onChange={e => setNewUser({ ...newUser, password: e.target.value })} 
+      <Input
+        label="Password"
+        type={showPassword ? 'text' : 'password'}
+        value={newUser.password}
+        onChange={e => setNewUser({ ...newUser, password: e.target.value })}
         error={errors.password}
       >
         <button
@@ -245,12 +168,11 @@ export const AddUserModal = ({
           </select>
         </div>
         {newUser.role === 'Clinician' && (
-          <SectionPickerWithPreview 
-            value={newUser.assignedSection} 
-            onChange={(value) => setNewUser({ ...newUser, assignedSection: value })} 
-            clinicId={clinicId}
-            cycleId={cycleId}
+          <MultiSectionPicker
+            selected={newUser.assignedSections || []}
+            onChange={(values) => setNewUser({ ...newUser, assignedSections: values })}
             sectionOptions={sectionOptions}
+            error={errors.assignedSections}
           />
         )}
       </div>
@@ -298,13 +220,12 @@ export const EditUserModal = ({
 
     {/* Section selector — only for clinicians */}
     {editForm.role === 'clinician' && (
-        <SectionPickerWithPreview 
-          value={editForm.section} 
-          onChange={(value) => setEditForm(f => ({ ...f, section: value }))} 
-          clinicId={clinicId}
-          cycleId={cycleId}
-          sectionOptions={sectionOptions}
-        />
+      <MultiSectionPicker
+        selected={editForm.sections || []}
+        onChange={(values) => setEditForm(f => ({ ...f, sections: values }))}
+        sectionOptions={sectionOptions}
+        error={editErrors.sections}
+      />
     )}
 
     {/* Preview */}
@@ -313,8 +234,8 @@ export const EditUserModal = ({
       <span className={`font-semibold ${editForm.role === 'admin' ? 'text-emerald-600' : 'text-blue-600'}`}>
         {editForm.role}
       </span>
-      {editForm.role === 'clinician' && editForm.section && (
-        <> · Section {editForm.section}</>
+      {editForm.role === 'clinician' && editForm.sections?.length > 0 && (
+        <> · {editForm.sections.length} section{editForm.sections.length > 1 ? 's' : ''}</>
       )}
     </div>
   </Modal>
@@ -353,30 +274,31 @@ export const ResetPasswordModal = ({
 )
 
 // ─── Delete Confirm Modal ────────────────────────────────────────────────────
-export const DeleteUserModal = ({
-  show, onClose, deletingUser, onDeleteUser, saving
-}) => (
-  <Modal
-    show={show}
-    onClose={() => { onClose(); }}
-    title="Remove User"
-    actions={[
-      <Button key="c" className="bg-slate-100 text-slate-700 flex-1" onClick={onClose}>Cancel</Button>,
-      <Button key="d" className="bg-red-500 text-white flex-1" onClick={onDeleteUser} disabled={saving}>
-        {saving ? 'Removing...' : 'Remove User'}
-      </Button>
-    ]}
-  >
-    <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-100 rounded-xl">
-      <AlertCircle size={18} className="text-red-500 mt-0.5 shrink-0" />
-      <div>
-        <p className="text-sm font-medium text-slate-800">
-          Remove <span className="text-red-600">{deletingUser?.full_name}</span>?
-        </p>
-        <p className="text-xs text-slate-500 mt-1">
-          This will delete their profile. Their auth account will also be removed if a delete-user Edge Function is configured.
-        </p>
+export const DeleteUserModal = ({ show, onClose, deletingUser, onDeleteUser, saving }) => {
+  const isDisabled = deletingUser?.is_active === false
+  return (
+    <Modal
+      show={show}
+      onClose={onClose}
+      title={isDisabled ? 'Activate User' : 'Deactivate User'}
+      actions={[
+        <Button key="c" className="bg-slate-100 text-slate-700 flex-1" onClick={onClose}>Cancel</Button>,
+        <Button key="d" className={isDisabled ? 'bg-emerald-600 text-white flex-1' : 'bg-amber-500 text-white flex-1'} onClick={onDeleteUser} disabled={saving}>
+          {saving ? 'Please wait...' : isDisabled ? 'Activate' : 'Deactivate'}
+        </Button>
+      ]}
+    >
+      <div className={`flex items-start gap-3 p-4 rounded-xl ${isDisabled ? 'bg-emerald-50 border border-emerald-100' : 'bg-amber-50 border border-amber-100'}`}>
+        <AlertCircle size={18} className={isDisabled ? 'text-emerald-500 mt-0.5 shrink-0' : 'text-amber-500 mt-0.5 shrink-0'} />
+        <div>
+          <p className="text-sm font-medium text-slate-800">
+            {isDisabled ? 'Activate' : 'Deactivate'} <span className={isDisabled ? 'text-emerald-600' : 'text-amber-600'}>{deletingUser?.full_name}</span>?
+          </p>
+          <p className="text-xs text-slate-500 mt-1">
+            {isDisabled ? 'They will be able to log in and access the system again.' : 'They will no longer be able to log in. Their data will be preserved.'}
+          </p>
+        </div>
       </div>
-    </div>
-  </Modal>
-)
+    </Modal>
+  )
+}

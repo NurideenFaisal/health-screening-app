@@ -19,17 +19,17 @@ export default function RoleManagement() {
   const activeCycle = activeCycleQuery.data ?? null
 
   const { sections: allSectionDefinitions } = useSectionDefinitions([])
-  const sectionOptions = allSectionDefinitions.map(section => ({ value: String(section.section_number), label: section.name || `Section ${section.section_number}`, shortLabel: section.short_name || `S${section.section_number}`, color: section.color }))
+  const sectionOptions = allSectionDefinitions.map(s => ({ value: String(s.section_number), label: s.name || `Section ${s.section_number}`, shortLabel: s.short_name || `S${s.section_number}`, color: s.color }))
 
   const { users, loading, searchQuery, setSearchQuery, filtered, fetchUsers } = useUsersManagement()
   const { publishedTemplates, templateAssignments, templateSelections, setTemplateSelections, loadingTemplatePanel, activatingSection, handleActivateTemplate } = useTemplateActivation([], activeCycle, profile)
 
   const [showAddModal, setShowAddModal] = useState(false)
-  const [newUser, setNewUser] = useState({ firstName: '', lastName: '', email: '', password: '', role: 'Clinician', assignedSection: '' })
+  const [newUser, setNewUser] = useState({ firstName: '', lastName: '', email: '', password: '', role: 'Clinician', assignedSections: [] })
   const [errors, setErrors] = useState({})
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingUser, setEditingUser] = useState(null)
-  const [editForm, setEditForm] = useState({ role: '', section: '' })
+  const [editForm, setEditForm] = useState({ role: '', sections: [] })
   const [editErrors, setEditErrors] = useState({})
   const [showResetModal, setShowResetModal] = useState(false)
   const [resetUser, setResetUser] = useState(null)
@@ -48,39 +48,40 @@ export default function RoleManagement() {
     if (!u.firstName) errs.firstName = 'Required'
     if (!u.lastName) errs.lastName = 'Required'
     if (!u.email) errs.email = 'Required'
-    if (!u.password) { errs.password = 'Required' } else if (u.password.length < 6) { errs.password = 'Must be at least 6 characters' }
-    if (u.role !== 'Admin' && !u.assignedSection) errs.assignedSection = 'Required'
+    if (!u.password) errs.password = 'Required'
+    else if (u.password.length < 6) errs.password = 'Must be at least 6 characters'
     return errs
   }
 
   const handleAddUser = async () => {
     const errs = validate(newUser); setErrors(errs)
-    if (Object.keys(errs).length) { console.log('Validation failed:', errs); return }
+    if (Object.keys(errs).length) return
     setSaving(true)
     try {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession()
       if (sessionError || !session) { showToast('You must be logged in as admin', 'error'); setSaving(false); return }
-      const body = { firstName: newUser.firstName, lastName: newUser.lastName, email: newUser.email, password: newUser.password, role: newUser.role.toLowerCase(), assignedSection: newUser.role.toLowerCase() === 'clinician' ? newUser.assignedSection : null, section_number: newUser.role.toLowerCase() === 'clinician' ? Number.parseInt(newUser.assignedSection, 10) : null, clinic_id: isClinicAdmin ? profile?.clinic_id : null }
-      console.log('Sending to edge function:', body)
+      const body = { firstName: newUser.firstName, lastName: newUser.lastName, email: newUser.email, password: newUser.password, role: newUser.role.toLowerCase(), assignedSections: newUser.role === 'Admin' ? null : (newUser.assignedSections || []), clinic_id: isClinicAdmin ? profile?.clinic_id : null }
       const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-user`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` }, body: JSON.stringify(body) })
       const data = await res.json()
-      console.log('Edge function response:', data)
-      if (!res.ok) { showToast(data.error || 'Failed to create user', 'error') } else { setCredentials({ name: `${newUser.firstName} ${newUser.lastName}`, email: newUser.email, password: newUser.password }); setShowAddModal(false); setNewUser({ firstName: '', lastName: '', email: '', password: '', role: 'Clinician', assignedSection: sectionOptions[0]?.value || '' }) }
-    } catch (err) { showToast('Network error: ' + err.message, 'error') }
+      if (!res.ok) throw new Error(data.error || 'Failed to create user')
+      showToast('User created successfully')
+      setShowAddModal(false)
+      setNewUser({ firstName: '', lastName: '', email: '', password: '', role: 'Clinician', assignedSections: [] })
+      fetchUsers()
+    } catch (err) { showToast(err.message, 'error') }
     setSaving(false)
   }
 
   const openEditModal = (user) => {
     if (user.role === 'super-admin') { showToast('System accounts are protected', 'error'); return }
-    const sections = Array.isArray(user.assigned_sections) ? user.assigned_sections : []
-    setEditingUser(user); setEditForm({ role: user.role || 'clinician', section: sections[0] || sectionOptions[0]?.value || '' }); setEditErrors({}); setShowEditModal(true)
+    const sections = Array.isArray(user.assigned_sections) ? user.assigned_sections.map(String) : []
+    setEditingUser(user); setEditForm({ role: user.role || 'clinician', sections }); setEditErrors({}); setShowEditModal(true)
   }
 
   const handleSaveEdit = async () => {
     if (editingUser?.role === 'super-admin') { showToast('System accounts are protected', 'error'); setShowEditModal(false); return }
-    if (editForm.role === 'clinician' && !editForm.section) { setEditErrors({ section: 'Required for clinicians' }); return }
     setEditErrors({}); setSaving(true)
-    const updates = { role: editForm.role, assigned_sections: editForm.role === 'clinician' ? [editForm.section] : null }
+    const updates = { role: editForm.role, assigned_sections: editForm.role === 'clinician' ? editForm.sections.map(Number) : null }
     const { error } = await supabase.from('profiles').update(updates).eq('id', editingUser.id)
     if (error) { showToast('Failed to update user: ' + error.message, 'error') } else { showToast(`${editingUser.full_name} updated successfully`); setShowEditModal(false); setEditingUser(null); fetchUsers() }
     setSaving(false)
@@ -102,15 +103,16 @@ export default function RoleManagement() {
 
   const openDeleteModal = (user) => { if (user.role === 'super-admin') { showToast('System accounts are protected', 'error'); return }; setDeletingUser(user); setShowDeleteModal(true) }
 
-  const handleDeleteUser = async () => {
+  const handleToggleActive = async () => {
     if (deletingUser?.role === 'super-admin') { showToast('System accounts are protected', 'error'); setShowDeleteModal(false); return }
+    if (deletingUser?.id === profile?.id) { showToast('You cannot change your own status', 'error'); setShowDeleteModal(false); return }
     setSaving(true)
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      let deleted = false
-      if (session) { try { const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-user`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` }, body: JSON.stringify({ userId: deletingUser.id }) }); if (res.ok) deleted = true } catch (_) { } }
-      if (!deleted) { const { error } = await supabase.from('profiles').delete().eq('id', deletingUser.id); if (error) { showToast('Failed to delete user: ' + error.message, 'error'); setSaving(false); return } }
-      showToast(`${deletingUser.full_name} removed`); setShowDeleteModal(false); setDeletingUser(null)
+      const newStatus = deletingUser.is_active === false
+      const { error } = await supabase.from('profiles').update({ is_active: newStatus }).eq('id', deletingUser.id)
+      if (error) throw error
+      showToast(`${deletingUser.full_name} ${newStatus ? 'activated' : 'deactivated'}`)
+      setShowDeleteModal(false); setDeletingUser(null); fetchUsers()
     } catch (err) { showToast('Error: ' + err.message, 'error') }
     setSaving(false)
   }
@@ -128,10 +130,10 @@ export default function RoleManagement() {
       </div>
       {isClinicAdmin && <TemplateActivationPanel activeCycle={activeCycle} activeCycleQuery={activeCycleQuery} publishedTemplates={publishedTemplates} templateAssignments={templateAssignments} templateSelections={templateSelections} setTemplateSelections={setTemplateSelections} activatingSection={activatingSection} handleActivateTemplate={handleActivateTemplate} sectionOptions={sectionOptions} navigate={navigate} />}
       <UsersTable users={users} loading={loading} filtered={filtered} onEdit={openEditModal} onReset={openResetModal} onDelete={openDeleteModal} sectionOptions={sectionOptions} />
-      <AddUserModal show={showAddModal} onClose={() => setShowAddModal(false)} newUser={newUser} setNewUser={setNewUser} errors={errors} setErrors={setErrors} onAddUser={handleAddUser} saving={saving} clinicId={profile?.clinic_id} cycleId={activeCycle?.id} sectionOptions={sectionOptions} />
+      <AddUserModal show={showAddModal} onClose={() => { setShowAddModal(false); setErrors({}) }} newUser={newUser} setNewUser={setNewUser} errors={errors} setErrors={setErrors} onAddUser={handleAddUser} saving={saving} clinicId={profile?.clinic_id} cycleId={activeCycle?.id} sectionOptions={sectionOptions} />
       <EditUserModal show={showEditModal} onClose={() => { setShowEditModal(false); setEditingUser(null) }} editingUser={editingUser} editForm={editForm} setEditForm={setEditForm} editErrors={editErrors} onSaveEdit={handleSaveEdit} saving={saving} sectionOptions={sectionOptions} clinicId={profile?.clinic_id} cycleId={activeCycle?.id} />
       <ResetPasswordModal show={showResetModal} onClose={() => { setShowResetModal(false); setResetUser(null) }} resetUser={resetUser} newPassword={newPassword} setNewPassword={setNewPassword} resetError={resetError} setResetError={setResetError} onResetPassword={handleResetPassword} saving={saving} />
-      <DeleteUserModal show={showDeleteModal} onClose={() => { setShowDeleteModal(false); setDeletingUser(null) }} deletingUser={deletingUser} onDeleteUser={handleDeleteUser} saving={saving} />
+      <DeleteUserModal show={showDeleteModal} onClose={() => { setShowDeleteModal(false); setDeletingUser(null) }} deletingUser={deletingUser} onDeleteUser={handleToggleActive} saving={saving} />
     </div>
   )
 }

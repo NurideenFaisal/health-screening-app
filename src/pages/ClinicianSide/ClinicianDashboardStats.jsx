@@ -111,7 +111,7 @@ export default function ClinicianDashboardStats() {
 
         <div className="border-b border-slate-200 bg-slate-50/80 px-5 py-5 sm:px-8 sm:py-7">
           <p className="mb-4 text-xs font-bold uppercase tracking-[0.22em] text-slate-400">
-            Quick Actions
+            Quick ol
           </p>
           <div className="grid gap-4 xl:grid-cols-2">
             <QuickAction

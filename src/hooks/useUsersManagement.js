@@ -21,7 +21,7 @@ export function useUsersManagement() {
 
   const fetchUsers = useCallback(async () => {
     try {
-      let query = supabase.from('profiles').select('id, full_name, role, assigned_sections, clinic_id').order('created_at', { ascending: false })
+      let query = supabase.from('profiles').select('id, full_name, role, assigned_sections, clinic_id, is_active').order('created_at', { ascending: false })
       if (isClinicAdmin && profile?.clinic_id) { query = query.eq('clinic_id', profile.clinic_id).neq('role', 'super-admin') }
       const { data, error } = await query
       if (error) { console.error('Failed to load users:', error.message) } else { setUsers(data || []); saveToCache(data || []) }

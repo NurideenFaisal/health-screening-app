@@ -69,27 +69,41 @@ function App() {
           const { data: { session } } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }))
           if (session) setAuth(session.user, JSON.parse(cached))
         }
-      }}
+      }
+    }
 
-      initAuth()
+    initAuth()
 
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-        if (session) {
-          supabase.from('profiles').select('*').eq('id', session.user.id).single().then(({ data: p }) => {
-            if (p) setAuth(session.user, p)
-          })
-        }
-        // Don't clearAuth on SIGNED_OUT unless explicitly signed out
-      })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        supabase.from('profiles').select('*').eq('id', session.user.id).single().then(({ data: p }) => {
+          if (p) setAuth(session.user, p)
+        })
+      }
+      // Don't clearAuth on SIGNED_OUT unless explicitly signed out
+    })
 
-      return () => subscription.unsubscribe()
-    }, [])
+    return () => subscription.unsubscribe()
+  }, [])
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
         <span className="ml-3 text-gray-600 font-medium">Loading...</span>
+      </div>
+    )
+  }
+
+  if (profile && profile.is_active === false) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="text-center p-8">
+          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-gray-900">Account Disabled</h2>
+          <p className="text-gray-500 mt-2">Contact your administrator to regain access.</p>
+          <button onClick={() => { useAuthStore.getState().clearAuth(); window.location.href = '/login'; }} className="mt-4 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700">Sign Out</button>
+        </div>
       </div>
     )
   }
