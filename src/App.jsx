@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { useAuthStore } from './store/authStore'
 import { lazy, Suspense, useEffect } from 'react'
 import { Toaster } from 'sonner'
+import { AlertCircle } from 'lucide-react'
 import { useConnectivity } from './hooks/useConnectivity'
 import { supabase } from './lib/supabase'
 
@@ -47,10 +48,10 @@ function App() {
   useConnectivity()
 
   useEffect(() => {
-    const initAuth = async () => {
-      const CACHE_KEY = 'auth_profile_cache'
-      const cached = localStorage.getItem(CACHE_KEY)
+    const CACHE_KEY = 'auth_profile_cache'
 
+    const initAuth = async () => {
+      const cached = localStorage.getItem(CACHE_KEY)
       try {
         const { data: { session } } = await supabase.auth.getSession()
         if (session) {
@@ -58,13 +59,10 @@ function App() {
             const { data: p } = await supabase.from('profiles').select('*').eq('id', session.user.id).single()
             if (p) { setAuth(session.user, p); localStorage.setItem(CACHE_KEY, JSON.stringify(p)); return }
           } catch { }
-          // Network failed, use cache
           if (cached) { setAuth(session.user, JSON.parse(cached)); return }
         }
-        // No session and no cache - redirect to login
         if (!cached) clearAuth()
       } catch {
-        // Completely offline, use cache
         if (cached) {
           const { data: { session } } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }))
           if (session) setAuth(session.user, JSON.parse(cached))
@@ -75,12 +73,19 @@ function App() {
     initAuth()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (_event === 'SIGNED_OUT') {
+        localStorage.removeItem(CACHE_KEY)
+        clearAuth()
+        return
+      }
       if (session) {
         supabase.from('profiles').select('*').eq('id', session.user.id).single().then(({ data: p }) => {
-          if (p) setAuth(session.user, p)
+          if (p) { setAuth(session.user, p); localStorage.setItem(CACHE_KEY, JSON.stringify(p)) }
+        }).catch(() => {
+          const cached = localStorage.getItem(CACHE_KEY)
+          if (cached) setAuth(session.user, JSON.parse(cached))
         })
       }
-      // Don't clearAuth on SIGNED_OUT unless explicitly signed out
     })
 
     return () => subscription.unsubscribe()
@@ -102,7 +107,11 @@ function App() {
           <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-gray-900">Account Disabled</h2>
           <p className="text-gray-500 mt-2">Contact your administrator to regain access.</p>
-          <button onClick={() => { useAuthStore.getState().clearAuth(); window.location.href = '/login'; }} className="mt-4 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700">Sign Out</button>
+          <button onClick={async () => {
+            await supabase.auth.signOut()
+            localStorage.removeItem('auth_profile_cache')
+            clearAuth()
+          }} className="mt-4 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700">Sign Out</button>
         </div>
       </div>
     )
@@ -115,7 +124,6 @@ function App() {
         <Routes>
           <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
 
-          {/* SUPER ADMIN */}
           <Route path="/super-admin" element={
             <Suspense fallback={<SectionLoader />}>
               <RoleRoute requiredRole="super-admin" user={user} profile={profile}>
@@ -133,7 +141,6 @@ function App() {
             <Route path="*" element={<Navigate replace to="/super-admin/dashboard" />} />
           </Route>
 
-          {/* ADMIN */}
           <Route path="/admin" element={
             <Suspense fallback={<SectionLoader />}>
               <RoleRoute requiredRole="admin" user={user} profile={profile}>
@@ -150,7 +157,6 @@ function App() {
             <Route path="*" element={<Navigate replace to="/admin/dashboard" />} />
           </Route>
 
-          {/* CLINICIAN */}
           <Route path="/clinician" element={
             <Suspense fallback={<SectionLoader />}>
               <RoleRoute requiredRole="clinician" user={user} profile={profile}>
@@ -166,7 +172,6 @@ function App() {
             <Route path="*" element={<Navigate replace to="/clinician/dashboard" />} />
           </Route>
 
-          {/* ROOT */}
           <Route path="/" element={
             user && profile
               ? <Navigate replace to={profile.role === 'super-admin' ? '/super-admin/dashboard' : profile.role === 'admin' ? '/admin/dashboard' : '/clinician/dashboard'} />

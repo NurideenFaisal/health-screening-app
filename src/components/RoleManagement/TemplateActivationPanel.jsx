@@ -12,7 +12,7 @@ export default function TemplateActivationPanel({ activeCycle, activeCycleQuery,
   return (
     <div className="bg-white rounded-xl shadow border border-slate-200 p-5 space-y-4">
       <div className="flex items-start justify-between gap-4">
-        <div><h3 className="text-lg font-semibold text-slate-900">Section Templates</h3><p className="text-sm text-slate-500 mt-1">Activate templates for clinicians to use in the field.</p></div>
+        <div><p className="text-sm text-slate-500 mt-1">Activate templates for clinicians to use in the field.</p></div>
         <div className="text-right text-xs text-slate-400"><p>{activeCycle?.name || 'No active cycle'}</p><p>{publishedTemplates.length} published</p></div>
       </div>
 

@@ -19,10 +19,12 @@ export default function RoleManagement() {
   const activeCycle = activeCycleQuery.data ?? null
 
   const { sections: allSectionDefinitions } = useSectionDefinitions([])
-  const sectionOptions = allSectionDefinitions.map(s => ({ value: String(s.section_number), label: s.name || `Section ${s.section_number}`, shortLabel: s.short_name || `S${s.section_number}`, color: s.color }))
-
   const { users, loading, searchQuery, setSearchQuery, filtered, fetchUsers } = useUsersManagement()
   const { publishedTemplates, templateAssignments, templateSelections, setTemplateSelections, loadingTemplatePanel, activatingSection, handleActivateTemplate } = useTemplateActivation([], activeCycle, profile)
+
+  const sectionOptions = allSectionDefinitions
+    .filter(s => templateAssignments[String(s.section_number)])
+    .map(s => ({ value: String(s.section_number), label: s.name || `Section ${s.section_number}`, shortLabel: s.short_name || `S${s.section_number}`, color: s.color }))
 
   const [showAddModal, setShowAddModal] = useState(false)
   const [newUser, setNewUser] = useState({ firstName: '', lastName: '', email: '', password: '', role: 'Clinician', assignedSections: [] })
