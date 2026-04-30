@@ -55,13 +55,11 @@ export default function AdminSidebar() {
   }, [mobileMenuOpen])
 
   const pages = [
-    { name: 'Dashboard', route: 'dashboard', icon: LayoutDashboard },
-    { name: 'Role Management', route: 'role-management', icon: Shield },
-    { name: 'Cycle Manager', route: 'cycle-manager', icon: Calendar },
-    { name: 'Patient Data', route: 'patient-data', icon: Users },
-    // { name: 'Screening Data', route: 'screening-data', icon: ClipboardList },
-    // { name: 'Reports', route: 'reports', icon: FileText }
-  ]
+  { name: 'Dashboard', route: 'dashboard', icon: LayoutDashboard },
+  { name: 'Cycle Manager', route: 'cycle-manager', icon: Calendar },
+  { name: 'Role Management', route: 'role-management', icon: Shield },
+  { name: 'Patient Data', route: 'patient-data', icon: Users },
+]
 
   const isActive = (route) => {
     if (route === 'dashboard') {

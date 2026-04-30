@@ -47,8 +47,8 @@ export default function ClinicianSidebar() {
   // Clinician pages
   const pages = [
     { name: 'Dashboard', route: 'dashboard', icon: LayoutDashboard },
+    { name: 'Screening Data', route: 'screening-data', icon: ClipboardList },
     { name: 'Patient Data', route: 'patient-data', icon: Users },
-    { name: 'Screening Data', route: 'screening-data', icon: ClipboardList }
   ]
 
   // Active route helper
@@ -58,7 +58,7 @@ export default function ClinicianSidebar() {
     }
     if (route === 'screening-data') {
       return location.pathname.startsWith('/clinician/screening-data') ||
-             location.pathname.startsWith('/clinician/patient/')
+        location.pathname.startsWith('/clinician/patient/')
     }
     return location.pathname.startsWith(`/clinician/${route}`)
   }
@@ -167,71 +167,27 @@ export default function ClinicianSidebar() {
 
   return (
     <>
-      {/* ================= MOBILE HAMBURGER BUTTON ================= */}
-      <button
-        onClick={() => setMobileMenuOpen(true)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-white rounded-lg shadow-lg hover:bg-gray-50 transition"
-        aria-label="Open menu"
-      >
-        <Menu size={24} className="text-gray-700" />
-      </button>
-
-      {/* ================= MOBILE MENU OVERLAY ================= */}
-      {mobileMenuOpen && (
-        <div
-          className="lg:hidden fixed inset-0 bg-black/50 z-40 transition-opacity"
-          onClick={() => setMobileMenuOpen(false)}
-        />
-      )}
-
-      {/* ================= MOBILE SIDEBAR ================= */}
-      <div
-        className={`
-          lg:hidden
-          fixed
-          top-0
-          left-0
-          h-screen
-          w-72
-          bg-white
-          shadow-2xl
-          flex
-          flex-col
-          transition-transform
-          duration-300
-          will-change-transform
-          z-50
-          ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
-        `}
-      >
-        {/* Mobile Header */}
-        <div className="p-4 border-b border-gray-200 flex items-center justify-between min-w-0">
-          <div className="min-w-0">
-            <h1 className="font-bold text-gray-900 text-lg truncate">
-              {profile?.clinic_name || 'Screening'}
-            </h1>
-            <p className="text-xs text-gray-500 truncate">
-              {profile?.clinic_name ? 'Clinician Panel' : 'Clinician Panel'}
-            </p>
-          </div>
-
-          <button
-            onClick={() => setMobileMenuOpen(false)}
-            className="p-2 rounded-lg hover:bg-gray-100 transition"
-            aria-label="Close menu"
-          >
-            <X size={20} />
-          </button>
-        </div>
-
-        {/* Mobile Navigation */}
-        <nav className="flex-1 p-3 overflow-y-auto">
-          {renderNavItems(true)}
-        </nav>
-
-        {/* Mobile User Section */}
-        {renderUserSection(true)}
+      {/* ================= MOBILE BOTTOM TAB BAR ================= */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-50 flex safe-area-bottom">
+        {pages.map(page => {
+          const Icon = page.icon
+          const active = isActive(page.route)
+          const shortLabel = page.name === 'Screening Data' ? 'Screening' : page.name === 'Patient Data' ? 'Patients' : 'Home'
+          return (
+            <button
+              key={page.route}
+              onClick={() => navigate(`/clinician/${page.route}`)}
+              className={`flex-1 flex flex-col items-center justify-center py-2 pt-3 text-[10px] font-medium transition
+          ${active ? 'text-emerald-600' : 'text-slate-400'}`}
+            >
+              <Icon size={20} />
+              <span className="mt-0.5">{shortLabel}</span>
+            </button>
+          )
+        })}
       </div>
+
+
 
       {/* ================= DESKTOP SIDEBAR ================= */}
       <div

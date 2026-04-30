@@ -16,7 +16,7 @@ export default function ClinicianDashboard() {
   return (
     <div className="flex h-screen bg-slate-100 overflow-hidden">
       <ClinicianSidebar />
-      <div className="flex-1 overflow-y-auto min-w-0">
+      <div className="flex-1 overflow-y-auto min-w-0 pb-16 lg:pb-0">
         <div className="mt-14 px-4 pb-6 pt-4 sm:px-6 sm:pb-8 sm:pt-5 lg:mt-0 lg:px-8 lg:py-8">
           <div className="mx-auto w-full max-w-[1600px]">
             <Outlet />

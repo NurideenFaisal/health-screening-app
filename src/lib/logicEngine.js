@@ -30,15 +30,14 @@ export function calculateField(groupsSchema, fieldId, formData) {
 
   try {
     const result = evaluateFormula(field.formula, formData, groupsSchema)
-    console.log('calculateField result:', result, 'isFinite:', isFinite(result))
     return isFinite(result) ? Number(result.toFixed(2)) : null
     
   } catch (e) {
-    console.warn(`Formula error for field ${fieldId}:`, e.message)
+    // console.warn(`Formula error for field ${fieldId}:`, e.message)
     return null
   }
 }
-
+ 
 function findFieldById(groups, fieldId) {
   for (const group of groups || []) {
     const field = (group.fields || []).find(f => f.id === fieldId)

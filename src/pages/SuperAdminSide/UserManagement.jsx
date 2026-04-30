@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
-import { 
-  Search, 
-  Users, 
-  Shield, 
-  Building2, 
+import {
+  Search,
+  Users,
+  Shield,
+  Building2,
   Loader2,
   AlertTriangle
 } from 'lucide-react'
@@ -15,15 +15,23 @@ export default function UserManagement() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState('all')
+  const [sectionMap, setSectionMap] = useState(new Map())
 
   useEffect(() => {
     fetchData()
   }, [])
 
+
+  useEffect(() => {
+    supabase.from('section_definitions').select('section_number, short_name').then(({ data }) => {
+      if (data) setSectionMap(new Map(data.map(s => [s.section_number, s.short_name])))
+    })
+  }, [])
+
   async function fetchData() {
     try {
       setLoading(true)
-      
+
       // Fetch all profiles with clinic info
       const [usersRes, clinicsRes] = await Promise.all([
         supabase
@@ -32,7 +40,8 @@ export default function UserManagement() {
             id,
             full_name,
             role,
-            section_number,
+            assigned_sections,
+            is_active,
             clinic_id,
             created_at,
             clinics:clinic_id (name, code)
@@ -60,14 +69,14 @@ export default function UserManagement() {
     const query = searchQuery.toLowerCase()
     const clinicName = user.clinics?.name?.toLowerCase() || ''
     const clinicCode = user.clinics?.code?.toLowerCase() || ''
-    const matchesSearch = 
+    const matchesSearch =
       user.full_name?.toLowerCase().includes(query) ||
       user.id?.toLowerCase().includes(query) ||
       clinicName.includes(query) ||
       clinicCode.includes(query)
-    
+
     const matchesRole = roleFilter === 'all' || user.role === roleFilter
-    
+
     return matchesSearch && matchesRole
   })
 
@@ -79,7 +88,7 @@ export default function UserManagement() {
     }
     const config = roles[role] || roles.clinician
     const Icon = config.icon
-    
+
     return (
       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>
         <Icon size={12} className="mr-1" />
@@ -141,7 +150,7 @@ export default function UserManagement() {
             className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition"
           />
         </div>
-        
+
         <select
           value={roleFilter}
           onChange={(e) => setRoleFilter(e.target.value)}
@@ -242,10 +251,18 @@ export default function UserManagement() {
                       {getScopeBadge(user)}
                     </td>
                     <td className="px-6 py-4">
-                      {user.section_number ? (
-                        <span className="text-sm text-gray-600">Section {user.section_number}</span>
+                      {user.role === 'admin' || user.role === 'super-admin' ? (
+                        <span className="text-sm text-gray-400 italic">All Access</span>
+                      ) : user.assigned_sections?.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {user.assigned_sections.map(s => (
+                            <span key={s} className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+                              {sectionMap.get(Number(s)) || `S${s}`}
+                            </span>
+                          ))}
+                        </div>
                       ) : (
-                        <span className="text-sm text-gray-400">—</span>
+                        <span className="text-sm text-gray-300">—</span>
                       )}
                     </td>
                     <td className="px-6 py-4">

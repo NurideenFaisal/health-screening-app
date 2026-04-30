@@ -38,10 +38,10 @@ export default function SuperAdminSidebar() {
 
   const pages = [
     { name: 'Dashboard', route: 'dashboard', icon: LayoutDashboard },
-    { name: 'Clinic Registry', route: 'clinics', icon: Building2 },
     { name: 'Form Builder', route: 'form-builder', icon: Layout },
     { name: 'Templates', route: 'templates', icon: FileText },
     { name: 'User Management', route: 'users', icon: Users },
+    { name: 'Clinic Registry', route: 'clinics', icon: Building2 },
     { name: 'Launch Clinic', route: 'launch-clinic', icon: Rocket },
   ]
 
@@ -166,7 +166,7 @@ export default function SuperAdminSidebar() {
       className={`
         ${!isMobile && collapsed ? 'w-20' : 'w-64'}
         h-screen
-        bg-gradient-to-b from-emerald-900 to-emerald-800
+        bg-emerald-900
         shadow-xl
         flex
         flex-col
@@ -231,7 +231,7 @@ export default function SuperAdminSidebar() {
 
       {/* Mobile overlay */}
       {mobileOpen && (
-        <div 
+        <div
           className="lg:hidden fixed inset-0 bg-black/50 z-40"
           onClick={() => setMobileOpen(false)}
         />

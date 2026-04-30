@@ -33,6 +33,7 @@ export default function ClinicianScreeningForm() {
     }
   }, [assignedSections, initialized])
 
+
   // Guard: don't run bootstrap hook until activeSection is set
   const shouldBootstrap = !!activeSection
 
@@ -112,7 +113,6 @@ export default function ClinicianScreeningForm() {
       <div className="p-3 sm:p-6 lg:p-10">
         <div className="bg-white rounded-2xl shadow-sm w-full max-w-[1240px] mx-auto overflow-hidden">
           <div className="p-4 sm:p-6">
-            {console.log('RENDER - bootstrapError:', !!bootstrapError, 'isBootstrapping:', isBootstrapping, 'schemaLoading:', schemaLoading, 'hasDynamicSchema:', hasDynamicSchema)}
             {bootstrapError ? (
               <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-800">
                 <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />

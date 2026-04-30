@@ -504,7 +504,7 @@ export default function App() {
         } else {
           const { data: max } = await supabase.from('section_definitions').select('section_number').order('section_number', { ascending: false }).limit(1).maybeSingle()
           const nextNum = max ? max.section_number + 1 : 1
-          await supabase.from('section_definitions').insert({ section_number: nextNum, name: formName.trim(), short_name: formName.trim().substring(0, 4).toUpperCase(), color: 'emerald', display_order: nextNum, is_active: true, is_template: true, field_schema: schema, template_name: formName.trim() })
+          await supabase.from('section_definitions').insert({ section_number: nextNum, name: formName.trim(), short_name: formName.trim().substring(0, 4).toUpperCase(), color: ['emerald','sky','violet','amber','pink','red'][(nextNum - 1) % 6], display_order: nextNum, is_active: true, is_template: true, field_schema: schema, template_name: formName.trim() })
         }
       }
       setSelectedTemplateId(templateId); await loadTemplates(); await handleSelectTemplate(templateId); setIsDirty(false); return templateId

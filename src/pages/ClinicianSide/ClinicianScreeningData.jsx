@@ -62,11 +62,9 @@ export default function ClinicianScreeningData() {
     return () => window.clearTimeout(timeoutId)
   }, [query])
 
-  // Moved inside the component so 'navigate' is in scope
+
   const handlePatientClick = (patient) => {
     // Navigate to the user's assigned section
-    // Section 1 uses index route (vitals), others use section{2,3,4} paths
-    const sectionPath = mySection === '1' ? '' : `section${mySection}`
     const patientSnapshot = {
       id: patient.dbId,
       first_name: patient.first_name,
@@ -106,7 +104,7 @@ export default function ClinicianScreeningData() {
       })
     }
 
-    navigate(`/clinician/patient/${patient.dbId}${sectionPath ? `/${sectionPath}` : ''}`, {
+    navigate(`/clinician/patient/${patient.dbId}`, {
       state: { patient: patientSnapshot },
     })
   }
@@ -257,9 +255,12 @@ export default function ClinicianScreeningData() {
                 <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${(isFetching || isSearchingRemote) ? 'bg-amber-400 animate-pulse' : 'bg-emerald-500'}`} />
               </div>
 
-              <div className="flex items-center gap-1 bg-gray-50 p-1 rounded-lg border border-gray-100">
+              <div className="flex items-center gap-1.5">
                 {sectionPills.map(p => (
-                  <div key={p.key} className={`w-2 h-2 rounded-full ${p.doneColor}`} />
+                  <span key={p.key} className="text-[9px] font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1">
+                    <span className={`w-1.5 h-1.5 rounded-full ${p.doneColor}`} />
+                    {p.label}
+                  </span>
                 ))}
               </div>
             </div>
