@@ -79,33 +79,18 @@ const FieldLabel = ({ label, required }) => (
   </label>
 )
 
-const SectionHeader = ({ color, title }) => {
-  const colorMap = {
-    violet: 'bg-violet-500', sky: 'bg-sky-500', amber: 'bg-amber-500',
-    pink: 'bg-pink-500', emerald: 'bg-emerald-500', red: 'bg-red-500',
-  }
-  return (
-    <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-      <span className={`w-2 h-2 rounded-full ${colorMap[color] || 'bg-gray-500'}`}></span>
-      {title}
-    </h3>
-  )
-}
 
 function DynamicFieldGroup({ group, schema, formData, onChange, errors }) {
+  const bgColor = group.color || '#059669'
   return (
-    <div className="mb-6">
-      <SectionHeader color={group.color} title={group.label} />
+    <div className="rounded-2xl p-5 border mb-6" style={{ backgroundColor: `${bgColor}18`, borderColor: `${bgColor}30` }}>
+      <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: bgColor }}></span>
+        {group.label}
+      </h3>
       <div className="space-y-4">
         {group.fields.map(field => (
-          <DynamicField 
-            key={field.id} 
-            field={field} 
-            schema={schema}
-            formData={formData}
-            onChange={onChange}
-            errors={errors}
-          />
+          <DynamicField key={field.id} field={field} schema={schema} formData={formData} onChange={onChange} errors={errors} />
         ))}
       </div>
     </div>

@@ -10,7 +10,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { supabase } from '../../lib/supabase'
-import { dryRunSchema, transformGroupsToSchema, transformSchemaToGroups } from '../../lib/logicEngine'
+import { dryRunSchema, transformGroupsToSchema, transformSchemaToGroups, calculateField } from '../../lib/logicEngine'
 
 const TYPE_META = {
   text: { icon: 'T', bg: '#ede9fe', color: '#6d28d9', label: 'Text' },
@@ -63,7 +63,7 @@ function Toggle({ checked, onChange }) {
   )
 }
 
-function SortableField({ field, groupId, isSelected, onSelect, onDelete }) {
+function SortableField({ field, groupId, isSelected, onSelect, onDelete, onUpdateField }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: field.id, data: { type: 'field', fieldId: field.id, groupId },
   })
@@ -74,9 +74,13 @@ function SortableField({ field, groupId, isSelected, onSelect, onDelete }) {
       <span {...attributes} {...listeners} onClick={e => e.stopPropagation()}
         className="text-gray-300 hover:text-gray-500 text-sm select-none px-0.5 cursor-grab active:cursor-grabbing">⠿</span>
       <TypeIcon type={field.type} />
-      <span className="flex-1 text-[13px] text-gray-700 truncate">
-        {field.label || <span className="text-gray-400 italic">Untitled</span>}
-      </span>
+      <input
+        value={field.label}
+        onClick={e => e.stopPropagation()}
+        onChange={e => onUpdateField(field.id, { label: e.target.value })}
+        className="flex-1 text-[13px] text-gray-700 bg-transparent border-none outline-none truncate"
+        placeholder="Untitled"
+      />
       <div className="flex items-center gap-1.5">
         {field.required && <span className="text-[10px] font-semibold text-red-500 tracking-wide">REQ</span>}
         {field.conditions?.length > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">if</span>}
@@ -88,7 +92,7 @@ function SortableField({ field, groupId, isSelected, onSelect, onDelete }) {
   )
 }
 
-function SortableGroup({ group, selectedFieldId, onSelectField, onDeleteField, onAddField, onUpdateGroup, onDeleteGroup, onDropFromPalette }) {
+function SortableGroup({ group, selectedFieldId, onSelectField, onDeleteField, onAddField, onUpdateGroup, onDeleteGroup, onDropFromPalette, onUpdateField }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: group.id, data: { type: 'group' },
   })
@@ -124,7 +128,7 @@ function SortableGroup({ group, selectedFieldId, onSelectField, onDeleteField, o
           )}
           {group.fields.map(f => (
             <SortableField key={f.id} field={f} groupId={group.id} isSelected={f.id === selectedFieldId}
-              onSelect={onSelectField} onDelete={onDeleteField} />
+              onSelect={onSelectField} onDelete={onDeleteField} onUpdateField={onUpdateField} />
           ))}
         </SortableContext>
         <button onClick={() => onAddField(group.id, 'text')}
@@ -193,9 +197,20 @@ function ConfigPanel({ groups, selectedFieldId, onUpdateField, onDeleteField }) 
           <section>
             <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2.5">Formula</p>
             <label className="block text-[11px] text-gray-500 mb-1 font-medium uppercase tracking-wide">Expression</label>
-            <input value={field.formula} onChange={e => update({ formula: e.target.value })} placeholder="weight/(height/100)^2"
+            <input value={field.formula} onChange={e => update({ formula: e.target.value })} placeholder="e.g. weight / (height * height)"
               className="w-full px-2.5 py-1.5 text-[12px] font-mono border border-purple-200 rounded-lg bg-purple-50 text-purple-800 outline-none focus:border-purple-400 transition-all" />
-            <p className="text-[11px] text-gray-400 mt-1">Use field labels as variables</p>
+            <div className="mt-2 bg-slate-50 rounded-lg p-2 border border-slate-100">
+              <p className="text-[10px] text-slate-400 mb-1">Click to insert variable:</p>
+              <div className="flex flex-wrap gap-1">
+                {allFields(groups).filter(f => f.id !== field.id && (f.type === 'number' || f.type === 'computed')).map(f => (
+                  <button key={f.id} onClick={() => update({ formula: (field.formula || '') + (f.label || '').replace(/\s*\([^)]*\)\s*/g, '').trim().replace(/\s+/g, '_') })}
+                    className="px-1.5 py-0.5 text-[10px] font-mono bg-white border border-slate-200 rounded text-purple-600 hover:bg-purple-50 transition">
+                    {(f.label || '').replace(/\s*\([^)]*\)\s*/g, '').replace(/\s+/g, '_')}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[9px] text-slate-500 mt-1">Operators: + - * / ( ) ** (exponent)</p>
+            </div>
           </section>
         )}
 
@@ -235,6 +250,14 @@ function ConfigPanel({ groups, selectedFieldId, onUpdateField, onDeleteField }) 
                     className="w-full px-2 py-1.5 rounded-lg border border-amber-200 bg-white text-[12px] outline-none">
                     <option value="equals">equals</option>
                     <option value="notEquals">does not equal</option>
+                    <option value="contains">contains</option>
+                    <option value="notContains">does not contain</option>
+                    <option value="greaterThan">greater than</option>
+                    <option value="lessThan">less than</option>
+                    <option value="greaterThanOrEqual">&gt;=</option>
+                    <option value="lessThanOrEqual">&lt;=</option>
+                    <option value="isEmpty">is empty</option>
+                    <option value="isNotEmpty">is not empty</option>
                   </select>
                   <input value={cond.value} onChange={e => { const c = [...field.conditions]; c[i] = { ...c[i], value: e.target.value }; update({ conditions: c }) }}
                     placeholder="Value..." className="w-full px-2 py-1.5 rounded-lg border border-amber-200 bg-white text-[12px] outline-none" />
@@ -254,59 +277,68 @@ function ConfigPanel({ groups, selectedFieldId, onUpdateField, onDeleteField }) 
 function PreviewModal({ groups, onClose }) {
   const [formData, setFormData] = useState({})
   const setValue = (id, val) => setFormData(p => ({ ...p, [id]: val }))
-  const isVisible = f => {
+
+  const isVisible = (f) => {
     if (!f.conditions?.length) return true
-    return f.conditions.every(c => c.op === 'equals' ? (formData[c.field] ?? '') === c.value : (formData[c.field] ?? '') !== c.value)
+    return f.conditions.every(c => {
+      const v = formData[c.field] ?? ''
+      switch (c.op) {
+        case 'equals': return String(v) === String(c.value)
+        case 'notEquals': return String(v) !== String(c.value)
+        case 'contains': return String(v).includes(c.value)
+        case 'notContains': return !String(v).includes(c.value)
+        case 'greaterThan': return Number(v) > Number(c.value)
+        case 'lessThan': return Number(v) < Number(c.value)
+        case 'greaterThanOrEqual': return Number(v) >= Number(c.value)
+        case 'lessThanOrEqual': return Number(v) <= Number(c.value)
+        case 'isEmpty': return !v
+        case 'isNotEmpty': return !!v
+        default: return true
+      }
+    })
   }
+
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-2xl w-full max-w-xl max-h-[85vh] flex flex-col shadow-2xl border border-gray-200">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-white rounded-t-2xl">
-          <div><h2 className="text-[15px] font-semibold text-gray-900">Form preview</h2>
-            <p className="text-[12px] text-gray-400">Clinician view — conditional logic is live</p></div>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div><h2 className="text-[15px] font-semibold text-gray-900">Form preview</h2><p className="text-[12px] text-gray-400">Clinician view — conditional logic live</p></div>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all text-sm">✕</button>
         </div>
         <div className="overflow-y-auto px-6 py-5 space-y-6">
           {groups.map(g => (
-            <div key={g.id}>
+            <div key={g.id} className="rounded-2xl p-5 border mb-4" style={{ backgroundColor: `${g.color}0A`, borderColor: `${g.color}20` }}>
               <div className="flex items-center gap-2 mb-3">
                 <span className="w-2.5 h-2.5 rounded-full" style={{ background: g.color }} />
                 <h3 className="text-[13px] font-semibold text-gray-800">{g.label}</h3>
               </div>
-              <div className="space-y-3">
-                {g.fields.filter(isVisible).map(f => (
+              {g.fields.filter(isVisible).map(f => {
+                const computedVal = f.type === 'computed' ? calculateField(groups, f.id, formData) : null
+                return (
                   <div key={f.id}>
                     <label className="block text-[12px] text-gray-600 mb-1 font-medium">
                       {f.label || 'Untitled'}{f.required && <span className="text-red-500 ml-0.5">*</span>}
                       {f.conditions?.length > 0 && <span className="ml-2 text-[10px] text-amber-500">(conditional)</span>}
                     </label>
                     {f.help && <p className="text-[11px] text-gray-400 mb-1">{f.help}</p>}
-                    {f.type === 'textarea' && <textarea rows={2} value={formData[f.id] || ''} onChange={e => setValue(f.id, e.target.value)}
-                      className="w-full px-3 py-2 text-[13px] border border-gray-200 rounded-lg bg-gray-50 resize-none outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all" />}
-                    {f.type === 'radio' && <div className="flex flex-wrap gap-3">{f.options.map(o => (
-                      <label key={o.v} className="flex items-center gap-1.5 text-[13px] cursor-pointer">
-                        <input type="radio" name={f.id} value={o.v} checked={formData[f.id] === o.v} onChange={() => setValue(f.id, o.v)} className="text-emerald-600" />{o.l}</label>))}</div>}
-                    {f.type === 'checkbox' && <label className="flex items-center gap-2 text-[13px] cursor-pointer">
-                      <input type="checkbox" checked={!!formData[f.id]} onChange={e => setValue(f.id, e.target.checked)} className="w-4 h-4 text-emerald-600" />{f.label}</label>}
-                    {f.type === 'dropdown' && <select value={formData[f.id] || ''} onChange={e => setValue(f.id, e.target.value)}
-                      className="w-full px-3 py-2 text-[13px] border border-gray-200 rounded-lg bg-gray-50 outline-none focus:border-emerald-400 transition-all">
-                      <option value="">Select...</option>{f.options.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}</select>}
-                    {f.type === 'computed' && <input readOnly value="(auto)" className="w-full px-3 py-2 text-[13px] border border-purple-200 rounded-lg bg-purple-50 text-purple-700 font-mono" />}
-                    {['text', 'number', 'date'].includes(f.type) && <input type={f.type} value={formData[f.id] || ''} onChange={e => setValue(f.id, e.target.value)}
-                      step={f.step || undefined} min={f.min || undefined} max={f.max || undefined} placeholder={f.help || ''}
-                      className="w-full px-3 py-2 text-[13px] border border-gray-200 rounded-lg bg-gray-50 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all" />}
+                    {f.type === 'textarea' && <textarea rows={2} value={formData[f.id] || ''} onChange={e => setValue(f.id, e.target.value)} className="w-full px-3 py-2 text-[13px] border border-gray-200 rounded-lg bg-gray-50 resize-none outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all" />}
+                    {f.type === 'radio' && <div className="flex flex-wrap gap-3">{f.options.map(o => (<label key={o.v} className="flex items-center gap-1.5 text-[13px] cursor-pointer"><input type="radio" name={f.id} value={o.v} checked={formData[f.id] === o.v} onChange={() => setValue(f.id, o.v)} className="text-emerald-600" />{o.l}</label>))}</div>}
+                    {f.type === 'checkbox' && <label className="flex items-center gap-2 text-[13px] cursor-pointer"><input type="checkbox" checked={!!formData[f.id]} onChange={e => setValue(f.id, e.target.checked)} className="w-4 h-4 text-emerald-600" />{f.label}</label>}
+                    {f.type === 'dropdown' && <select value={formData[f.id] || ''} onChange={e => setValue(f.id, e.target.value)} className="w-full px-3 py-2 text-[13px] border border-gray-200 rounded-lg bg-gray-50 outline-none focus:border-emerald-400 transition-all"><option value="">Select...</option>{f.options.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}</select>}
+                    {f.type === 'computed' && <input readOnly value={computedVal !== null ? computedVal : '(auto)'} className="w-full px-3 py-2 text-[13px] border border-purple-200 rounded-lg bg-purple-50 text-purple-700 font-mono" />}
+                    {['text', 'number', 'date'].includes(f.type) && <input type={f.type} value={formData[f.id] || ''} onChange={e => setValue(f.id, e.target.value)} step={f.step || undefined} min={f.min || undefined} max={f.max || undefined} placeholder={f.help || ''} className="w-full px-3 py-2 text-[13px] border border-gray-200 rounded-lg bg-gray-50 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all" />}
                   </div>
-                ))}
-              </div>
+                )
+              })}
             </div>
+
           ))}
         </div>
         <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
-          <button className="flex-1 py-2.5 text-[13px] font-medium border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition-all">Save draft</button>
-          <button className="flex-1 py-2.5 text-[13px] font-medium bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all shadow-sm shadow-emerald-200">Complete</button>
+          <button onClick={onClose} className="flex-1 py-2.5 text-[13px] font-medium bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-all">Close preview</button>
         </div>
       </div>
-    </div>
+    </div >
   )
 }
 
@@ -500,7 +532,7 @@ export default function App() {
   const totalFields = groups.reduce((a, g) => a + g.fields.length, 0)
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
+    <div className="flex flex-col h-screen bg-green-700">
       {/* Three-Zone Header */}
       <header className="sticky top-0 z-20 flex items-center justify-between px-6 py-3 bg-white border-b border-gray-200 shadow-sm flex-shrink-0">
         {/* Zone 1 - Identity */}
@@ -579,7 +611,7 @@ export default function App() {
         </aside>
 
         {/* Main Content Area */}
-        <main className="flex-1 overflow-y-auto p-5">
+        <main className="flex-1 overflow-y-auto p-5 bg-gray-100">
           {activeTab === 'design' && (
             <>
               {/* Master Identity Card */}
@@ -606,7 +638,7 @@ export default function App() {
                     <SortableGroup key={g.id} group={g} selectedFieldId={selectedFieldId}
                       onSelectField={setSelectedFieldId} onDeleteField={deleteField}
                       onAddField={addField} onUpdateGroup={updateGroup} onDeleteGroup={deleteGroup}
-                      onDropFromPalette={(gid, type) => addField(gid, type)} />
+                      onDropFromPalette={(gid, type) => addField(gid, type)} onUpdateField={updateField} />
                   ))}
                 </SortableContext>
                 <DragOverlay dropAnimation={{ duration: 150, easing: 'ease' }}>

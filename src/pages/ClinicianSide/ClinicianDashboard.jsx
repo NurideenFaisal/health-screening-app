@@ -1,42 +1,21 @@
 import { Outlet } from 'react-router-dom'
-import { useEffect } from 'react'
 import { useAuthStore } from '../../store/authStore'
-import { useNavigate } from 'react-router-dom'
 import ClinicianSidebar from './ClinicianSidebar'
 
 export default function ClinicianDashboard() {
   const { profile, user } = useAuthStore()
-  const navigate = useNavigate()
-
-  useEffect(() => {
-    // Redirect super-admin and admin users away from clinician routes
-    if (profile?.role === 'super-admin') {
-      navigate('/super-admin/dashboard', { replace: true })
-    } else if (profile?.role === 'admin') {
-      navigate('/admin/dashboard', { replace: true })
-    } else if (user === null) {
-      navigate('/login', { replace: true })
-    }
-  }, [user, profile, navigate])
 
   if (!profile || !user) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading dashboard...</p>
-        </div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600" />
       </div>
     )
   }
 
   return (
     <div className="flex h-screen bg-slate-100 overflow-hidden">
-
-      {/* Sidebar */}
       <ClinicianSidebar />
-
-      {/* Main content — Outlet renders the active child route */}
       <div className="flex-1 overflow-y-auto min-w-0">
         <div className="mt-14 px-4 pb-6 pt-4 sm:px-6 sm:pb-8 sm:pt-5 lg:mt-0 lg:px-8 lg:py-8">
           <div className="mx-auto w-full max-w-[1600px]">
@@ -44,7 +23,6 @@ export default function ClinicianDashboard() {
           </div>
         </div>
       </div>
-
     </div>
   )
-} 
+}

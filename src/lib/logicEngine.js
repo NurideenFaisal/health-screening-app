@@ -9,24 +9,17 @@ export function isFieldVisible(fieldConfig, formData) {
   return fieldConfig.conditions.every(cond => {
     const fieldValue = formData[cond.field]
     switch (cond.op) {
-      case 'equals':
-        return fieldValue === cond.value
-      case 'notEquals':
-        return fieldValue !== cond.value
-      case 'contains':
-        return String(fieldValue || '').includes(cond.value)
-      case 'notContains':
-        return !String(fieldValue || '').includes(cond.value)
-      case 'greaterThan':
-        return Number(fieldValue) > Number(cond.value)
-      case 'lessThan':
-        return Number(fieldValue) < Number(cond.value)
-      case 'isEmpty':
-        return !fieldValue || fieldValue === ''
-      case 'isNotEmpty':
-        return fieldValue && fieldValue !== ''
-      default:
-        return true
+      case 'equals': return String(fieldValue ?? '') === String(cond.value ?? '')
+      case 'notEquals': return String(fieldValue ?? '') !== String(cond.value ?? '')
+      case 'contains': return String(fieldValue || '').includes(cond.value)
+      case 'notContains': return !String(fieldValue || '').includes(cond.value)
+      case 'greaterThan': return Number(fieldValue) > Number(cond.value)
+      case 'lessThan': return Number(fieldValue) < Number(cond.value)
+      case 'greaterThanOrEqual': return Number(fieldValue) >= Number(cond.value)
+      case 'lessThanOrEqual': return Number(fieldValue) <= Number(cond.value)
+      case 'isEmpty': return !fieldValue || fieldValue === ''
+      case 'isNotEmpty': return fieldValue && fieldValue !== ''
+      default: return true
     }
   })
 }
@@ -37,7 +30,9 @@ export function calculateField(groupsSchema, fieldId, formData) {
 
   try {
     const result = evaluateFormula(field.formula, formData, groupsSchema)
+    console.log('calculateField result:', result, 'isFinite:', isFinite(result))
     return isFinite(result) ? Number(result.toFixed(2)) : null
+    
   } catch (e) {
     console.warn(`Formula error for field ${fieldId}:`, e.message)
     return null
@@ -54,26 +49,22 @@ function findFieldById(groups, fieldId) {
 
 function evaluateFormula(formula, formData, groups) {
   const variables = {}
-
   for (const group of groups || []) {
     for (const field of group.fields || []) {
-      const fieldValue = formData[field.id]
-      variables[field.id] = fieldValue !== undefined && fieldValue !== '' ? Number(fieldValue) : 0
-
-      const labelKey = (field.label || '')
-        .replace(/\s*\([^)]*\)\s*/g, '')
-        .replace(/\s+/g, '_')
-        .toLowerCase()
-      
-      variables[labelKey] = variables[field.id]
+      const val = formData[field.id]
+      // If value is truly empty, skip this variable entirely
+      if (val === undefined || val === '' || val === null) {
+        // Only add to variables if it has a value
+        continue
+      }
+      const varName = (field.label || '').replace(/\s*\([^)]*\)\s*/g, '').trim().replace(/\s+/g, '_')
+      if (varName) variables[varName] = Number(val)
     }
   }
-
-  const funcKeys = Object.keys(variables)
-  const funcValues = Object.values(variables)
-
-  const safeEval = new Function(...funcKeys, `return ${formula}`)
-  return safeEval(...funcValues)
+  const keys = Object.keys(variables)
+  const vals = Object.values(variables)
+  if (keys.length === 0) return NaN
+  return (new Function(...keys, `return (${formula})`))(...vals)
 }
 
 export function validateField(fieldConfig, value) {

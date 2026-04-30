@@ -1,78 +1,73 @@
 import { getSectionColorClasses } from '../../lib/sectionUtils'
+import { CheckCircle } from 'lucide-react'
 
-export default function TemplateActivationPanel({ activeCycle, activeCycleQuery, publishedTemplates, templateAssignments, templateSelections, setTemplateSelections, activatingSection, handleActivateTemplate, sectionOptions, navigate }) {
+export default function TemplateActivationPanel({ activeCycle, activeCycleQuery, publishedTemplates, templateAssignments, activatingSection, handleActivateTemplate, sectionOptions, navigate }) {
   if (!activeCycle) return null
 
-  const getTemplatePreview = (templateId) => {
-    const template = publishedTemplates.find(t => t.id === templateId)
-    if (!template?.field_schema?.groups) return []
-    return template.field_schema.groups.flatMap(g => g.fields || []).slice(0, 4)
-  }
+  const findTemplate = (sectionName) => publishedTemplates.find(t => t.name?.toLowerCase() === sectionName?.toLowerCase())
 
   return (
     <div className="bg-white rounded-xl shadow border border-slate-200 p-5 space-y-4">
-      <div className="flex items-start justify-between gap-4">
-        <div><p className="text-sm text-slate-500 mt-1">Activate templates for clinicians to use in the field.</p></div>
-        <div className="text-right text-xs text-slate-400"><p>{activeCycle?.name || 'No active cycle'}</p><p>{publishedTemplates.length} published</p></div>
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-slate-900">Section Templates</h3>
+        <span className="text-xs text-slate-400">{activeCycle?.name} · {publishedTemplates.length} published</span>
       </div>
 
       {activeCycleQuery.isLoading ? (
-        <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500 flex items-center gap-2"><div className="h-3 w-3 rounded-full bg-emerald-500 animate-pulse" />Checking for active cycle...</div>
+        <div className="text-sm text-slate-400 flex items-center gap-2"><div className="h-3 w-3 rounded-full bg-emerald-500 animate-pulse" />Checking cycle...</div>
       ) : activeCycleQuery.error ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 space-y-3"><p className="font-semibold">Error loading active cycle.</p><p>{activeCycleQuery.error.message}</p><button onClick={() => activeCycleQuery.refetch()} className="inline-flex items-center rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700">Retry</button></div>
+        <div className="text-sm text-red-600">{activeCycleQuery.error.message}</div>
       ) : !activeCycle ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 space-y-3"><p className="font-semibold">No active cycle found.</p><p>Create and activate a cycle in Cycle Manager first.</p><button onClick={() => navigate('/admin/cycle-manager')} className="inline-flex items-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">Open Cycle Manager</button></div>
-      ) : publishedTemplates.length === 0 ? (
-        <div className="text-sm text-slate-400">No published templates yet. Use Form Builder to create them.</div>
+        <div className="text-sm text-amber-600">No active cycle. <button onClick={() => navigate('/admin/cycle-manager')} className="underline">Open Cycle Manager</button></div>
       ) : sectionOptions.length === 0 ? (
-        <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">No sections found. Publish a template in Form Builder to create sections.</div>
+        <div className="text-sm text-slate-400">No sections found. Publish a template in Form Builder.</div>
       ) : (
-        <div className="flex gap-4 overflow-x-auto pb-2 -mx-1 px-1">
+        <div className="flex gap-4 overflow-x-auto pb-2 px-2 -mx-2">
           {sectionOptions.map(section => {
             const assignment = templateAssignments[section.value]
-            const selectedId = templateSelections[section.value]
-            const previewFields = getTemplatePreview(selectedId)
-            const palette = getSectionColorClasses(section.color)
+            const template = findTemplate(section.label)
             const isActive = !!assignment?.form_templates?.name
+            const palette = getSectionColorClasses(section.color)
+            const groups = template?.field_schema?.groups || []
+
             return (
-              <div key={section.value} className={`flex-shrink-0 w-64 rounded-xl border-2 transition-all overflow-hidden ${isActive ? 'border-emerald-400 bg-emerald-50/30' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
-                <div className={`h-2 ${isActive ? 'bg-emerald-400' : palette.dot}`} />
-                <div className="p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ${palette.badgeLight}`}>{section.shortLabel}</span>
-                    <span className="text-sm font-semibold text-slate-900">{section.label}</span>
-                    {isActive && <span className="ml-auto text-[10px] text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded-full font-bold">ACTIVE</span>}
+              <div key={section.value} className={`flex-shrink-0 w-56 rounded-xl border overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 ${isActive ? 'border-emerald-300 bg-emerald-50/20' : 'border-slate-200 bg-white'}`}>
+                <div className={`h-1.5 ${isActive ? 'bg-emerald-400' : palette.dot}`} />
+                <div className="p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${palette.badgeLight}`}>{section.shortLabel}</span>
+                    <span className="text-xs font-semibold text-slate-800 truncate">{section.label}</span>
+                    {isActive && <CheckCircle size={12} className="text-emerald-500 ml-auto flex-shrink-0" />}
                   </div>
-                  
-                  {isActive ? (
-                    <div className="bg-white rounded-lg border border-emerald-100 p-3 mb-3">
-                      <p className="text-xs font-medium text-slate-700">{assignment.form_templates.name} <span className="text-slate-400 font-normal">v{assignment.form_templates.version || '1.0'}</span></p>
-                      <p className="text-[10px] text-slate-400 mt-1">Activated {new Date(assignment.activated_at).toLocaleDateString()}</p>
-                    </div>
-                  ) : previewFields.length > 0 ? (
-                    <div className="bg-slate-50 rounded-lg border border-slate-100 p-3 mb-3 space-y-1.5">
-                      {previewFields.map(f => (
-                        <div key={f.id} className="flex items-center gap-2">
-                          <span className="w-4 h-4 rounded bg-white border border-slate-200 flex items-center justify-center text-[8px] text-slate-400">{f.type === 'computed' ? 'ƒ' : f.type === 'number' ? '#' : f.type === 'date' ? 'D' : f.type === 'dropdown' ? '▾' : 'T'}</span>
-                          <span className="text-xs text-slate-600 truncate">{f.label || 'Untitled'}</span>
-                          {f.required && <span className="text-[8px] text-red-400 ml-auto">*req</span>}
+
+                  {groups.length > 0 ? (
+                    <div className="space-y-1.5 mb-3 max-h-36 overflow-y-auto">
+                      {groups.map(g => (
+                        <div key={g.id}>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: g.color }} />
+                            <span className="text-[10px] font-medium text-slate-500">{g.label}</span>
+                          </div>
+                          {g.fields?.slice(0, 4).map(f => (
+                            <div key={f.id} className="flex items-center gap-1.5 ml-3">
+                              <span className="text-[9px] text-slate-300 w-3 text-center">{f.type === 'computed' ? 'ƒ' : f.type === 'number' ? '#' : f.type === 'date' ? 'D' : f.type === 'textarea' ? '¶' : f.type === 'dropdown' ? '▾' : f.type === 'radio' ? '◉' : f.type === 'checkbox' ? '✓' : 'T'}</span>
+                              <span className="text-[10px] text-slate-500 truncate">{f.label || 'Untitled'}</span>
+                              {f.required && <span className="text-[8px] text-red-400">*</span>}
+                            </div>
+                          ))}
                         </div>
                       ))}
-                      {getTemplatePreview(selectedId).length === 4 && <p className="text-[10px] text-slate-400 pt-1">+ more fields...</p>}
                     </div>
                   ) : (
-                    <div className="bg-slate-50 rounded-lg border border-slate-100 p-3 mb-3 text-center text-xs text-slate-400">Select a template to preview</div>
+                    <p className="text-[10px] text-slate-300 text-center py-4 mb-3">No matching template</p>
                   )}
 
-                  <select value={selectedId || ''} onChange={e => setTemplateSelections(c => ({ ...c, [section.value]: e.target.value }))} className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-xs focus:border-emerald-500 focus:outline-none mb-2">
-                    <option value="">Pick template...</option>
-                    {publishedTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                  </select>
-                  <button onClick={() => handleActivateTemplate(section.value)} disabled={!selectedId || activatingSection === section.value} className="w-full rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition">
-                    {activatingSection === section.value ? 'Activating...' : isActive ? 'Change Template' : 'Activate'}
+                  <button onClick={() => { if (template) handleActivateTemplate(section.value, template.id) }} disabled={!template || activatingSection === section.value}
+                    className={`w-full py-1.5 text-[11px] font-medium rounded-lg transition ${isActive ? 'bg-slate-100 text-slate-600' : 'bg-emerald-600 text-white hover:bg-emerald-700'} disabled:opacity-30 disabled:cursor-not-allowed`}>
+                    {activatingSection === section.value ? '...' : isActive ? 'Active' : 'Activate'}
                   </button>
                 </div>
-              </div>
+              </div>  
             )
           })}
         </div>

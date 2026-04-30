@@ -31,8 +31,7 @@ export function useTemplateActivation(sectionOrder, activeCycle, profile) {
     } catch (err) { console.error(`Failed to load assignments: ${err.message}`) }
   }, [activeCycle?.id, profile?.clinic_id])
 
-  const handleActivateTemplate = useCallback(async (sectionNumber) => {
-    const templateId = templateSelections[sectionNumber]
+  const handleActivateTemplate = useCallback(async (sectionNumber, templateId) => {
     if (!templateId || !profile?.clinic_id || !activeCycle?.id) return { error: 'Select a published template first' }
     setActivatingSection(sectionNumber)
     try {
