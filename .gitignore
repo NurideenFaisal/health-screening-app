@@ -45,3 +45,15 @@ backup_*.sql
 
 # Local config files
 new-config.yaml
+
+
+# Personal notes
+Adding more sections.txt
+context.md
+et --hard HEAD
+TEMPLATE_SYSTEM_README.md
+temp_remote_schema.sql
+workflow_2.md
+
+# Tools
+.kilo
