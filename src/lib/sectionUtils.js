@@ -70,6 +70,11 @@ export function getSectionColorClasses(color) {
       badgeLight: 'bg-red-100 text-red-700',
       dot: 'bg-red-400',
     },
+    slate: {
+      badge: 'bg-slate-500 text-white',
+      badgeLight: 'bg-slate-100 text-slate-700',
+      dot: 'bg-slate-400',
+    },
   }
 
   return palette[color] || {

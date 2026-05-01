@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../store/authStore'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Search, X, ChevronRight, Loader2, WifiOff } from 'lucide-react'
+import { Search, X, ChevronRight, WifiOff } from 'lucide-react'
 import { useActiveCycleQuery } from '../../hooks/useActiveCycleQuery'
 import { useSectionDefinitions } from '../../hooks/useSectionDefinitions'
 import { getProfileSectionNumber, getSectionColorClasses, normalizeSectionOrder } from '../../lib/sectionUtils'
+import { CardSkeleton, Skeleton } from '../../components/ui/primitives'
 
 const STATUS_WEIGHT = { done: 0, ready: 1, screened: 2 }
 
@@ -209,8 +210,13 @@ export default function ClinicianScreeningData() {
 
   if ((activeCycleQuery.isLoading || isLoading) && !queueData) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <Loader2 className="animate-spin text-emerald-500" size={32} />
+      <div className="min-h-screen bg-gray-100 p-4 sm:p-6 lg:p-10">
+        <div className="mx-auto grid w-full max-w-[1440px] gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <CardSkeleton rows={4} />
+          <CardSkeleton rows={4} />
+          <CardSkeleton rows={4} />
+          <CardSkeleton rows={4} />
+        </div>
       </div>
     )
   }
@@ -275,7 +281,7 @@ export default function ClinicianScreeningData() {
               className="flex-1 bg-transparent text-sm text-gray-700 placeholder-gray-400 outline-none min-w-0"
             />
             {isSearchingRemote && (
-              <Loader2 size={14} className="text-gray-400 shrink-0 animate-spin" />
+              <Skeleton className="h-3.5 w-3.5 shrink-0 rounded-full" />
             )}
             {query && <X size={14} className="text-gray-400 cursor-pointer" onClick={() => setQuery('')} />}
           </label>

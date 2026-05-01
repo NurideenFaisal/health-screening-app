@@ -29,16 +29,22 @@ export default function PatientSearch() {
   const [errors, setErrors] = useState({})
 
   // ── TanStack Query: Fetch Patients ──
+  const PATIENT_CACHE_KEY = `patients_${profile?.clinic_id || 'all'}`
+
   const { data: patients = [], isLoading } = useQuery({
-    queryKey: ['children'],
+    queryKey: ['children', profile?.clinic_id],
     queryFn: async () => {
       let q = supabase.from('children').select('*').order('created_at', { ascending: false })
       if (profile?.clinic_id) q = q.eq('clinic_id', profile.clinic_id)
       const { data, error } = await q
       if (error) throw error
+      try { localStorage.setItem(PATIENT_CACHE_KEY, JSON.stringify(data)) } catch { }
       return data
     },
-    placeholderData: (prev) => prev,
+    placeholderData: () => {
+      try { return JSON.parse(localStorage.getItem(PATIENT_CACHE_KEY) || '[]') } catch { return [] }
+    },
+    staleTime: 5 * 60 * 1000,
   })
 
   // ── TanStack Mutation: Save (Enroll or Update) ──

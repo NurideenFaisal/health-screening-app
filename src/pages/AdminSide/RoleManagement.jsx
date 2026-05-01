@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Search } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
@@ -20,7 +20,7 @@ export default function RoleManagement() {
 
   const { sections: allSectionDefinitions } = useSectionDefinitions([])
   const { users, loading, searchQuery, setSearchQuery, filtered, fetchUsers } = useUsersManagement()
-  const { publishedTemplates, templateAssignments, templateSelections, setTemplateSelections, loadingTemplatePanel, activatingSection, handleActivateTemplate } = useTemplateActivation([], activeCycle, profile)
+  const { publishedTemplates, templateAssignments, activatingSection, handleActivateTemplate } = useTemplateActivation([], activeCycle, profile)
 
   const sectionOptions = allSectionDefinitions.map(s => ({ value: String(s.section_number), label: s.name || `Section ${s.section_number}`, shortLabel: s.short_name || `S${s.section_number}`, color: s.color }))
 
@@ -118,18 +118,32 @@ export default function RoleManagement() {
   }
 
   return (
-    <div className="w-full p-6 space-y-6">
+    <div className="w-full space-y-5 bg-slate-100 p-3 sm:p-5 lg:p-6">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       <CredentialsModal show={!!credentials} credentials={credentials} onClose={() => setCredentials(null)} />
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-bold text-slate-800">Role Management</h2>
-        <div className="flex gap-2">
-          <div className="relative"><Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" size={16} /><input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search..." className="pl-8 pr-3 py-1.5 text-sm rounded-lg border border-slate-200 focus:outline-none w-48" /></div>
-          <Button className="bg-emerald-600 text-white" onClick={() => setShowAddModal(true)}><Plus size={16} /> Add User</Button>
+      <div className="mx-auto w-full max-w-[1400px] space-y-5">
+        <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-xl font-semibold tracking-tight text-slate-900">Role Management</h2>
+            <p className="mt-1 text-sm text-slate-500">Manage clinic admins, clinicians, section access, and template activation.</p>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={event => setSearchQuery(event.target.value)}
+                placeholder="Search users..."
+                className="min-h-11 w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 sm:w-64"
+              />
+            </div>
+            <Button variant="primary" onClick={() => setShowAddModal(true)}><Plus size={16} /> Add User</Button>
+          </div>
         </div>
+        {isClinicAdmin && <TemplateActivationPanel activeCycle={activeCycle} activeCycleQuery={activeCycleQuery} publishedTemplates={publishedTemplates} templateAssignments={templateAssignments} activatingSection={activatingSection} handleActivateTemplate={handleActivateTemplate} sectionOptions={sectionOptions} navigate={navigate} />}
+        <UsersTable users={users} loading={loading} filtered={filtered} onEdit={openEditModal} onReset={openResetModal} onDelete={openDeleteModal} sectionOptions={sectionOptions} />
       </div>
-      {isClinicAdmin && <TemplateActivationPanel activeCycle={activeCycle} activeCycleQuery={activeCycleQuery} publishedTemplates={publishedTemplates} templateAssignments={templateAssignments} activatingSection={activatingSection} handleActivateTemplate={handleActivateTemplate} sectionOptions={sectionOptions} navigate={navigate} />}
-      <UsersTable users={users} loading={loading} filtered={filtered} onEdit={openEditModal} onReset={openResetModal} onDelete={openDeleteModal} sectionOptions={sectionOptions} />
       <AddUserModal show={showAddModal} onClose={() => { setShowAddModal(false); setErrors({}) }} newUser={newUser} setNewUser={setNewUser} errors={errors} setErrors={setErrors} onAddUser={handleAddUser} saving={saving} clinicId={profile?.clinic_id} cycleId={activeCycle?.id} sectionOptions={sectionOptions} templateAssignments={templateAssignments} />
       <EditUserModal show={showEditModal} onClose={() => { setShowEditModal(false); setEditingUser(null) }} editingUser={editingUser} editForm={editForm} setEditForm={setEditForm} editErrors={editErrors} onSaveEdit={handleSaveEdit} saving={saving} sectionOptions={sectionOptions} clinicId={profile?.clinic_id} cycleId={activeCycle?.id} templateAssignments={templateAssignments} />
       <ResetPasswordModal show={showResetModal} onClose={() => { setShowResetModal(false); setResetUser(null) }} resetUser={resetUser} newPassword={newPassword} setNewPassword={setNewPassword} resetError={resetError} setResetError={setResetError} onResetPassword={handleResetPassword} saving={saving} />

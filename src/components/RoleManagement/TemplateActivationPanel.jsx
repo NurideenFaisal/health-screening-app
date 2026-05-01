@@ -1,77 +1,120 @@
-import { getSectionColorClasses } from '../../lib/sectionUtils'
-import { CheckCircle } from 'lucide-react'
+import { CheckCircle, Loader2 } from 'lucide-react'
+import { Button, CardSkeleton, EmptyState, SectionPill, StatusBadge } from '../ui/primitives'
 
-export default function TemplateActivationPanel({ activeCycle, activeCycleQuery, publishedTemplates, templateAssignments, activatingSection, handleActivateTemplate, sectionOptions, navigate }) {
-  if (!activeCycle) return null
+const fieldIcon = {
+  computed: 'f',
+  number: '#',
+  date: 'D',
+  textarea: 'P',
+  dropdown: 'v',
+  radio: 'o',
+  checkbox: 'x',
+  text: 'T',
+}
 
-  const findTemplate = (sectionName) => publishedTemplates.find(t => t.name?.toLowerCase() === sectionName?.toLowerCase())
+export default function TemplateActivationPanel({
+  activeCycle,
+  activeCycleQuery,
+  publishedTemplates,
+  templateAssignments,
+  activatingSection,
+  handleActivateTemplate,
+  sectionOptions,
+  navigate,
+}) {
+  const findTemplate = sectionName => publishedTemplates.find(template => template.name?.toLowerCase() === sectionName?.toLowerCase())
 
   return (
-    <div className="bg-white rounded-xl shadow border border-slate-200 p-5 space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-900">Section Templates</h3>
-        <span className="text-xs text-slate-400">{activeCycle?.name} · {publishedTemplates.length} published</span>
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 className="text-lg font-semibold tracking-tight text-slate-900">Section Templates</h3>
+          <p className="mt-1 text-sm text-slate-500">
+            {activeCycle ? `${activeCycle.name} · ${publishedTemplates.length} published` : 'No active cycle'}
+          </p>
+        </div>
+        {activeCycle && <StatusBadge status="active">Active cycle</StatusBadge>}
       </div>
 
-      {activeCycleQuery.isLoading ? (
-        <div className="text-sm text-slate-400 flex items-center gap-2"><div className="h-3 w-3 rounded-full bg-emerald-500 animate-pulse" />Checking cycle...</div>
-      ) : activeCycleQuery.error ? (
-        <div className="text-sm text-red-600">{activeCycleQuery.error.message}</div>
-      ) : !activeCycle ? (
-        <div className="text-sm text-amber-600">No active cycle. <button onClick={() => navigate('/admin/cycle-manager')} className="underline">Open Cycle Manager</button></div>
-      ) : sectionOptions.length === 0 ? (
-        <div className="text-sm text-slate-400">No sections found. Publish a template in Form Builder.</div>
-      ) : (
-        <div className="flex gap-4 overflow-x-auto pb-2 px-2 -mx-2">
-          {sectionOptions.map(section => {
-            const assignment = templateAssignments[section.value]
-            const template = findTemplate(section.label)
-            const isActive = !!assignment?.form_templates?.name
-            const palette = getSectionColorClasses(section.color)
-            const groups = template?.field_schema?.groups || []
+      <div className="mt-4">
+        {activeCycleQuery.isLoading ? (
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <CardSkeleton rows={4} />
+            <CardSkeleton rows={4} />
+            <CardSkeleton rows={4} />
+          </div>
+        ) : activeCycleQuery.error ? (
+          <EmptyState title="Cycle check failed" description={activeCycleQuery.error.message} />
+        ) : !activeCycle ? (
+          <EmptyState
+            title="No active cycle"
+            description="Open Cycle Manager to activate a screening cycle before assigning templates."
+            action={<Button variant="primary" onClick={() => navigate('/admin/cycle-manager')}>Open Cycle Manager</Button>}
+          />
+        ) : sectionOptions.length === 0 ? (
+          <EmptyState title="No sections found" description="Publish a template in Form Builder to start assigning sections." />
+        ) : (
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {sectionOptions.map(section => {
+              const assignment = templateAssignments[section.value]
+              const template = findTemplate(section.label)
+              const isActive = !!assignment?.form_templates?.name
+              const groups = template?.field_schema?.groups || []
+              const isBusy = activatingSection === section.value
 
-            return (
-              <div key={section.value} className={`flex-shrink-0 w-56 rounded-xl border overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 ${isActive ? 'border-emerald-300 bg-emerald-50/20' : 'border-slate-200 bg-white'}`}>
-                <div className={`h-1.5 ${isActive ? 'bg-emerald-400' : palette.dot}`} />
-                <div className="p-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${palette.badgeLight}`}>{section.shortLabel}</span>
-                    <span className="text-xs font-semibold text-slate-800 truncate">{section.label}</span>
-                    {isActive && <CheckCircle size={12} className="text-emerald-500 ml-auto flex-shrink-0" />}
+              return (
+                <article
+                  key={section.value}
+                  className={`rounded-2xl border bg-white p-4 shadow-sm transition hover:border-slate-300 hover:shadow-md ${isActive ? 'border-emerald-300' : 'border-slate-200'}`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <SectionPill color={section.color} label={section.shortLabel} />
+                      <h4 className="mt-2 truncate text-sm font-semibold text-slate-900">{section.label}</h4>
+                      <p className="mt-1 text-xs text-slate-500">{template?.name || 'No matching template'}</p>
+                    </div>
+                    {isActive && <CheckCircle className="h-5 w-5 shrink-0 text-emerald-600" />}
                   </div>
 
-                  {groups.length > 0 ? (
-                    <div className="space-y-1.5 mb-3 max-h-36 overflow-y-auto">
-                      {groups.map(g => (
-                        <div key={g.id}>
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: g.color }} />
-                            <span className="text-[10px] font-medium text-slate-500">{g.label}</span>
-                          </div>
-                          {g.fields?.slice(0, 4).map(f => (
-                            <div key={f.id} className="flex items-center gap-1.5 ml-3">
-                              <span className="text-[9px] text-slate-300 w-3 text-center">{f.type === 'computed' ? 'ƒ' : f.type === 'number' ? '#' : f.type === 'date' ? 'D' : f.type === 'textarea' ? '¶' : f.type === 'dropdown' ? '▾' : f.type === 'radio' ? '◉' : f.type === 'checkbox' ? '✓' : 'T'}</span>
-                              <span className="text-[10px] text-slate-500 truncate">{f.label || 'Untitled'}</span>
-                              {f.required && <span className="text-[8px] text-red-400">*</span>}
+                  <div className="mt-4 min-h-24 space-y-3">
+                    {groups.length > 0 ? groups.slice(0, 2).map(group => (
+                      <div key={group.id}>
+                        <div className="mb-1.5 flex items-center gap-2">
+                          <span className="h-1.5 w-1.5 rounded-full" style={{ background: group.color || '#059669' }} />
+                          <span className="truncate text-xs font-semibold text-slate-600">{group.label}</span>
+                        </div>
+                        <div className="space-y-1">
+                          {group.fields?.slice(0, 3).map(field => (
+                            <div key={field.id} className="flex items-center gap-2 text-xs text-slate-500">
+                              <span className="flex h-5 w-5 items-center justify-center rounded bg-slate-100 text-[10px] font-semibold text-slate-500">{fieldIcon[field.type] || 'T'}</span>
+                              <span className="truncate">{field.label || 'Untitled'}</span>
+                              {field.required && <span className="text-rose-500">*</span>}
                             </div>
                           ))}
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-[10px] text-slate-300 text-center py-4 mb-3">No matching template</p>
-                  )}
+                      </div>
+                    )) : (
+                      <div className="flex min-h-24 items-center justify-center rounded-xl border border-dashed border-slate-200 text-xs text-slate-400">
+                        No template match
+                      </div>
+                    )}
+                  </div>
 
-                  <button onClick={() => { if (template) handleActivateTemplate(section.value, template.id) }} disabled={!template || activatingSection === section.value}
-                    className={`w-full py-1.5 text-[11px] font-medium rounded-lg transition ${isActive ? 'bg-slate-100 text-slate-600' : 'bg-emerald-600 text-white hover:bg-emerald-700'} disabled:opacity-30 disabled:cursor-not-allowed`}>
-                    {activatingSection === section.value ? '...' : isActive ? 'Active' : 'Activate'}
-                  </button>
-                </div>
-              </div>  
-            )
-          })}
-        </div>
-      )}
-    </div>
+                  <Button
+                    variant={isActive ? 'secondary' : 'primary'}
+                    className="mt-4 w-full"
+                    disabled={!template || isBusy}
+                    onClick={() => template && handleActivateTemplate(section.value, template.id)}
+                  >
+                    {isBusy && <Loader2 size={14} className="animate-spin" />}
+                    {isBusy ? 'Activating...' : isActive ? 'Active' : 'Activate'}
+                  </Button>
+                </article>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </section>
   )
 }

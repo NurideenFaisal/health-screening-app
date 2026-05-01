@@ -1,11 +1,12 @@
-import { useEffect, useState, useMemo, Suspense, lazy } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { AlertCircle, ChevronLeft, Loader2, RefreshCw } from 'lucide-react'
+import { AlertCircle, ChevronLeft, RefreshCw } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import { useClinicianScreeningBootstrap } from '../../hooks/useClinicianScreeningBootstrap'
 import { useSectionDefinitions } from '../../hooks/useSectionDefinitions'
 import { supabase } from '../../lib/supabase'
 import { normalizeSectionOrder } from '../../lib/sectionUtils'
+import { Button, EmptyState, PageLoader, SectionPill } from '../../components/ui/primitives'
 
 const DynamicRenderer = lazy(() => import('../../components/DynamicRenderer'))
 
@@ -15,11 +16,12 @@ export default function ClinicianScreeningForm() {
   const navigate = useNavigate()
   const { profile } = useAuthStore()
   const initialPatient = location.state?.patient ?? null
+  const assignedSectionsSource = profile?.assigned_sections
 
   const assignedSections = useMemo(() => {
-    if (!profile?.assigned_sections) return []
-    return profile.assigned_sections.map(s => Number.parseInt(String(s), 10)).filter(n => !isNaN(n) && n > 0)
-  }, [profile?.assigned_sections])
+    if (!assignedSectionsSource) return []
+    return assignedSectionsSource.map(section => Number.parseInt(String(section), 10)).filter(section => Number.isInteger(section) && section > 0)
+  }, [assignedSectionsSource])
 
   const [activeSection, setActiveSection] = useState(null)
   const [hasDynamicSchema, setHasDynamicSchema] = useState(false)
@@ -28,81 +30,93 @@ export default function ClinicianScreeningForm() {
 
   useEffect(() => {
     if (assignedSections.length > 0 && !initialized) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveSection(assignedSections[0])
       setInitialized(true)
     }
   }, [assignedSections, initialized])
 
-
-  // Guard: don't run bootstrap hook until activeSection is set
-  const shouldBootstrap = !!activeSection
-
   const { patient, cycle, cycleId, isBootstrapping, bootstrapError, retryBootstrap } = useClinicianScreeningBootstrap({
-    childId: id, sectionNumber: shouldBootstrap ? activeSection : null, initialPatient,
+    childId: id,
+    sectionNumber: activeSection || null,
+    initialPatient,
   })
 
   const sectionOrder = normalizeSectionOrder(cycle?.section_order, activeSection)
   const { sectionMap } = useSectionDefinitions(sectionOrder)
 
   useEffect(() => {
-    if (!profile?.clinic_id || !cycleId || !activeSection) { setSchemaLoading(false); return }
+    if (!profile?.clinic_id || !cycleId || !activeSection) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSchemaLoading(false)
+      return
+    }
+
     setSchemaLoading(true)
     supabase.rpc('get_clinic_template', { p_clinic_id: profile.clinic_id, p_cycle_id: cycleId, p_section_number: activeSection })
       .then(({ data, error }) => {
         if (error) throw error
         setHasDynamicSchema(data?.fieldSchema?.groups?.length > 0)
       })
-      .catch(err => { console.error('Template error:', err); setHasDynamicSchema(false) })
+      .catch(error => {
+        console.error('Template error:', error)
+        setHasDynamicSchema(false)
+      })
       .finally(() => setSchemaLoading(false))
   }, [activeSection, profile?.clinic_id, cycleId])
 
   if (!assignedSections.length) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="text-center p-8">
-          <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900">No Sections Assigned</h3>
-          <p className="text-sm text-gray-500 mt-1">Contact your administrator.</p>
-          <button onClick={() => navigate('/clinician/screening-data')} className="mt-4 text-sm text-emerald-600 hover:underline">Go Back</button>
-        </div>
+      <div className="min-h-screen bg-slate-100 p-4">
+        <EmptyState
+          title="No Sections Assigned"
+          description="Contact your administrator to assign screening sections."
+          action={<Button variant="primary" onClick={() => navigate('/clinician/screening-data')}>Go Back</Button>}
+        />
       </div>
     )
   }
 
   if (!activeSection) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <Loader2 className="h-5 w-5 animate-spin text-emerald-600" />
+      <div className="min-h-screen bg-slate-100">
+        <PageLoader />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 font-sans">
-      <div className="sticky top-0 z-40 bg-white shadow-sm border-b border-gray-100">
-        <div className="px-4 sm:px-6 py-3 flex items-center gap-3">
-          <button onClick={() => navigate('/clinician/screening-data')} className="flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition px-2.5 py-1.5 rounded-lg shrink-0">
-            <ChevronLeft className="w-3.5 h-3.5" strokeWidth={2} /> Back
-          </button>
-          <div className="h-4 w-px bg-gray-200 shrink-0" />
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0 ${patient?.gender === 'F' ? 'bg-pink-400' : 'bg-blue-400'}`}>
-              {patient ? patient.first_name[0] : '·'}
+    <div className="min-h-screen bg-slate-100 font-sans">
+      <div className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
+        <div className="mx-auto flex max-w-[1400px] items-center gap-3 px-3 py-3 sm:px-6">
+          <Button variant="ghost" className="min-h-11 shrink-0 px-3" onClick={() => navigate('/clinician/screening-data')}>
+            <ChevronLeft className="h-4 w-4" strokeWidth={2} /> Back
+          </Button>
+          <div className="h-6 w-px shrink-0 bg-slate-200" />
+          <div className="flex min-w-0 items-center gap-3">
+            <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-bold text-white ${patient?.gender === 'F' ? 'bg-pink-500' : 'bg-sky-500'}`}>
+              {patient ? patient.first_name?.[0] : ''}
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-gray-900 truncate">{patient ? `${patient.first_name} ${patient.last_name}` : 'Loading...'}</p>
-              <p className="text-xs text-gray-400 truncate">{patient?.child_code}{patient?.community && ` · ${patient.community}`}</p>
+              <p className="truncate text-base font-semibold tracking-tight text-slate-900">{patient ? `${patient.first_name} ${patient.last_name}` : 'Loading...'}</p>
+              <p className="truncate text-xs text-slate-400">{patient?.child_code}{patient?.community && ` · ${patient.community}`}</p>
             </div>
           </div>
         </div>
+
         {assignedSections.length > 1 && (
-          <div className="px-4 sm:px-6 border-t border-gray-100">
-            <div className="flex gap-1 overflow-x-auto">
-              {assignedSections.map(sn => {
-                const section = sectionMap.get(sn)
+          <div className="border-t border-slate-100 px-3 sm:px-6">
+            <div className="mx-auto flex max-w-[1400px] gap-1 overflow-x-auto">
+              {assignedSections.map(sectionNumber => {
+                const section = sectionMap.get(sectionNumber)
                 return (
-                  <button key={sn} onClick={() => setActiveSection(sn)} className={`flex-shrink-0 px-4 py-2.5 text-xs font-medium transition border-b-2 ${sn === activeSection ? 'text-emerald-600 border-emerald-500' : 'text-gray-400 border-transparent hover:text-gray-600'}`}>
-                    {section?.short_name || section?.name || `Section ${sn}`}
+                  <button
+                    key={sectionNumber}
+                    type="button"
+                    onClick={() => setActiveSection(sectionNumber)}
+                    className={`min-h-11 shrink-0 border-b-2 px-3 py-2.5 text-xs font-medium transition active:scale-[0.97] ${sectionNumber === activeSection ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                  >
+                    <SectionPill color={section?.color} label={section?.short_name || section?.name || `S${sectionNumber}`} />
                   </button>
                 )
               })}
@@ -110,34 +124,27 @@ export default function ClinicianScreeningForm() {
           </div>
         )}
       </div>
-      <div className="p-3 sm:p-6 lg:p-10">
-        <div className="bg-white rounded-2xl shadow-sm w-full max-w-[1240px] mx-auto overflow-hidden">
-          <div className="p-4 sm:p-6">
+
+      <main className="mx-auto max-w-[1400px] p-3 sm:p-6 lg:p-8">
+        <div className="w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="p-4 sm:p-5">
             {bootstrapError ? (
-              <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-800">
+              <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800">
                 <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
-                <div className="min-w-0 flex-1"><p className="font-semibold text-red-900">Unable to load screening form.</p><p className="mt-1 text-red-700">{bootstrapError.message}</p>
-                  <button onClick={retryBootstrap} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-sm font-medium text-red-700 shadow-sm ring-1 ring-red-200 hover:bg-red-100"><RefreshCw className="h-4 w-4" /> Retry</button>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-rose-900">Unable to load screening form.</p>
+                  <p className="mt-1 text-rose-700">{bootstrapError.message}</p>
+                  <Button variant="secondary" onClick={retryBootstrap} className="mt-4"><RefreshCw className="h-4 w-4" /> Retry</Button>
                 </div>
               </div>
-            ) : isBootstrapping ? (
-              <div className="flex min-h-[220px] items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-emerald-600" /><span className="ml-2 text-sm text-gray-500">Loading...</span></div>
-            ) : schemaLoading ? (
-              <div className="flex min-h-[220px] items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-emerald-600" /><span className="ml-2 text-sm text-gray-500">Checking template...</span></div>
-            ) : hasDynamicSchema ? (
-              <Suspense fallback={<div className="flex min-h-[220px] items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-emerald-600" /></div>}>
-                <DynamicRenderer sectionNumber={activeSection} patientId={id} cycleId={cycleId} clinicId={profile?.clinic_id} assignedSections={assignedSections} onSectionSwitch={setActiveSection}/>
-              </Suspense>
             ) : (
-              <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-8">
-                <AlertCircle className="w-12 h-12 text-amber-500 mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900">No Template Activated</h3>
-                <p className="text-sm text-gray-500">Contact your administrator to activate a template for this section.</p>
-              </div>
+              <Suspense fallback={null}>
+                <DynamicRenderer sectionNumber={activeSection} patientId={id} cycleId={cycleId} clinicId={profile?.clinic_id} assignedSections={assignedSections} onSectionSwitch={setActiveSection} />
+              </Suspense>
             )}
           </div>
         </div>
-      </div>
+      </main>
     </div>
   )
 }
