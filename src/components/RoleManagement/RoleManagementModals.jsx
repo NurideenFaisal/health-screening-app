@@ -1,25 +1,28 @@
 import { useState, useEffect } from 'react'
 import { Plus, Edit2, Search, X, AlertCircle, CheckCircle2, Copy, Check, Trash2, Shield, User, KeyRound, Eye, FileText } from 'lucide-react'
-import { supabase } from '../../lib/supabase'
-import { getSectionColorClasses } from '../../lib/sectionUtils'
+
 
 // ─── Multi-Section Checkbox Picker ─────────────────────────────────────────
-function MultiSectionPicker({ selected = [], onChange, sectionOptions = [], error }) {
-  const toggle = (value) => {
+function MultiSectionPicker({ selected = [], onChange, sectionOptions = [], error, templateAssignments = {} }) {
+  const toggle = (value, isActivated) => {
+    if (!isActivated) return // Don't allow selecting non-activated sections
     const next = selected.includes(value) ? selected.filter(v => v !== value) : [...selected, value]
     onChange(next)
   }
+
   return (
     <div>
       <label className="block text-sm font-medium text-slate-700 mb-1">Sections</label>
       <div className="space-y-1.5 max-h-48 overflow-y-auto border border-slate-200 rounded-lg p-2">
         {sectionOptions.map(s => {
           const checked = selected.includes(s.value)
+          const isActivated = !!templateAssignments[s.value]
           return (
-            <label key={s.value} className={`flex items-center gap-2 p-1.5 rounded cursor-pointer text-sm transition ${checked ? 'bg-emerald-50' : 'hover:bg-slate-50'}`}>
-              <input type="checkbox" checked={checked} onChange={() => toggle(s.value)} className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500" />
+            <label key={s.value} className={`flex items-center gap-2 p-1.5 rounded text-sm transition ${!isActivated ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${checked && isActivated ? 'bg-emerald-50' : 'hover:bg-slate-50'}`}>
+              <input type="checkbox" checked={checked} onChange={() => toggle(s.value, isActivated)} disabled={!isActivated} className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 disabled:opacity-30" />
               <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: s.color || '#1f5745' }} />
               <span className="text-slate-700">{s.label}</span>
+              {!isActivated && <span className="text-[11px] text-rose-600 ml-auto font-medium">not activated</span>}
             </label>
           )
         })}
@@ -124,7 +127,7 @@ export const CredentialsModal = ({ show, onClose, credentials }) => {
 
 // ─── Add User Modal ──────────────────────────────────────────────────────────
 export const AddUserModal = ({
-  show, onClose, newUser, setNewUser, errors, setErrors, onAddUser, saving, clinicId, cycleId, sectionOptions = []
+  show, onClose, newUser, setNewUser, errors, setErrors, onAddUser, saving, clinicId, cycleId, sectionOptions = [], templateAssignments = {}
 }) => {
   const [showPassword, setShowPassword] = useState(false)
   return (
@@ -173,6 +176,7 @@ export const AddUserModal = ({
             onChange={(values) => setNewUser({ ...newUser, assignedSections: values })}
             sectionOptions={sectionOptions}
             error={errors.assignedSections}
+            templateAssignments={templateAssignments}
           />
         )}
       </div>
@@ -182,7 +186,7 @@ export const AddUserModal = ({
 
 // ─── Edit Role/Section Modal ─────────────────────────────────────────────────
 export const EditUserModal = ({
-  show, onClose, editingUser, editForm, setEditForm, editErrors, onSaveEdit, saving, sectionOptions = [], clinicId, cycleId
+  show, onClose, editingUser, editForm, setEditForm, editErrors, onSaveEdit, saving, sectionOptions = [], clinicId, cycleId, templateAssignments = {}
 }) => (
   <Modal
     show={show}
@@ -225,6 +229,7 @@ export const EditUserModal = ({
         onChange={(values) => setEditForm(f => ({ ...f, sections: values }))}
         sectionOptions={sectionOptions}
         error={editErrors.sections}
+        templateAssignments={templateAssignments}
       />
     )}
 

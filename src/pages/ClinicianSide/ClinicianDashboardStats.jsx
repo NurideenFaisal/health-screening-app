@@ -6,17 +6,13 @@ import { useAuthStore } from '../../store/authStore'
 import { ClipboardList, Users, RefreshCw } from 'lucide-react'
 import { getProfileSectionNumber } from '../../lib/sectionUtils'
 
-async function fetchClinicianStats(userId) {
-  const patientsRes = await supabase.from('children').select('id', { count: 'exact', head: true })
-  if (patientsRes.error) throw new Error(patientsRes.error.message)
-  const today = new Date().toISOString().split('T')[0]
-  const screeningsRes = await supabase.from('screenings').select('id, screening_date').eq('created_by', userId)
-  if (screeningsRes.error) throw new Error(screeningsRes.error.message)
-  const allScreenings = screeningsRes.data ?? []
-  const screeningsToday = allScreenings.filter(s => s.screening_date === today).length
-  const draftsRes = await supabase.from('screening_sections').select('screening_id', { count: 'exact', head: true }).eq('is_complete', false)
-  return { totalPatients: patientsRes.count ?? 0, screeningsToday, drafts: draftsRes.count ?? 0 }
-}
+const { data: stats, isLoading, isError, refetch, isFetching } = useQuery({
+  queryKey: ['clinician-stats', user?.id, profile?.clinic_id],
+  queryFn: () => fetchClinicianStats(user?.id, profile?.clinic_id),
+  enabled: !!user?.id,
+  staleTime: 1000 * 60 * 2,
+  refetchOnWindowFocus: true,
+})
 
 function QuickAction({ icon: Icon, label, description, onClick, iconBg, iconColor }) {
   return (

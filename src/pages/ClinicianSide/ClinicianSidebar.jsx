@@ -166,31 +166,67 @@ export default function ClinicianSidebar() {
   )
 
   return (
+
     <>
+
       {/* ================= MOBILE BOTTOM TAB BAR ================= */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-50 flex safe-area-bottom">
-        {pages.map(page => {
-          const Icon = page.icon
-          const active = isActive(page.route)
-          const shortLabel = page.name === 'Screening Data' ? 'Screening' : page.name === 'Patient Data' ? 'Patients' : 'Home'
-          return (
-            <button
-              key={page.route}
-              onClick={() => navigate(`/clinician/${page.route}`)}
-              className={`flex-1 flex flex-col items-center justify-center py-2 pt-3 text-[10px] font-medium transition
-          ${active ? 'text-emerald-600' : 'text-slate-400'}`}
-            >
-              <Icon size={20} />
-              <span className="mt-0.5">{shortLabel}</span>
-            </button>
-          )
-        })}
+
+      {/* ================= MOBILE BOTTOM DOCK ================= */}
+      {/* ================= MOBILE BOTTOM NAV ================= */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 pb-safe-area-bottom">
+        <div className="flex items-stretch h-16">
+
+          {/* 1. Home */}
+          <button
+            onClick={() => navigate('/clinician/dashboard')}
+            className={`flex-1 flex flex-col items-center justify-center gap-1 transition-colors ${isActive('dashboard') ? 'text-emerald-600 bg-emerald-50/50' : 'text-slate-400'}`}
+          >
+            <LayoutDashboard size={20} strokeWidth={isActive('dashboard') ? 2.5 : 2} />
+            <span className="text-[10px] font-bold">Home</span>
+          </button>
+
+          {/* 3. Screening (Now "Normal") */}
+          <button
+            onClick={() => navigate('/clinician/screening-data')}
+            className={`flex-1 flex flex-col items-center justify-center gap-1 transition-colors ${isActive('screening-data') ? 'text-emerald-600 bg-emerald-50/50' : 'text-slate-400'}`}
+          >
+            <ClipboardList size={20} strokeWidth={isActive('screening-data') ? 2.5 : 2} />
+            <span className="text-[10px] font-bold">Screen</span>
+          </button>
+
+          {/* 2. Patients */}
+          <button
+            onClick={() => navigate('/clinician/patient-data')}
+            className={`flex-1 flex flex-col items-center justify-center gap-1 transition-colors ${isActive('patient-data') ? 'text-emerald-600 bg-emerald-50/50' : 'text-slate-400'}`}
+          >
+            <Users size={20} strokeWidth={isActive('patient-data') ? 2.5 : 2} />
+            <span className="text-[10px] font-bold">Patients</span>
+          </button>
+
+          
+
+          {/* 4. Account & Exit */}
+          <button
+            onClick={() => setShowLogoutConfirm(true)}
+            className="flex-1 flex flex-col items-center justify-center gap-1 text-slate-400 active:bg-red-50 active:text-red-600 transition-all border-l border-slate-100"
+          >
+            <div className="flex flex-col items-center">
+              <div className="w-5 h-5 bg-slate-200 rounded-full flex items-center justify-center text-[8px] font-black text-slate-600 mb-0.5">
+                {profile?.full_name?.charAt(0)}
+              </div>
+              <span className="text-[10px] font-bold leading-none">
+                {profile?.full_name?.split(' ')[0] || 'Exit'}
+              </span>
+            </div>
+          </button>
+
+        </div>
       </div>
 
 
 
       {/* ================= DESKTOP SIDEBAR ================= */}
-      <div
+      < div
         className={`
           hidden
           lg:flex
@@ -206,7 +242,7 @@ export default function ClinicianSidebar() {
         `}
       >
         {/* Desktop Header */}
-        <div className="p-4 border-b border-gray-200 flex items-center justify-between min-w-0">
+        < div className="p-4 border-b border-gray-200 flex items-center justify-between min-w-0" >
           {!collapsed && (
             <div className="min-w-0">
               <h1 className="font-bold text-gray-900 text-lg truncate">
@@ -225,16 +261,16 @@ export default function ClinicianSidebar() {
           >
             {collapsed ? <Menu size={20} /> : <ChevronLeft size={20} />}
           </button>
-        </div>
+        </div >
 
         {/* Desktop Navigation */}
-        <nav className="flex-1 p-3 overflow-y-auto overflow-x-hidden">
+        < nav className="flex-1 p-3 overflow-y-auto overflow-x-hidden" >
           {renderNavItems(false)}
-        </nav>
+        </nav >
 
         {/* Desktop User Section */}
         {renderUserSection(false)}
-      </div>
+      </div >
 
       {showLogoutConfirm && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">

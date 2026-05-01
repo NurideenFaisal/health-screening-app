@@ -32,10 +32,9 @@ export default function PatientSearch() {
   const { data: patients = [], isLoading } = useQuery({
     queryKey: ['children'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('children')
-        .select('*')
-        .order('created_at', { ascending: false })
+      let q = supabase.from('children').select('*').order('created_at', { ascending: false })
+      if (profile?.clinic_id) q = q.eq('clinic_id', profile.clinic_id)
+      const { data, error } = await q
       if (error) throw error
       return data
     },
@@ -54,7 +53,7 @@ export default function PatientSearch() {
       } else {
         const { error } = await supabase
           .from('children')
-          .insert({ ...payload, created_by: profile?.id })
+          .insert({ ...payload, created_by: profile?.id, clinic_id: profile?.clinic_id })
         if (error) throw error
       }
     },
@@ -77,19 +76,19 @@ export default function PatientSearch() {
   // ── Filtering Logic ──
   const filtered = query.trim()
     ? patients.filter(p =>
-        `${p.first_name} ${p.last_name}`.toLowerCase().includes(query.toLowerCase()) ||
-        p.child_code.toLowerCase().includes(query.toLowerCase())
-      )
+      `${p.first_name} ${p.last_name}`.toLowerCase().includes(query.toLowerCase()) ||
+      p.child_code.toLowerCase().includes(query.toLowerCase())
+    )
     : patients
 
   // ── Validation ──
   function validate(f) {
     const e = {}
     if (!f.firstName.trim()) e.firstName = 'Required'
-    if (!f.lastName.trim())  e.lastName  = 'Required'
-    if (!f.childId.trim())   e.childId   = 'Required'
-    if (!f.dob)               e.dob       = 'Required'
-    if (!f.sex)               e.sex       = 'Required'
+    if (!f.lastName.trim()) e.lastName = 'Required'
+    if (!f.childId.trim()) e.childId = 'Required'
+    if (!f.dob) e.dob = 'Required'
+    if (!f.sex) e.sex = 'Required'
     if (!f.community.trim()) e.community = 'Required'
     return e
   }
@@ -172,12 +171,12 @@ export default function PatientSearch() {
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {field('firstName', 'First name', 'text', 'Kwame')}
-              {field('lastName',  'Last name',  'text', 'Mensah')}
+              {field('lastName', 'Last name', 'text', 'Mensah')}
             </div>
 
-            {field('childId',   'Patient ID',    'text', 'GH0007')}
-            {field('community', 'Community',     'text', '')}
-            {field('dob',       'Date of birth', 'date')}
+            {field('childId', 'Patient ID', 'text', 'GH0007')}
+            {field('community', 'Community', 'text', '')}
+            {field('dob', 'Date of birth', 'date')}
 
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Sex</label>
@@ -195,8 +194,8 @@ export default function PatientSearch() {
             </div>
 
             <div className="flex gap-2 pt-1">
-              <button 
-                onClick={cancelEnroll} 
+              <button
+                onClick={cancelEnroll}
                 className="flex-1 py-2 rounded-xl text-sm text-gray-500 bg-gray-100 hover:bg-gray-200 transition font-medium"
               >
                 Cancel
@@ -207,7 +206,7 @@ export default function PatientSearch() {
                 onClick={async () => {
                   if (saveMutation.isPending) return
 
-                  const e = validate(form); 
+                  const e = validate(form);
                   setErrors(e)
                   if (Object.keys(e).length) return
 
@@ -249,7 +248,7 @@ export default function PatientSearch() {
                 <React.Fragment key={p.id}>
                   <li className={`flex items-center gap-3 px-4 py-3 sm:px-6 sm:py-3.5 transition-all duration-300 
                     ${isDeleting ? 'opacity-40 grayscale pointer-events-none bg-gray-50' : 'opacity-100'}`}>
-                    
+
                     <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0
                       ${p.gender === 'F' ? 'bg-pink-400' : 'bg-blue-400'}`}>
                       {p.first_name[0]}
@@ -260,7 +259,7 @@ export default function PatientSearch() {
                         {p.first_name} {p.last_name}
                       </p>
                       <p className="text-xs text-gray-400 truncate">
-                        {p.child_code} · {p.gender === 'M' ? 'M' : 'F'} · {calcAge(p.birthdate)} yrs · {p.community}  
+                        {p.child_code} · {p.gender === 'M' ? 'M' : 'F'} · {calcAge(p.birthdate)} yrs · {p.community}
                       </p>
                     </div>
 
@@ -274,8 +273,8 @@ export default function PatientSearch() {
                               <button onClick={() => startEdit(p)} className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg transition">
                                 <Pencil size={16} />
                               </button>
-                              <button 
-                                onClick={() => { if(window.confirm("Delete patient?")) deleteMutation.mutate(p.id) }} 
+                              <button
+                                onClick={() => { if (window.confirm("Delete patient?")) deleteMutation.mutate(p.id) }}
                                 className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg transition"
                               >
                                 <Trash2 size={16} />

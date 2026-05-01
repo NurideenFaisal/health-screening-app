@@ -6,7 +6,7 @@ export const useAuthStore = create((set) => ({
   loading: true,
   setAuth: (user, profile) => set({ user, profile, loading: false }),
   clearAuth: () => {
-    try { localStorage.removeItem('auth_cache') } catch {}
+    try { localStorage.removeItem('auth_profile_cache') } catch {}
     set({ user: null, profile: null, loading: false })
   },
 }))

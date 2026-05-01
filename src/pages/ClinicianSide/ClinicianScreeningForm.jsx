@@ -126,7 +126,7 @@ export default function ClinicianScreeningForm() {
               <div className="flex min-h-[220px] items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-emerald-600" /><span className="ml-2 text-sm text-gray-500">Checking template...</span></div>
             ) : hasDynamicSchema ? (
               <Suspense fallback={<div className="flex min-h-[220px] items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-emerald-600" /></div>}>
-                <DynamicRenderer sectionNumber={activeSection} patientId={id} cycleId={cycleId} clinicId={profile?.clinic_id} />
+                <DynamicRenderer sectionNumber={activeSection} patientId={id} cycleId={cycleId} clinicId={profile?.clinic_id} assignedSections={assignedSections} onSectionSwitch={setActiveSection}/>
               </Suspense>
             ) : (
               <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-8">

@@ -5,7 +5,7 @@ import { useAuthStore } from '../../store/authStore'
 import { supabase } from '../../lib/supabase'
 import { useActiveCycleQuery } from '../../hooks/useActiveCycleQuery'
 import { useSectionDefinitions } from '../../hooks/useSectionDefinitions'
-import { useUsersManagement, getInitial, getRoleColor, getSectionOption } from '../../hooks/useUsersManagement'
+import { useUsersManagement } from '../../hooks/useUsersManagement'
 import { useTemplateActivation } from '../../hooks/useTemplateActivation'
 import { Button, Toast, CredentialsModal, AddUserModal, EditUserModal, ResetPasswordModal, DeleteUserModal } from '../../components/RoleManagement/RoleManagementModals'
 import UsersTable from '../../components/RoleManagement/UsersTable'
@@ -130,8 +130,8 @@ export default function RoleManagement() {
       </div>
       {isClinicAdmin && <TemplateActivationPanel activeCycle={activeCycle} activeCycleQuery={activeCycleQuery} publishedTemplates={publishedTemplates} templateAssignments={templateAssignments} activatingSection={activatingSection} handleActivateTemplate={handleActivateTemplate} sectionOptions={sectionOptions} navigate={navigate} />}
       <UsersTable users={users} loading={loading} filtered={filtered} onEdit={openEditModal} onReset={openResetModal} onDelete={openDeleteModal} sectionOptions={sectionOptions} />
-      <AddUserModal show={showAddModal} onClose={() => { setShowAddModal(false); setErrors({}) }} newUser={newUser} setNewUser={setNewUser} errors={errors} setErrors={setErrors} onAddUser={handleAddUser} saving={saving} clinicId={profile?.clinic_id} cycleId={activeCycle?.id} sectionOptions={sectionOptions} />
-      <EditUserModal show={showEditModal} onClose={() => { setShowEditModal(false); setEditingUser(null) }} editingUser={editingUser} editForm={editForm} setEditForm={setEditForm} editErrors={editErrors} onSaveEdit={handleSaveEdit} saving={saving} sectionOptions={sectionOptions} clinicId={profile?.clinic_id} cycleId={activeCycle?.id} />
+      <AddUserModal show={showAddModal} onClose={() => { setShowAddModal(false); setErrors({}) }} newUser={newUser} setNewUser={setNewUser} errors={errors} setErrors={setErrors} onAddUser={handleAddUser} saving={saving} clinicId={profile?.clinic_id} cycleId={activeCycle?.id} sectionOptions={sectionOptions} templateAssignments={templateAssignments} />
+      <EditUserModal show={showEditModal} onClose={() => { setShowEditModal(false); setEditingUser(null) }} editingUser={editingUser} editForm={editForm} setEditForm={setEditForm} editErrors={editErrors} onSaveEdit={handleSaveEdit} saving={saving} sectionOptions={sectionOptions} clinicId={profile?.clinic_id} cycleId={activeCycle?.id} templateAssignments={templateAssignments} />
       <ResetPasswordModal show={showResetModal} onClose={() => { setShowResetModal(false); setResetUser(null) }} resetUser={resetUser} newPassword={newPassword} setNewPassword={setNewPassword} resetError={resetError} setResetError={setResetError} onResetPassword={handleResetPassword} saving={saving} />
       <DeleteUserModal show={showDeleteModal} onClose={() => { setShowDeleteModal(false); setDeletingUser(null) }} deletingUser={deletingUser} onDeleteUser={handleToggleActive} saving={saving} />
     </div>

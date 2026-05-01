@@ -11,6 +11,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { supabase } from '../../lib/supabase'
 import { dryRunSchema, transformGroupsToSchema, transformSchemaToGroups, calculateField } from '../../lib/logicEngine'
+import { Loader2 } from 'lucide-react'
 
 const TYPE_META = {
   text: { icon: 'T', bg: '#ede9fe', color: '#6d28d9', label: 'Text' },
@@ -357,6 +358,8 @@ export default function App() {
   const [activeType, setActiveType] = useState(null)
   const [activeTab, setActiveTab] = useState('design') // 'design' | 'preview'
   const [configPanelOpen, setConfigPanelOpen] = useState(true)
+  const [savingDraft, setSavingDraft] = useState(false)
+  const [publishing, setPublishing] = useState(false)
 
   // Form metadata
   const [formName, setFormName] = useState('')
@@ -364,7 +367,7 @@ export default function App() {
   const [templates, setTemplates] = useState([])
   const [selectedTemplateId, setSelectedTemplateId] = useState('')
   const [loadingTemplates, setLoadingTemplates] = useState(false)
-  const [templateError, setTemplateError] = useState(null)
+  
   const requestedTemplateId = searchParams.get('templateId')
 
   const loadTemplates = async () => {
@@ -500,11 +503,13 @@ export default function App() {
       if (nextStatus === 'published') {
         const { data: existing } = await supabase.from('section_definitions').select('section_number').eq('name', formName.trim()).maybeSingle()
         if (existing) {
-          await supabase.from('section_definitions').update({ field_schema: schema, is_template: true, template_name: formName.trim(), updated_at: new Date().toISOString() }).eq('section_number', existing.section_number)
+          const { error: updateErr } = await supabase.from('section_definitions').update({ field_schema: schema, is_template: true, template_name: formName.trim(), updated_at: new Date().toISOString() }).eq('section_number', existing.section_number)
+          if (updateErr) console.error('Failed to update section definition:', updateErr)
         } else {
           const { data: max } = await supabase.from('section_definitions').select('section_number').order('section_number', { ascending: false }).limit(1).maybeSingle()
           const nextNum = max ? max.section_number + 1 : 1
-          await supabase.from('section_definitions').insert({ section_number: nextNum, name: formName.trim(), short_name: formName.trim().substring(0, 4).toUpperCase(), color: ['emerald','sky','violet','amber','pink','red'][(nextNum - 1) % 6], display_order: nextNum, is_active: true, is_template: true, field_schema: schema, template_name: formName.trim() })
+          const { error: insertErr } = await supabase.from('section_definitions').insert({ section_number: nextNum, name: formName.trim(), short_name: formName.trim().substring(0, 4).toUpperCase(), color: ['emerald', 'sky', 'violet', 'amber', 'pink', 'red'][(nextNum - 1) % 6], display_order: nextNum, is_active: true, is_template: true, field_schema: schema, template_name: formName.trim() })
+          if (insertErr) console.error('Failed to create section definition:', insertErr)
         }
       }
       setSelectedTemplateId(templateId); await loadTemplates(); await handleSelectTemplate(templateId); setIsDirty(false); return templateId
@@ -513,23 +518,25 @@ export default function App() {
   }
 
   const handleSaveDraft = async () => {
+    setSavingDraft(true)
     const templateId = await persistTemplate('draft')
+    setSavingDraft(false)
     if (!templateId) return
-
     setSavedDraft(true)
     setTimeout(() => setSavedDraft(false), 2000)
   }
 
   const handlePublish = async () => {
+    setPublishing(true)
     const templateId = await persistTemplate('published')
+    setPublishing(false)
     if (!templateId) return
-
     setPublished(true)
     setTimeout(() => setPublished(false), 2500)
   }
 
   const groupIds = groups.map(g => g.id)
-  const totalFields = groups.reduce((a, g) => a + g.fields.length, 0)
+
 
   return (
     <div className="flex flex-col h-screen bg-green-700">
@@ -576,15 +583,13 @@ export default function App() {
               <option key={t.id} value={t.id}>{t.name}</option>
             ))}
           </select>
-          <button onClick={handleSaveDraft}
-            className={`px-3 py-1.5 text-[13px] border rounded-lg transition-all font-medium ${savedDraft ? 'border-emerald-300 text-emerald-600 bg-emerald-50' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-            {savedDraft ? '✓ Saved' : 'Save draft'}
+          <button onClick={handleSaveDraft} disabled={saving}
+            className={`px-3 py-1.5 text-[13px] border rounded-lg transition-all font-medium flex items-center gap-1.5 ${savedDraft ? 'border-emerald-300 text-emerald-600 bg-emerald-50' : 'border-gray-200 text-gray-600 hover:bg-gray-50'} disabled:opacity-50`}>
+            {saving && !published ? <Loader2 size={14} className="animate-spin" /> : savedDraft ? '✓ Saved' : 'Save draft'}
           </button>
-          <button
-            onClick={handlePublish}
-            disabled={saving}
-            className={`px-4 py-1.5 text-[13px] font-medium rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${published ? 'bg-emerald-800 shadow-emerald-200 text-white' : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200'}`}>
-            {saving ? 'Publishing...' : published ? '✓ Published!' : 'Publish'}
+          <button onClick={handlePublish} disabled={saving}
+            className={`px-4 py-1.5 text-[13px] font-medium rounded-lg transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed ${published ? 'bg-emerald-800 shadow-emerald-200 text-white' : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200'}`}>
+            {saving && !savedDraft ? <Loader2 size={14} className="animate-spin" /> : published ? '✓ Published!' : 'Publish'}
           </button>
         </div>
       </header>
