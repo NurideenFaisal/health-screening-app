@@ -7,6 +7,7 @@ import { Search, X, ChevronRight, WifiOff } from 'lucide-react'
 import { useActiveCycleQuery } from '../../hooks/useActiveCycleQuery'
 import { useSectionDefinitions } from '../../hooks/useSectionDefinitions'
 import { getProfileSectionNumber, getSectionColorClasses, normalizeSectionOrder } from '../../lib/sectionUtils'
+import { formatPatientName } from '../../lib/textFormat'
 import { CardSkeleton, Skeleton } from '../../components/ui/primitives'
 
 const STATUS_WEIGHT = { done: 0, ready: 1, screened: 2 }
@@ -317,8 +318,8 @@ export default function ClinicianScreeningData() {
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                          <p className="text-sm font-semibold text-gray-900 truncate tracking-tight TitleCase">
-                            {p.name}
+                          <p className="text-sm font-semibold text-gray-900 truncate capitalize tracking-tight TitleCase">
+                            {formatPatientName(p.first_name, p.last_name)}
                           </p>
                           <div className="flex gap-1 shrink-0">
                             {sectionPills.map(({ key, doneColor }) => (

@@ -1,5 +1,6 @@
-import { AlertCircle } from 'lucide-react'
+import { AlertCircle, Search } from 'lucide-react'
 import { getSectionColorClasses } from '../../lib/sectionUtils'
+import { toUpperLabel } from '../../lib/textFormat'
 
 const buttonVariants = {
   primary: 'bg-emerald-600 text-white hover:bg-emerald-700',
@@ -9,15 +10,15 @@ const buttonVariants = {
   ghost: 'text-slate-400 hover:text-slate-600 hover:bg-slate-100',
 }
 
-export function Button({ children, variant = 'secondary', className = '', type = 'button', ...props }) {
+export function Button({ children, variant = 'secondary', className = '', type = 'button', as: Component = 'button', ...props }) {
   return (
-    <button
-      type={type}
+    <Component
+      type={Component === 'button' ? type : undefined}
       className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 ${buttonVariants[variant] || buttonVariants.secondary} ${className}`}
       {...props}
     >
       {children}
-    </button>
+    </Component>
   )
 }
 
@@ -38,7 +39,7 @@ export function IconButton({ label, children, className = '', variant = 'ghost',
 export function TextInput({ label, error, className = '', children, ...props }) {
   return (
     <div>
-      {label && <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</label>}
+      {label && <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">{toUpperLabel(label)}</label>}
       <div className="relative">
         <input
           className={`w-full rounded-xl border bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 ${error ? 'border-red-400 focus:border-red-500 focus:ring-red-500/20' : 'border-slate-200'} ${className}`}
@@ -48,6 +49,45 @@ export function TextInput({ label, error, className = '', children, ...props }) 
       </div>
       {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
     </div>
+  )
+}
+
+export function SearchInput({ value, onChange, placeholder = 'Search...', className = '', children, ...props }) {
+  return (
+    <div className={`relative ${className}`}>
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+      <input
+        type="text"
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        className="h-10 w-full rounded-xl bg-gray-100 pl-9 pr-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-400"
+        {...props}
+      />
+      {children}
+    </div>
+  )
+}
+
+export function Card({ children, className = '', as: Component = 'div', ...props }) {
+  return (
+    <Component className={`rounded-2xl border border-slate-200 bg-white shadow-sm ${className}`} {...props}>
+      {children}
+    </Component>
+  )
+}
+
+export function StatCard({ value, label, loading, icon, valueClassName = 'text-slate-950' }) {
+  return (
+    <Card className="flex min-h-36 flex-col items-center justify-center p-6 text-center">
+      {icon && <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100">{icon}</div>}
+      {loading ? (
+        <Skeleton className="mb-2 h-8 w-16" />
+      ) : (
+        <div className={`mb-1 text-[32px] font-bold leading-none ${valueClassName}`}>{value ?? '-'}</div>
+      )}
+      <div className="text-sm font-medium text-slate-500">{label}</div>
+    </Card>
   )
 }
 

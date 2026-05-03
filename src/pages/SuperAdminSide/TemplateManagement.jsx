@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react'
-import { FileText, Search, Edit3, CheckCircle, Clock, AlertCircle, Trash2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { AlertCircle, CheckCircle, Clock, Edit3, FileText, Trash2, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import { Button, CardSkeleton, IconButton, SearchInput } from '../../components/ui/primitives'
+import { toSentenceCase, toTitleCase } from '../../lib/textFormat'
 
 const STATUS_CONFIG = {
   published: { color: 'bg-emerald-100 text-emerald-700', icon: CheckCircle, label: 'Published' },
@@ -25,7 +27,6 @@ export default function TemplateManagement() {
   const fetchTemplates = async () => {
     try {
       const { data, error } = await supabase.rpc('list_templates')
-
       if (error) throw error
       setTemplates(data || [])
     } catch (err) {
@@ -42,11 +43,7 @@ export default function TemplateManagement() {
       })
 
       if (error) throw error
-
-      setSelectedTemplate({
-        ...template,
-        ...(data || {}),
-      })
+      setSelectedTemplate({ ...template, ...(data || {}) })
       setActionError(null)
     } catch (err) {
       console.error('Error loading template detail:', err)
@@ -59,16 +56,9 @@ export default function TemplateManagement() {
     setActionError(null)
 
     try {
-      const { error } = await supabase.rpc('delete_template', {
-        p_template_id: templateId,
-      })
-
+      const { error } = await supabase.rpc('delete_template', { p_template_id: templateId })
       if (error) throw error
-
-      if (selectedTemplate?.id === templateId) {
-        setSelectedTemplate(null)
-      }
-
+      if (selectedTemplate?.id === templateId) setSelectedTemplate(null)
       await fetchTemplates()
     } catch (err) {
       console.error('Error deleting template:', err)
@@ -78,33 +68,24 @@ export default function TemplateManagement() {
     }
   }
 
-  const filtered = templates.filter(t => 
+  const filtered = templates.filter(t =>
     t.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     t.description?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
+    <div className="space-y-6 p-4 sm:p-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-xl font-bold text-gray-900">Template Management</h2>
-          <p className="text-sm text-gray-500 mt-1">
-            View and manage draft and published form templates
-          </p>
+          <p className="mt-1 text-sm text-gray-500">View and manage draft and published form templates</p>
         </div>
-        <div className="flex gap-2">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search templates..."
-              className="pl-9 pr-4 py-2 text-sm rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-100 w-64"
-            />
-          </div>
-        </div>
+        <SearchInput
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search templates..."
+          className="w-full sm:w-64"
+        />
       </div>
 
       {actionError && (
@@ -113,44 +94,41 @@ export default function TemplateManagement() {
         </div>
       )}
 
-      {/* Templates Grid */}
       {loading ? (
-        <div className="text-center py-12 text-gray-500">Loading templates...</div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {[0, 1, 2].map(index => <CardSkeleton key={index} rows={3} />)}
+        </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
+        <div className="rounded-2xl border border-slate-200 bg-white py-12 text-center text-gray-500 shadow-sm">
           <FileText size={48} className="mx-auto mb-4 text-gray-300" />
           <p>No templates found</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filtered.map((template) => {
             const status = template.status || 'draft'
             const StatusIcon = STATUS_CONFIG[status].icon
-            
+
             return (
               <div
                 key={template.id}
-                className="bg-white rounded-xl border border-gray-200 p-4 hover:border-emerald-300 hover:shadow-md transition-all cursor-pointer"
+                className="cursor-pointer rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:border-emerald-300 hover:shadow-md"
                 onClick={() => handleOpenTemplate(template)}
               >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-emerald-100">
+                <div className="mb-3 flex items-start justify-between">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100">
                     <FileText size={18} className="text-emerald-600" />
                   </div>
-                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CONFIG[status].color}`}>
+                  <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_CONFIG[status].color}`}>
                     <StatusIcon size={12} />
                     {STATUS_CONFIG[status].label}
                   </span>
                 </div>
-                
-                <h3 className="font-semibold text-gray-900 mb-1">
-                  {template.name || 'Untitled Template'}
-                </h3>
-                <p className="text-sm text-gray-500 mb-3">
-                  {template.description || 'No description'}
-                </p>
-                
-                <div className="flex items-center justify-between text-xs text-gray-400 pt-3 border-t border-gray-100">
+
+                <h3 className="mb-1 font-semibold text-gray-900">{toTitleCase(template.name || 'Untitled Template')}</h3>
+                <p className="mb-3 text-sm text-gray-500">{toSentenceCase(template.description || 'No description')}</p>
+
+                <div className="flex items-center justify-between border-t border-gray-100 pt-3 text-xs text-gray-400">
                   <span>v{template.version || '1.0'}</span>
                   <span>{template.updated_at ? new Date(template.updated_at).toLocaleDateString() : 'Not updated'}</span>
                 </div>
@@ -160,60 +138,36 @@ export default function TemplateManagement() {
         </div>
       )}
 
-      {/* Template Detail Modal */}
       {selectedTemplate && (
-        <div 
-          className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
-          onClick={() => setSelectedTemplate(null)}
-        >
-          <div 
-            className="bg-white rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setSelectedTemplate(null)}>
+          <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-gray-100 p-6">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">
-                  {selectedTemplate.name || 'Untitled Template'}
-                </h3>
-                <p className="text-sm text-gray-500">
-                  Version {selectedTemplate.version || '1.0'}
-                </p>
+                <h3 className="text-lg font-semibold text-gray-900">{toTitleCase(selectedTemplate.name || 'Untitled Template')}</h3>
+                <p className="text-sm text-gray-500">Version {selectedTemplate.version || '1.0'}</p>
               </div>
-              <button
-                onClick={() => setSelectedTemplate(null)}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
-              >
-                ✕
-              </button>
+              <IconButton label="Close template details" onClick={() => setSelectedTemplate(null)}>
+                <X size={18} />
+              </IconButton>
             </div>
-            
-            <div className="p-6 overflow-y-auto max-h-[60vh]">
+
+            <div className="max-h-[60vh] overflow-y-auto p-6">
               {selectedTemplate.fieldSchema?.groups || selectedTemplate.field_schema?.groups ? (
                 <div className="space-y-6">
                   {(selectedTemplate.fieldSchema?.groups || selectedTemplate.field_schema?.groups).map((group) => (
                     <div key={group.id}>
-                      <div className="flex items-center gap-2 mb-3">
-                        <span 
-                          className="w-3 h-3 rounded-full" 
-                          style={{ backgroundColor: group.color }}
-                        />
-                        <h4 className="font-medium text-gray-900">{group.label}</h4>
+                      <div className="mb-3 flex items-center gap-2">
+                        <span className="h-3 w-3 rounded-full" style={{ backgroundColor: group.color }} />
+                        <h4 className="font-medium text-gray-900">{toTitleCase(group.label)}</h4>
                       </div>
                       <div className="space-y-2 pl-5">
                         {group.fields?.map((field) => (
-                          <div 
-                            key={field.id}
-                            className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg text-sm"
-                          >
+                          <div key={field.id} className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm">
                             <div className="flex items-center gap-2">
-                              <span className="text-gray-500">{field.label}</span>
-                              {field.required && (
-                                <span className="text-red-500 text-xs">*</span>
-                              )}
+                              <span className="text-gray-500">{toSentenceCase(field.label)}</span>
+                              {field.required && <span className="text-xs text-red-500">*</span>}
                             </div>
-                            <span className="text-gray-400 text-xs capitalize">
-                              {field.type}
-                            </span>
+                            <span className="text-xs capitalize text-gray-400">{field.type}</span>
                           </div>
                         ))}
                       </div>
@@ -221,32 +175,28 @@ export default function TemplateManagement() {
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-8 text-gray-500">
+                <div className="py-8 text-center text-gray-500">
                   <AlertCircle size={48} className="mx-auto mb-4 text-amber-300" />
                   <p>No field schema published</p>
-                  <p className="text-sm mt-1">Use Form Builder to publish fields</p>
+                  <p className="mt-1 text-sm">Use Form Builder to publish fields</p>
                 </div>
               )}
             </div>
-            
-            <div className="p-4 border-t border-gray-100 flex gap-3">
-              <button
-                type="button"
-                onClick={() => navigate(`/super-admin/form-builder?templateId=${selectedTemplate.id}`)}
-                className="flex-1 py-2.5 text-center text-sm font-medium border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition"
-              >
-                <Edit3 size={16} className="inline mr-2" />
+
+            <div className="flex gap-3 border-t border-gray-100 p-4">
+              <Button onClick={() => navigate(`/super-admin/form-builder?templateId=${selectedTemplate.id}`)} className="flex-1">
+                <Edit3 size={16} />
                 Edit in Form Builder
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
                 onClick={() => handleDeleteTemplate(selectedTemplate.id)}
                 disabled={deletingTemplateId === selectedTemplate.id || selectedTemplate.activation_count > 0}
-                className="flex-1 py-2.5 text-center text-sm font-medium border border-red-200 rounded-xl text-red-600 hover:bg-red-50 transition disabled:cursor-not-allowed disabled:opacity-50"
+                variant="danger"
+                className="flex-1"
               >
-                <Trash2 size={16} className="inline mr-2" />
+                <Trash2 size={16} />
                 {deletingTemplateId === selectedTemplate.id ? 'Deleting...' : 'Delete Template'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

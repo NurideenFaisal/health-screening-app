@@ -5,6 +5,7 @@ import { Toaster } from 'sonner'
 import { AlertCircle } from 'lucide-react'
 import { useConnectivity } from './hooks/useConnectivity'
 import { supabase } from './lib/supabase'
+import { Button, PageLoader } from './components/ui/primitives'
 
 import Login from './pages/Login'
 
@@ -36,12 +37,7 @@ const FormBuilder = lazy(() => import('./pages/FormBuilder/FormBuilder'))
 import RoleRoute from './components/RoleRoute'
 
 function SectionLoader() {
-  return (
-    <div className="flex items-center justify-center p-8">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
-      <span className="ml-3 text-gray-500 font-medium">Loading section...</span>
-    </div>
-  )
+  return <PageLoader label="Loading section..." />
 }
 
 function App() {
@@ -94,9 +90,8 @@ function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
-        <span className="ml-3 text-gray-600 font-medium">Loading...</span>
+      <div className="flex min-h-screen items-center justify-center p-4 sm:p-6">
+        <PageLoader />
       </div>
     )
   }
@@ -108,11 +103,11 @@ function App() {
           <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-gray-900">Account Disabled</h2>
           <p className="text-gray-500 mt-2">Contact your administrator to regain access.</p>
-          <button onClick={async () => {
+          <Button onClick={async () => {
             await supabase.auth.signOut()
             localStorage.removeItem('auth_profile_cache')
             clearAuth()
-          }} className="mt-4 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700">Sign Out</button>
+          }} variant="primary" className="mt-4">Sign Out</Button>
         </div>
       </div>
     )

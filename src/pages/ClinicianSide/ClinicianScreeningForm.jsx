@@ -6,6 +6,7 @@ import { useClinicianScreeningBootstrap } from '../../hooks/useClinicianScreenin
 import { useSectionDefinitions } from '../../hooks/useSectionDefinitions'
 import { supabase } from '../../lib/supabase'
 import { normalizeSectionOrder } from '../../lib/sectionUtils'
+import { formatPatientName } from '../../lib/textFormat'
 import { Button, EmptyState, PageLoader, SectionPill } from '../../components/ui/primitives'
 
 const DynamicRenderer = lazy(() => import('../../components/DynamicRenderer'))
@@ -98,7 +99,7 @@ export default function ClinicianScreeningForm() {
               {patient ? patient.first_name?.[0] : ''}
             </div>
             <div className="min-w-0">
-              <p className="truncate text-base font-semibold tracking-tight text-slate-900">{patient ? `${patient.first_name} ${patient.last_name}` : 'Loading...'}</p>
+              <p className="truncate text-base font-semibold tracking-tight text-slate-900">{patient ? formatPatientName(patient.first_name, patient.last_name) : 'Loading...'}</p>
               <p className="truncate text-xs text-slate-400">{patient?.child_code}{patient?.community && ` · ${patient.community}`}</p>
             </div>
           </div>

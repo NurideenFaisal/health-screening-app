@@ -4,13 +4,13 @@ import { supabase } from '../../lib/supabase'
 import {
   Building2,
   Globe,
-  Loader2,
   Plus,
-  Search,
   ToggleLeft,
   ToggleRight,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { Button, CardSkeleton, SearchInput } from '../../components/ui/primitives'
+import { toTitleCase } from '../../lib/textFormat'
 
 export default function ClinicRegistry() {
   const navigate = useNavigate()
@@ -86,39 +86,36 @@ export default function ClinicRegistry() {
   })
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Clinic Registry</h1>
           <p className="text-sm text-gray-500">Global control of clinical outreach instances</p>
         </div>
-        <button
+        <Button
           onClick={() => navigate('/super-admin/launch-clinic')}
-          className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 font-semibold text-white shadow-lg shadow-emerald-200 transition-all hover:bg-emerald-700 active:scale-95"
+          variant="primary"
         >
           <Plus size={20} />
           Launch New Clinic
-        </button>
+        </Button>
       </div>
 
-      <div className="relative mb-6 max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-        <input
-          type="text"
+      <div className="mb-6 max-w-md">
+        <SearchInput
           placeholder="Search by name, code, or slug..."
           value={searchQuery}
           onChange={(event) => setSearchQuery(event.target.value)}
-          className="w-full rounded-xl border border-gray-200 py-3 pl-10 pr-4 outline-none focus:ring-2 focus:ring-emerald-500"
         />
       </div>
 
       {loading ? (
-        <div className="flex h-64 flex-col items-center justify-center gap-3">
-          <Loader2 className="h-10 w-10 animate-spin text-emerald-600" />
-          <p className="font-medium text-gray-500">Syncing registry...</p>
+        <div className="space-y-3">
+          <CardSkeleton rows={4} />
+          <CardSkeleton rows={4} />
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
@@ -141,7 +138,7 @@ export default function ClinicRegistry() {
                           <Building2 size={20} />
                         </div>
                         <div>
-                          <p className="font-bold text-gray-900">{clinic.name}</p>
+                          <p className="font-bold text-gray-900">{toTitleCase(clinic.name)}</p>
                           <p className="flex items-center gap-1 text-xs text-gray-400">
                             <Globe size={12} />
                             {clinic.slug || 'no-slug'}
@@ -158,13 +155,14 @@ export default function ClinicRegistry() {
                       <span className="text-sm font-medium text-gray-500">@{clinic.email_domain || 'N/A'}</span>
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <button
+                      <Button
                         onClick={() => toggleClinic(clinic.id, clinic.is_active)}
-                        className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold transition-all ${clinic.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-400'}`}
+                        variant="secondary"
+                        className={`min-h-0 rounded-full px-3 py-1 text-xs font-bold ${clinic.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-400'}`}
                       >
                         {clinic.is_active ? <ToggleRight size={24} /> : <ToggleLeft size={24} />}
                         {clinic.is_active ? 'ACTIVE' : 'LOCKED'}
-                      </button>
+                      </Button>
                     </td>
                   </tr>
                 ))}

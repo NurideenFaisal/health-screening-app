@@ -24,6 +24,8 @@ const TYPE_META = {
   computed: { icon: 'ƒ', bg: '#fdf2f8', color: '#701a75', label: 'Computed' },
 }
 
+const QUICK_FIELDS = ['text', 'number', 'date', 'textarea', 'dropdown', 'checkbox', 'computed']
+
 const PALETTE_GROUPS = [
   { label: 'Input', types: ['text', 'number', 'date', 'textarea'] },
   { label: 'Choice', types: ['dropdown', 'radio', 'checkbox'] },
@@ -64,7 +66,7 @@ function Toggle({ checked, onChange }) {
   )
 }
 
-function SortableField({ field, groupId, isSelected, onSelect, onDelete, onUpdateField }) {
+function SortableField({ field, groupId, isSelected, onSelect, onDelete, onUpdateField, onDuplicate }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: field.id, data: { type: 'field', fieldId: field.id, groupId },
   })
@@ -86,6 +88,10 @@ function SortableField({ field, groupId, isSelected, onSelect, onDelete, onUpdat
         {field.required && <span className="text-[10px] font-semibold text-red-500 tracking-wide">REQ</span>}
         {field.conditions?.length > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">if</span>}
         {field.type === 'computed' && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 border border-purple-200">auto</span>}
+        <button onClick={e => { e.stopPropagation(); onDuplicate(field.id) }} title="Duplicate"
+          className="opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded text-gray-400 hover:text-emerald-500 hover:bg-emerald-50 transition-all text-xs mr-0.5">
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" /></svg>
+        </button>
         <button onClick={e => { e.stopPropagation(); onDelete(field.id) }}
           className="opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all text-xs">✕</button>
       </div>
@@ -93,7 +99,7 @@ function SortableField({ field, groupId, isSelected, onSelect, onDelete, onUpdat
   )
 }
 
-function SortableGroup({ group, selectedFieldId, onSelectField, onDeleteField, onAddField, onUpdateGroup, onDeleteGroup, onDropFromPalette, onUpdateField }) {
+function SortableGroup({ group, selectedFieldId, onSelectField, onDeleteField, onAddField, onUpdateGroup, onDeleteGroup, onDropFromPalette, onUpdateField, onDuplicateField, onDuplicateGroup }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: group.id, data: { type: 'group' },
   })
@@ -117,8 +123,11 @@ function SortableGroup({ group, selectedFieldId, onSelectField, onDeleteField, o
           className="text-[11px] border border-gray-200 rounded-lg px-2 py-1 bg-white text-gray-600 cursor-pointer outline-none">
           {GROUP_COLORS.map(c => <option key={c} value={c}>{'● ' + c}</option>)}
         </select>
-        <button onClick={() => onDeleteGroup(group.id)}
-          className="w-6 h-6 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all text-xs">✕</button>
+        <button onClick={() => onDuplicateGroup(group.id)} title="Duplicate group"
+          className="w-6 h-6 flex items-center justify-center rounded-lg text-gray-400 hover:text-emerald-500 hover:bg-emerald-50 transition-all text-xs mr-0.5">
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" /></svg>
+        </button>
+        <button onClick={() => onDeleteGroup(group.id)} className="w-6 h-6 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all text-xs">✕</button>
       </div>
       <div className="p-2">
         <SortableContext items={fieldIds} strategy={verticalListSortingStrategy}>
@@ -129,13 +138,22 @@ function SortableGroup({ group, selectedFieldId, onSelectField, onDeleteField, o
           )}
           {group.fields.map(f => (
             <SortableField key={f.id} field={f} groupId={group.id} isSelected={f.id === selectedFieldId}
-              onSelect={onSelectField} onDelete={onDeleteField} onUpdateField={onUpdateField} />
+              onSelect={onSelectField} onDelete={onDeleteField} onUpdateField={onUpdateField} onDuplicate={onDuplicateField} />
           ))}
         </SortableContext>
-        <button onClick={() => onAddField(group.id, 'text')}
-          className="w-full mt-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-dashed border-gray-200 text-[12px] text-gray-400 hover:border-emerald-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all">
-          + Add field
-        </button>
+        {/* Quick add field buttons */}
+        <div className="flex items-center gap-1 mt-2 flex-wrap">
+          {QUICK_FIELDS.map(type => {
+            const m = TYPE_META[type]
+            return (
+              <button key={type} onClick={() => onAddField(group.id, type)}
+                className="flex items-center gap-1 px-2 py-1 rounded-lg border border-gray-200 text-[11px] text-gray-500 hover:border-emerald-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all"
+                title={`Add ${m.label}`}>
+                <span className="text-[10px]">{m.icon}</span> {m.label}
+              </button>
+            )
+          })}
+        </div>
       </div>
     </div>
   )
@@ -212,6 +230,25 @@ function ConfigPanel({ groups, selectedFieldId, onUpdateField, onDeleteField }) 
               </div>
               <p className="text-[9px] text-slate-500 mt-1">Operators: + - * / ( ) ** (exponent)</p>
             </div>
+          </section>
+        )}
+
+        {field.type === 'textarea' && (
+          <section>
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2.5">Preset Comments</p>
+            <div className="space-y-1.5">
+              {(field.presets || []).map((preset, i) => (
+                <div key={i} className="flex items-center gap-1.5">
+                  <input value={preset.l || ''} onChange={e => { const p = [...(field.presets || [])]; p[i] = { v: e.target.value.toLowerCase().replace(/\s+/g, '_'), l: e.target.value }; update({ presets: p }) }}
+                    className="flex-1 px-2.5 py-1.5 text-[12px] border border-gray-200 rounded-lg bg-white outline-none focus:border-emerald-400 transition-all" placeholder="e.g. Within normal range" />
+                  <button onClick={() => update({ presets: (field.presets || []).filter((_, j) => j !== i) })}
+                    className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-red-500 rounded transition-colors text-xs">✕</button>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => update({ presets: [...(field.presets || []), { v: `preset_${(field.presets?.length || 0) + 1}`, l: '' }] })}
+              className="mt-2 text-[12px] text-emerald-600 hover:text-emerald-700 font-medium">+ Add preset</button>
+            <p className="text-[9px] text-gray-400 mt-1">Quick comments for clinicians to tap instead of typing</p>
           </section>
         )}
 
@@ -303,7 +340,7 @@ function PreviewModal({ groups, onClose }) {
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-2xl w-full max-w-xl max-h-[85vh] flex flex-col shadow-2xl border border-gray-200">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <div><h2 className="text-[15px] font-semibold text-gray-900">Form preview</h2><p className="text-[12px] text-gray-400">Clinician view — conditional logic live</p></div>
+          <div><h2 className="text-[15px] font-semibold text-gray-900">Form preview</h2><p className="text-[12px] text-gray-400">Clinician view</p></div>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all text-sm">✕</button>
         </div>
         <div className="overflow-y-auto px-6 py-5 space-y-6">
@@ -332,14 +369,13 @@ function PreviewModal({ groups, onClose }) {
                 )
               })}
             </div>
-
           ))}
         </div>
         <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
           <button onClick={onClose} className="flex-1 py-2.5 text-[13px] font-medium bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-all">Close preview</button>
         </div>
       </div>
-    </div >
+    </div>
   )
 }
 
@@ -367,38 +403,30 @@ export default function App() {
   const [templates, setTemplates] = useState([])
   const [selectedTemplateId, setSelectedTemplateId] = useState('')
   const [loadingTemplates, setLoadingTemplates] = useState(false)
-  
+
   const requestedTemplateId = searchParams.get('templateId')
 
   const loadTemplates = async () => {
     setLoadingTemplates(true)
-    setTemplateError(null)
     try {
       const { data, error } = await supabase.rpc('list_templates')
       if (error) throw error
       setTemplates(data || [])
     } catch (err) {
       console.error('Failed to load templates:', err)
-      setTemplateError(err.message)
     } finally {
       setLoadingTemplates(false)
     }
   }
 
-
-  // Load templates on mount
-  useEffect(() => {
-    loadTemplates()
-  }, [])
+  useEffect(() => { loadTemplates() }, [])
 
   useEffect(() => {
     if (!requestedTemplateId || requestedTemplateId === selectedTemplateId) return
     if (!templates.some(template => template.id === requestedTemplateId)) return
-
     handleSelectTemplate(requestedTemplateId)
   }, [requestedTemplateId, selectedTemplateId, templates])
 
-  // Handle template selection
   const handleSelectTemplate = async (templateId) => {
     if (!templateId) {
       setSelectedTemplateId('')
@@ -409,17 +437,11 @@ export default function App() {
       setIsDirty(false)
       return
     }
-
     setSelectedTemplateId(templateId)
     setLoadingTemplates(true)
-
     try {
-      const { data, error } = await supabase.rpc('get_template_by_id', {
-        p_template_id: templateId,
-      })
-
+      const { data, error } = await supabase.rpc('get_template_by_id', { p_template_id: templateId })
       if (error) throw error
-
       if (data) {
         const loadedSchema = data.fieldSchema || data.field_schema
         if (loadedSchema?.groups) {
@@ -432,7 +454,6 @@ export default function App() {
       }
     } catch (err) {
       console.error('Failed to load template:', err)
-      setTemplateError(err.message)
     } finally {
       setLoadingTemplates(false)
     }
@@ -452,15 +473,30 @@ export default function App() {
     setSelectedFieldId(p => { const grp = groups.find(x => x.id === gid); return grp?.fields.some(f => f.id === p) ? null : p })
     setIsDirty(true)
   }
+  const duplicateGroup = (gid) => {
+    const group = groups.find(g => g.id === gid)
+    if (!group) return
+    const newGroup = { ...group, id: genId('g'), label: group.label + ' (copy)', fields: group.fields.map(f => ({ ...f, id: genId('f') })) }
+    setGroups(g => [...g, newGroup])
+    setIsDirty(true)
+  }
   const updateGroup = (gid, patch) => { setGroups(g => g.map(x => x.id === gid ? { ...x, ...patch } : x)); setIsDirty(true) }
   const addField = (gid, type) => {
     const fid = genId('f')
-    setGroups(g => g.map(x => x.id === gid ? { ...x, fields: [...x.fields, { id: fid, type, label: '', required: false, help: '', step: type === 'number' ? '1' : '', min: '', max: '', options: ['dropdown', 'radio'].includes(type) ? [{ v: 'option_1', l: 'Option 1' }] : [], formula: '', conditions: [] }] } : x))
+    setGroups(g => g.map(x => x.id === gid ? { ...x, fields: [...x.fields, { id: fid, type, label: '', required: false, help: '', step: type === 'number' ? '1' : '', min: '', max: '', options: ['dropdown', 'radio'].includes(type) ? [{ v: 'option_1', l: 'Option 1' }] : [], presets: type === 'textarea' ? [] : undefined, formula: '', conditions: [] }] } : x))
     setSelectedFieldId(fid); setIsDirty(true)
   }
   const deleteField = (fid) => {
     setGroups(g => g.map(x => ({ ...x, fields: x.fields.filter(f => f.id !== fid) })))
     if (selectedFieldId === fid) setSelectedFieldId(null); setIsDirty(true)
+  }
+  const duplicateField = (fid) => {
+    const found = findField(groups, fid)
+    if (!found) return
+    const newId = genId('f')
+    setGroups(g => g.map(x => x.id === found.group.id ? { ...x, fields: x.fields.flatMap(f => f.id === fid ? [f, { ...f, id: newId, label: f.label + ' (copy)' }] : [f]) } : x))
+    setSelectedFieldId(newId)
+    setIsDirty(true)
   }
   const updateField = (fid, patch) => { setGroups(g => g.map(x => ({ ...x, fields: x.fields.map(f => f.id === fid ? { ...f, ...patch } : f) }))); setIsDirty(true) }
 
@@ -537,12 +573,9 @@ export default function App() {
 
   const groupIds = groups.map(g => g.id)
 
-
   return (
-    <div className="flex flex-col h-screen bg-green-700">
-      {/* Three-Zone Header */}
+    <div className="flex flex-col h-screen bg-[#F0EBF8] ">
       <header className="sticky top-0 z-20 flex items-center justify-between px-6 py-3 bg-white border-b border-gray-200 shadow-sm flex-shrink-0">
-        {/* Zone 1 - Identity */}
         <div className="flex-1 flex items-center gap-3">
           <span className="text-[14px] font-semibold text-gray-900">Form Builder</span>
           <span className={`text-[11px] px-2.5 py-0.5 rounded-full border font-medium transition-colors ${isDirty ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`}>
@@ -555,8 +588,6 @@ export default function App() {
             </span>
           )}
         </div>
-
-        {/* Zone 2 - Workspace Toggle */}
         <div className="flex-1 flex justify-center">
           <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
             <button onClick={() => setActiveTab('design')}
@@ -569,19 +600,11 @@ export default function App() {
             </button>
           </div>
         </div>
-
-        {/* Zone 3 - Actions */}
         <div className="flex-1 flex items-center justify-end gap-2">
-          <select
-            value={selectedTemplateId}
-            onChange={e => handleSelectTemplate(e.target.value)}
-            disabled={loadingTemplates}
-            className="w-36 text-[12px] border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-700 outline-none focus:border-emerald-400 transition-all"
-          >
+          <select value={selectedTemplateId} onChange={e => handleSelectTemplate(e.target.value)} disabled={loadingTemplates}
+            className="w-36 text-[12px] border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-700 outline-none focus:border-emerald-400 transition-all">
             <option value="">{loadingTemplates ? 'Loading...' : templates.length === 0 ? 'Templates' : 'Load template'}</option>
-            {templates.map(t => (
-              <option key={t.id} value={t.id}>{t.name}</option>
-            ))}
+            {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
           <button onClick={handleSaveDraft} disabled={saving}
             className={`px-3 py-1.5 text-[13px] border rounded-lg transition-all font-medium flex items-center gap-1.5 ${savedDraft ? 'border-emerald-300 text-emerald-600 bg-emerald-50' : 'border-gray-200 text-gray-600 hover:bg-gray-50'} disabled:opacity-50`}>
@@ -595,11 +618,10 @@ export default function App() {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Palette */}
         <aside className="w-48 bg-white border-r border-gray-200 overflow-y-auto flex-shrink-0 py-4 px-3">
           {activeTab === 'design' && PALETTE_GROUPS.map((pg, pi) => (
             <div key={pg.label} className={pi < PALETTE_GROUPS.length - 1 ? "mb-5" : ""}>
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2 px-1">{pg.label}</p>
+              <p className="text-[10px] font-semibold text-slate-300 uppercase tracking-widest mb-2 px-1">{pg.label}</p>
               {pg.types.map(type => {
                 const m = TYPE_META[type]
                 return (
@@ -615,26 +637,14 @@ export default function App() {
           ))}
         </aside>
 
-        {/* Main Content Area */}
-        <main className="flex-1 overflow-y-auto p-5 bg-gray-100">
+        <main className="flex-1 overflow-y-auto p-5">
           {activeTab === 'design' && (
             <>
-              {/* Master Identity Card */}
               <div className="bg-white rounded-xl border-t-[10px] border-emerald-500 border border-gray-200 shadow-sm mb-4 p-6">
-                <input type="text" value={formName}
-                  onChange={e => { setFormName(e.target.value); setIsDirty(true); }}
-                  className="w-full text-[18px] font-semibold text-gray-900 border-none outline-none focus:ring-0 placeholder:text-gray-400 mb-2"
-                  placeholder="Form name..." />
-                <input type="text" value={formDescription}
-                  onChange={e => { setFormDescription(e.target.value); setIsDirty(true); }}
-                  className="w-full text-[13px] text-gray-500 border-none outline-none focus:ring-0 placeholder:text-gray-400"
-                  placeholder="Add a description..." />
-                {/* <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
-                  <span className={`text-[11px] px-2.5 py-0.5 rounded-full border font-medium ${isDirty ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`}>
-                    v{version} {isDirty ? 'unsaved' : 'saved'}
-                  </span>
-                  <span className="text-[11px] text-gray-400">{totalFields} fields</span>
-                </div> */}
+                <input type="text" value={formName} onChange={e => { setFormName(e.target.value); setIsDirty(true); }}
+                  className="w-full text-[18px] font-semibold text-gray-900 border-none outline-none focus:ring-0 placeholder:text-gray-400 mb-2" placeholder="Form name..." />
+                <input type="text" value={formDescription} onChange={e => { setFormDescription(e.target.value); setIsDirty(true); }}
+                  className="w-full text-[13px] text-gray-500 border-none outline-none focus:ring-0 placeholder:text-gray-400" placeholder="Add a description..." />
               </div>
 
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
@@ -643,7 +653,8 @@ export default function App() {
                     <SortableGroup key={g.id} group={g} selectedFieldId={selectedFieldId}
                       onSelectField={setSelectedFieldId} onDeleteField={deleteField}
                       onAddField={addField} onUpdateGroup={updateGroup} onDeleteGroup={deleteGroup}
-                      onDropFromPalette={(gid, type) => addField(gid, type)} onUpdateField={updateField} />
+                      onDropFromPalette={(gid, type) => addField(gid, type)} onUpdateField={updateField}
+                      onDuplicateField={duplicateField} onDuplicateGroup={duplicateGroup} />
                   ))}
                 </SortableContext>
                 <DragOverlay dropAnimation={{ duration: 150, easing: 'ease' }}>
@@ -677,25 +688,16 @@ export default function App() {
           )}
         </main>
 
-        {/* Config Panel - Collapsible */}
         {activeTab === 'design' && configPanelOpen && (
           <aside className="w-64 bg-white border-l border-gray-200 overflow-y-auto flex-shrink-0">
             <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
               <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">Field settings</p>
-              <button onClick={() => setConfigPanelOpen(false)}
-                className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
+              <button onClick={() => setConfigPanelOpen(false)} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
             </div>
             <ConfigPanel groups={groups} selectedFieldId={selectedFieldId} onUpdateField={updateField} onDeleteField={deleteField} />
           </aside>
         )}
-        {activeTab === 'design' && !configPanelOpen && (
-          <button onClick={() => setConfigPanelOpen(true)}
-            className="absolute right-4 top-1/2 w-6 h-12 bg-white border border-gray-200 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-50 text-xs">
-            ⚙
-          </button>
-        )}
       </div>
-
       {showPreview && <PreviewModal groups={groups} onClose={() => setShowPreview(false)} />}
     </div>
   )

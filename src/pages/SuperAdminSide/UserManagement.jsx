@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import {
-  Search,
   Users,
   Shield,
   Building2,
-  Loader2,
   AlertTriangle
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { CardSkeleton, SearchInput, StatCard } from '../../components/ui/primitives'
+import { toTitleCase } from '../../lib/textFormat'
 
 export default function UserManagement() {
   const [users, setUsers] = useState([])
@@ -132,22 +132,19 @@ export default function UserManagement() {
   }
 
   return (
-    <div>
+    <div className="space-y-6 p-4 sm:p-6">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
         <p className="text-gray-600">Manage all users across all clinics</p>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-6">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-          <input
-            type="text"
+          <SearchInput
             placeholder="Search users by name, ID, or clinic..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition"
           />
         </div>
 
@@ -164,36 +161,18 @@ export default function UserManagement() {
       </div>
 
       {/* Stats Summary */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-lg p-4 border border-gray-200">
-          <div className="text-2xl font-bold text-gray-900">{users.length}</div>
-          <div className="text-sm text-gray-500">Total Users</div>
-        </div>
-        <div className="bg-white rounded-lg p-4 border border-gray-200">
-          <div className="text-2xl font-bold text-purple-600">
-            {users.filter(u => u.role === 'super-admin').length}
-          </div>
-          <div className="text-sm text-gray-500">Super Admins</div>
-        </div>
-        <div className="bg-white rounded-lg p-4 border border-gray-200">
-          <div className="text-2xl font-bold text-blue-600">
-            {users.filter(u => u.role === 'admin').length}
-          </div>
-          <div className="text-sm text-gray-500">Admins</div>
-        </div>
-        <div className="bg-white rounded-lg p-4 border border-gray-200">
-          <div className="text-2xl font-bold text-emerald-600">
-            {users.filter(u => u.role === 'clinician').length}
-          </div>
-          <div className="text-sm text-gray-500">Clinicians</div>
-        </div>
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-4">
+        <StatCard value={users.length} label="Total Users" />
+        <StatCard value={users.filter(u => u.role === 'super-admin').length} label="Super Admins" valueClassName="text-purple-600" />
+        <StatCard value={users.filter(u => u.role === 'admin').length} label="Admins" valueClassName="text-blue-600" />
+        <StatCard value={users.filter(u => u.role === 'clinician').length} label="Clinicians" valueClassName="text-emerald-600" />
       </div>
 
       {/* Users Table */}
       {loading ? (
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
-          <span className="ml-3 text-gray-600">Loading users...</span>
+        <div className="space-y-3">
+          <CardSkeleton rows={4} />
+          <CardSkeleton rows={4} />
         </div>
       ) : filteredUsers.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-xl border border-gray-200">
@@ -204,7 +183,7 @@ export default function UserManagement() {
           </p>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
@@ -236,7 +215,7 @@ export default function UserManagement() {
                         </div>
                         <div className="ml-4">
                           <div className="text-sm font-medium text-gray-900">
-                            {user.full_name || 'Unknown'}
+                            {toTitleCase(user.full_name || 'Unknown')}
                           </div>
                           <div className="text-xs text-gray-500">
                             ID: {user.id?.substring(0, 8)}...

@@ -31,13 +31,13 @@ export function calculateField(groupsSchema, fieldId, formData) {
   try {
     const result = evaluateFormula(field.formula, formData, groupsSchema)
     return isFinite(result) ? Number(result.toFixed(2)) : null
-    
+
   } catch (e) {
     // console.warn(`Formula error for field ${fieldId}:`, e.message)
     return null
   }
 }
- 
+
 function findFieldById(groups, fieldId) {
   for (const group of groups || []) {
     const field = (group.fields || []).find(f => f.id === fieldId)
@@ -123,6 +123,7 @@ export function transformGroupsToSchema(groups) {
         ...(field.min && { min: field.min }),
         ...(field.max && { max: field.max }),
         ...(field.options?.length && { options: field.options }),
+        ...(field.presets?.length && { presets: field.presets }),
         ...(field.formula && { formula: field.formula }),
         ...(field.conditions?.length && { conditions: field.conditions }),
       }
@@ -181,6 +182,7 @@ export function transformSchemaToGroups(schema, existingIdMap = {}) {
         min: field.min || '',
         max: field.max || '',
         options: field.options || [],
+        presets: field.presets || [],
         formula: field.formula || '',
         conditions: field.conditions || [],
       })),

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import { supabase } from '../../lib/supabase'
 import { useActiveCycleQuery } from '../../hooks/useActiveCycleQuery'
@@ -8,6 +8,7 @@ import { useSectionDefinitions } from '../../hooks/useSectionDefinitions'
 import { useUsersManagement } from '../../hooks/useUsersManagement'
 import { useTemplateActivation } from '../../hooks/useTemplateActivation'
 import { Button, Toast, CredentialsModal, AddUserModal, EditUserModal, ResetPasswordModal, DeleteUserModal } from '../../components/RoleManagement/RoleManagementModals'
+import { Button as PrimitiveButton, SearchInput } from '../../components/ui/primitives'
 import UsersTable from '../../components/RoleManagement/UsersTable'
 import TemplateActivationPanel from '../../components/RoleManagement/TemplateActivationPanel'
 
@@ -118,27 +119,25 @@ export default function RoleManagement() {
   }
 
   return (
-    <div className="w-full space-y-5 bg-slate-100 p-3 sm:p-5 lg:p-6">
+    <div className="w-full space-y-6 bg-slate-100 p-4 sm:p-6">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       <CredentialsModal show={!!credentials} credentials={credentials} onClose={() => setCredentials(null)} />
-      <div className="mx-auto w-full max-w-[1400px] space-y-5">
+      <div className="mx-auto w-full max-w-[1400px] space-y-4">
         <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-xl font-semibold tracking-tight text-slate-900">Role Management</h2>
-            <p className="mt-1 text-sm text-slate-500">Manage clinic admins, clinicians, section access, and template activation.</p>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-              <input
-                type="text"
+          <div className="flex items-center gap-2">
+            <div className="flex-1 sm:flex-none sm:w-52">
+              <SearchInput
                 value={searchQuery}
                 onChange={event => setSearchQuery(event.target.value)}
                 placeholder="Search users..."
-                className="min-h-11 w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 sm:w-64"
               />
             </div>
-            <Button variant="primary" onClick={() => setShowAddModal(true)}><Plus size={16} /> Add User</Button>
+            <PrimitiveButton onClick={() => setShowAddModal(true)} variant="primary" className="min-h-10 px-3 py-2">
+              <Plus size={15} /> Add User
+            </PrimitiveButton>
           </div>
         </div>
         {isClinicAdmin && <TemplateActivationPanel activeCycle={activeCycle} activeCycleQuery={activeCycleQuery} publishedTemplates={publishedTemplates} templateAssignments={templateAssignments} activatingSection={activatingSection} handleActivateTemplate={handleActivateTemplate} sectionOptions={sectionOptions} navigate={navigate} />}

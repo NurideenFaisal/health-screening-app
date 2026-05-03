@@ -18,13 +18,13 @@ export default function Screening_data() {
   }
 
 
-  const patients = [
-    { id: 'GH0987-001', name: 'Kwame Mensah', gender: 'Male', age: 6 },
-    { id: 'GH0987-002', name: 'Ama Asante', gender: 'Female', age: 5 },
-    { id: 'GH0987-003', name: 'Kofi Owusu', gender: 'Male', age: 4 },
-    { id: 'GH0987-004', name: 'Akua Boateng', gender: 'Female', age: 7 },
-    { id: 'GH0987-005', name: 'Yaw Osei', gender: 'Male', age: 6 },
-  ]
+  // const patients = [
+  //   { id: 'GH0987-001', name: 'Kwame Mensah', gender: 'Male', age: 6 },
+  //   { id: 'GH0987-002', name: 'Ama Asante', gender: 'Female', age: 5 },
+  //   { id: 'GH0987-003', name: 'Kofi Owusu', gender: 'Male', age: 4 },
+  //   { id: 'GH0987-004', name: 'Akua Boateng', gender: 'Female', age: 7 },
+  //   { id: 'GH0987-005', name: 'Yaw Osei', gender: 'Male', age: 6 },
+  // ]
 
   const filtered = patients.filter(p =>
     p.name.toLowerCase().includes(query.toLowerCase()) ||

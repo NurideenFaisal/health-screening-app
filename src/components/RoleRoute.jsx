@@ -1,17 +1,15 @@
 import { Navigate } from 'react-router-dom'
-import { Users, Shield, ShieldAlert, ShieldCheck, AlertTriangle } from 'lucide-react'
+import { ShieldAlert, AlertTriangle } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
+import { Button, PageLoader } from './ui/primitives'
 
 export default function RoleRoute({ requiredRole, user, profile, children }) {
   const loading = useAuthStore(state => state.loading)
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4 sm:p-6">
+        <PageLoader />
       </div>
     )
   }
@@ -46,12 +44,14 @@ export default function RoleRoute({ requiredRole, user, profile, children }) {
           <p className="text-gray-600 mb-6">
             Super Administrators cannot access individual clinic admin panels.\nPlease use the Mission Control dashboard instead.
           </p>
-          <a 
+          <Button
+            as="a"
             href="/super-admin/dashboard" 
-            className="mt-6 inline-flex items-center justify-center px-6 py-3 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition-colors"
+            variant="primary"
+            className="mt-6"
           >
             Go to Mission Control
-          </a>
+          </Button>
         </div>
       </div>
     )
@@ -73,12 +73,14 @@ export default function RoleRoute({ requiredRole, user, profile, children }) {
             <AlertTriangle className="w-4 h-4" />
             <span>Your role: {profile.role}</span>
           </div>
-          <a 
+          <Button
+            as="a"
             href={profile.role === 'admin' ? '/admin/dashboard' : '/clinician/dashboard'} 
-            className="mt-6 inline-flex items-center justify-center px-6 py-3 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition-colors"
+            variant="primary"
+            className="mt-6"
           >
             Return to Dashboard
-          </a>
+          </Button>
         </div>
       </div>
     )

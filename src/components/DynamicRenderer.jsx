@@ -5,17 +5,16 @@ import { useScreeningSection } from '../hooks/useScreeningSection'
 import { calculateField, isFieldVisible, validateField } from '../lib/logicEngine'
 import { Button, EmptyState, Skeleton, StatusBadge } from './ui/primitives'
 
-const controlClass = 'mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
+// ── Input Styles ──────────────────────────────────────────────────────────────
+const inputClass = 'w-full bg-gray-100 rounded-xl px-3 py-2 text-sm text-gray-700 placeholder-gray-400 outline-none focus:ring-2 focus:ring-emerald-400 transition'
+const labelClass = 'mb-1 block text-xs font-semibold text-gray-500 Capitalize tracking-wide'
 
+// ── Field Components ──────────────────────────────────────────────────────────
 const RadioGroup = ({ options = [], value, onChange }) => (
-  <div className="mt-2 flex flex-wrap gap-2">
+  <div className="mt-1 flex flex-wrap gap-2">
     {options.map(option => (
-      <button
-        key={option.v}
-        type="button"
-        onClick={() => onChange(option.v)}
-        className={`min-h-11 cursor-pointer rounded-xl border px-3 py-2 text-sm font-medium transition active:scale-[0.97] ${value === option.v ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-emerald-300 hover:bg-emerald-50'}`}
-      >
+      <button key={option.v} type="button" onClick={() => onChange(option.v)}
+        className={`min-h-[42px] cursor-pointer rounded-xl border px-3 py-2 text-sm font-medium transition active:scale-[0.97] ${value === option.v ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-emerald-300 hover:bg-emerald-50'}`}>
         {option.l || option.v}
       </button>
     ))}
@@ -23,99 +22,124 @@ const RadioGroup = ({ options = [], value, onChange }) => (
 )
 
 const TextInput = ({ type = 'text', value, onChange, placeholder, step, min, max }) => (
-  <input type={type} value={value || ''} onChange={event => onChange(event.target.value)} placeholder={placeholder || 'Enter value'} step={step} min={min} max={max} className={controlClass} />
+  <input type={type} value={value || ''} onChange={e => onChange(e.target.value)} placeholder={placeholder || 'Enter value'} step={step} min={min} max={max} className={inputClass} />
 )
 
 const SelectInput = ({ options = [], value, onChange, placeholder }) => (
-  <select value={value || ''} onChange={event => onChange(event.target.value)} className={controlClass}>
+  <select value={value || ''} onChange={e => onChange(e.target.value)} className={inputClass}>
     <option value="">{placeholder || 'Select...'}</option>
-    {options.map(option => <option key={option.v} value={option.v}>{option.l || option.v}</option>)}
+    {options.map(o => <option key={o.v} value={o.v}>{o.l || o.v}</option>)}
   </select>
 )
 
 const CheckboxInput = ({ label, checked, onChange }) => (
-  <label className="mt-1.5 flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 transition hover:bg-slate-50">
-    <input type="checkbox" checked={!!checked} onChange={event => onChange(event.target.checked)} className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
+  <label className="flex min-h-[42px] cursor-pointer items-center gap-3 rounded-xl bg-gray-100 px-3 py-2 transition hover:bg-gray-200">
+    <input type="checkbox" checked={!!checked} onChange={e => onChange(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
     <span className="text-sm font-medium text-slate-700">{label}</span>
   </label>
 )
 
-const TextAreaInput = ({ value, onChange, placeholder, rows = 3 }) => (
-  <textarea value={value || ''} onChange={event => onChange(event.target.value)} placeholder={placeholder || 'Enter details'} rows={rows} className={`${controlClass} resize-none`} />
+const TextAreaInput = ({ value, onChange, placeholder, rows = 1, presets = [] }) => (
+  <div>
+    <textarea value={value || ''} onChange={e => onChange(e.target.value)} placeholder={placeholder || 'Enter details'} rows={rows}
+      className={`${inputClass} resize-none py-1.5`} />
+    {presets.length > 0 && (
+      <div className="mt-1.5 flex flex-wrap gap-1">
+        {presets.map((p, i) => (
+          <button key={i} type="button" onClick={() => onChange(p.l)}
+            className="rounded-lg bg-gray-100 px-2 py-0.5 text-[10px] text-slate-600 transition hover:bg-gray-200 hover:text-slate-700 active:scale-[0.97]">
+            {p.l}
+          </button>
+        ))}
+      </div>
+    )}
+  </div>
 )
 
 const FieldLabel = ({ label, required }) => (
-  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-    {label || 'Untitled'}{required && <span className="ml-0.5 text-rose-500">*</span>}
-  </label>
+  <label className={labelClass}>{label || 'Untitled'}{required && <span className="ml-0.5 text-rose-500">*</span>}</label>
 )
 
+// ── Progress Indicator ────────────────────────────────────────────────────────
+function SectionProgress({ fields, formData }) {
+  const total = fields?.length || 0
+  if (total === 0) return null
+  const filled = fields.filter(f => formData[f.id] && formData[f.id] !== '').length
+  const pct = Math.round((filled / total) * 100)
+  return (
+    <div className="mb-3 flex items-center gap-2 text-[10px] text-slate-400">
+      <div className="h-1.5 flex-1 rounded-full bg-gray-200 overflow-hidden">
+        <div className="h-full rounded-full bg-emerald-400 transition-all duration-500" style={{ width: `${pct}%` }} />
+      </div>
+      <span className="font-medium tabular-nums">{filled}/{total}</span>
+    </div>
+  )
+}
+
+// ── Section Card ──────────────────────────────────────────────────────────────
 function DynamicFieldGroup({ group, schema, formData, onChange, errors }) {
   const color = group.color || '#059669'
   return (
-    <section className="mb-5 rounded-2xl border p-4 shadow-sm sm:p-5" style={{ backgroundColor: `${color}15`, borderColor: `${color}30` }}>
-      <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold tracking-tight text-slate-900">
-        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
-        {group.label || 'Section'}
-      </h3>
-      <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-        {(group.fields || []).map(field => <DynamicField key={field.id} field={field} schema={schema} formData={formData} onChange={onChange} errors={errors} />)}
+    <section className="mb-4 overflow-hidden rounded-2xl border bg-white shadow-sm" style={{ borderColor: `${color}40` }}>
+      <div className="flex items-center gap-2 border-b px-5 py-3" style={{ backgroundColor: `${color}0A`, borderColor: `${color}20` }}>
+        <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+        <h3 className="text-sm font-semibold text-slate-800">{group.label || 'Section'}</h3>
+        <span className="ml-auto text-[10px] text-slate-400">{group.fields?.length || 0} fields</span>
+      </div>
+      <div className="p-5">
+        <SectionProgress fields={group.fields} formData={formData} />
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+          {(group.fields || []).map(field => (
+            <DynamicField key={field.id} field={field} schema={schema} formData={formData} onChange={onChange} errors={errors} />
+          ))}
+        </div>
       </div>
     </section>
   )
 }
 
+// ── Skeleton ──────────────────────────────────────────────────────────────────
 function FormGroupSkeleton() {
   return (
-    <section className="mb-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-      <div className="mb-4 flex items-center gap-2">
-        <Skeleton className="h-2.5 w-2.5 rounded-full" />
-        <Skeleton className="h-5 w-40" />
+    <section className="mb-4 rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex items-center gap-2 border-b border-slate-100 px-5 py-3">
+        <Skeleton className="h-2 w-2 rounded-full" />
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="ml-auto h-3 w-8" />
       </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        <div>
-          <Skeleton className="mb-2 h-3 w-24" />
-          <Skeleton className="h-11 w-full rounded-xl" />
-        </div>
-        <div>
-          <Skeleton className="mb-2 h-3 w-28" />
-          <Skeleton className="h-11 w-full rounded-xl" />
-        </div>
-        <div>
-          <Skeleton className="mb-2 h-3 w-20" />
-          <Skeleton className="h-11 w-full rounded-xl" />
-        </div>
-        <div>
-          <Skeleton className="mb-2 h-3 w-32" />
-          <Skeleton className="h-11 w-full rounded-xl" />
+      <div className="p-5">
+        <Skeleton className="mb-3 h-1.5 w-full rounded-full" />
+        <div className="grid gap-4 md:grid-cols-2">
+          <div><Skeleton className="mb-2 h-3 w-20" /><Skeleton className="h-10 w-full rounded-xl" /></div>
+          <div><Skeleton className="mb-2 h-3 w-24" /><Skeleton className="h-10 w-full rounded-xl" /></div>
         </div>
       </div>
     </section>
   )
 }
 
+// ── Dynamic Field ─────────────────────────────────────────────────────────────
 function DynamicField({ field, schema, formData, onChange, errors }) {
   if (!isFieldVisible(field, formData)) return null
 
   const value = formData[field.id] ?? ''
   const fieldErrors = errors?.[field.id] || []
   const handleChange = nextValue => onChange(field.id, nextValue)
+  const isFullWidth = ['textarea', 'checkbox'].includes(field.type) || (field.type === 'radio' && field.options?.length > 3)
 
   if (field.type === 'computed') {
-    const computedValue = calculateField(schema?.groups, field.id, formData)
+    const cv = calculateField(schema?.groups, field.id, formData)
     return (
-      <div>
+      <div className={isFullWidth ? 'md:col-span-2' : ''}>
         <FieldLabel label={field.label} required={field.required} />
-        <div className="mt-1.5 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2.5 font-mono text-sm text-violet-700">
-          {computedValue !== null ? computedValue : '(auto)'}
-        </div>
+        <div className="mt-1 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 font-mono text-sm text-violet-700">{cv !== null ? cv : '(auto)'}</div>
         {field.help && <p className="mt-1 text-xs text-slate-400">{field.help}</p>}
       </div>
     )
   }
 
   return (
-    <div>
+    <div className={isFullWidth ? 'md:col-span-2' : ''}>
       {field.type === 'checkbox' ? (
         <CheckboxInput label={field.label} checked={value} onChange={handleChange} />
       ) : field.type === 'radio' ? (
@@ -123,7 +147,7 @@ function DynamicField({ field, schema, formData, onChange, errors }) {
       ) : field.type === 'dropdown' || field.type === 'select' ? (
         <div><FieldLabel label={field.label} required={field.required} /><SelectInput options={field.options} value={value} onChange={handleChange} placeholder="Select..." /></div>
       ) : field.type === 'textarea' ? (
-        <div><FieldLabel label={field.label} required={field.required} /><TextAreaInput value={value} onChange={handleChange} placeholder={field.help} rows={field.display?.rows || 3} /></div>
+        <div><FieldLabel label={field.label} required={field.required} /><TextAreaInput value={value} onChange={handleChange} placeholder={field.help} rows={1} presets={field.presets || []} /></div>
       ) : (
         <div><FieldLabel label={field.label} required={field.required} /><TextInput type={field.type === 'number' ? 'number' : 'text'} value={value} onChange={handleChange} placeholder={field.help} step={field.step} min={field.min} max={field.max} /></div>
       )}
@@ -135,13 +159,11 @@ function DynamicField({ field, schema, formData, onChange, errors }) {
 
 function findFieldById(schema, fieldId) {
   if (!schema?.groups) return null
-  for (const group of schema.groups) {
-    const field = (group.fields || []).find(item => item.id === fieldId)
-    if (field) return field
-  }
+  for (const g of schema.groups) for (const f of g.fields || []) if (f.id === fieldId) return f
   return null
 }
 
+// ── Main Renderer ─────────────────────────────────────────────────────────────
 export default function DynamicRenderer({ sectionNumber, patientId, cycleId, clinicId, assignedSections = [], onSectionSwitch }) {
   const [schema, setSchema] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -150,45 +172,36 @@ export default function DynamicRenderer({ sectionNumber, patientId, cycleId, cli
 
   const { sectionData, save, isSaving, syncStatus } = useScreeningSection({ childId: patientId, cycleId, sectionNumber })
 
+  // Auto-save to localStorage
   useEffect(() => {
     if (!patientId || !cycleId || !sectionNumber) return
     const key = `screening_${patientId}_${cycleId}_${sectionNumber}`
-    try {
-      localStorage.setItem(key, JSON.stringify({ section_data: formData, is_complete: false, updated_at: new Date().toISOString() }))
-    } catch {
-      // Continue without local autosave when storage is unavailable.
-    }
+    try { localStorage.setItem(key, JSON.stringify({ section_data: formData, is_complete: false, updated_at: new Date().toISOString() })) } catch {}
   }, [formData, patientId, cycleId, sectionNumber])
 
+  // Load template
   useEffect(() => {
     if (!clinicId || !cycleId) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true)
     supabase.rpc('get_clinic_template', { p_clinic_id: clinicId, p_cycle_id: cycleId, p_section_number: sectionNumber })
       .then(({ data, error }) => {
-        if (error || !data?.fieldSchema?.groups) {
-          setSchema(null)
-          return
-        }
+        if (error || !data?.fieldSchema?.groups) { setSchema(null); return }
         setSchema(data.fieldSchema)
         if (sectionData) {
           const flat = {}
-          for (const group of data.fieldSchema.groups) for (const field of group.fields || []) flat[field.id] = sectionData[field.id] ?? ''
+          for (const g of data.fieldSchema.groups) for (const f of g.fields || []) flat[f.id] = sectionData[f.id] ?? ''
           setFormData(flat)
         }
       })
-      .catch(error => {
-        console.error('Template error:', error)
-        setSchema(null)
-      })
+      .catch(() => setSchema(null))
       .finally(() => setLoading(false))
-  }, [clinicId, cycleId, sectionNumber, sectionData])
+  }, [clinicId, cycleId, sectionNumber])
 
+  // Populate from saved data
   useEffect(() => {
     if (sectionData && schema?.groups) {
       const flat = {}
-      for (const group of schema.groups) for (const field of group.fields || []) flat[field.id] = sectionData[field.id] ?? ''
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+      for (const g of schema.groups) for (const f of g.fields || []) flat[f.id] = sectionData[f.id] ?? ''
       setFormData(flat)
     }
   }, [sectionData, schema])
@@ -199,32 +212,27 @@ export default function DynamicRenderer({ sectionNumber, patientId, cycleId, cli
     if (field) setErrors(prev => ({ ...prev, [fieldId]: validateField(field, value) }))
   }
 
-  const currentIndex = assignedSections.indexOf(sectionNumber)
-  const hasMultipleSections = assignedSections.length > 1
-  const isLast = currentIndex === assignedSections.length - 1
+  const curIdx = assignedSections.indexOf(sectionNumber)
+  const hasMulti = assignedSections.length > 1
+  const isLast = curIdx === assignedSections.length - 1
 
   const doSave = () => {
     if (!cycleId || !patientId) return
-    const shouldComplete = isLast || !hasMultipleSections
-    save({ sectionData: { ...formData, updated_at: new Date().toISOString() }, isComplete: shouldComplete })
-    if (shouldComplete) window.history.back()
-    else onSectionSwitch?.(assignedSections[currentIndex + 1])
+    const done = isLast || !hasMulti
+    save({ sectionData: { ...formData, updated_at: new Date().toISOString() }, isComplete: done })
+    if (done) window.history.back()
+    else onSectionSwitch?.(assignedSections[curIdx + 1])
   }
 
-  if (loading) return (
-    <div>
-      <FormGroupSkeleton />
-      <FormGroupSkeleton />
-    </div>
-  )
+  if (loading) return <div className="mx-auto max-w-2xl"><FormGroupSkeleton /><FormGroupSkeleton /></div>
   if (!schema) return <EmptyState title="No template found" description="Ask an administrator to activate a template for this section." />
 
   return (
-    <div>
+    <div className="mx-auto max-w-2xl">
       {schema.groups?.map(group => <DynamicFieldGroup key={group.id} group={group} schema={schema} formData={formData} onChange={handleChange} errors={errors} />)}
-      <div className="sticky bottom-0 -mx-4 mt-6 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:flex sm:justify-center sm:bg-transparent sm:px-0 sm:pt-4 sm:backdrop-blur-0">
+      <div className="sticky bottom-0 -mx-4 mt-6 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:flex sm:justify-center sm:bg-transparent sm:px-0 sm:pt-4">
         <Button onClick={doSave} disabled={isSaving} variant="primary" className="w-full sm:w-auto sm:min-w-44">
-          {isSaving ? <Loader2 size={14} className="animate-spin" /> : isLast || !hasMultipleSections ? 'Save & Finish' : 'Save & Next'}
+          {isSaving ? <Loader2 size={14} className="animate-spin" /> : isLast || !hasMulti ? 'Save & Finish' : 'Save & Next'}
           {syncStatus === 'pending' && <StatusBadge status="pending">Pending</StatusBadge>}
         </Button>
       </div>

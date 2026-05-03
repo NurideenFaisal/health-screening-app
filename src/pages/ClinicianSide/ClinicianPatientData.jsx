@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../store/authStore'
 import { Search, Plus, X, Pencil, Trash2, Loader2 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { formatCommunity, formatPatientName } from '../../lib/textFormat'
 
 // - Utilities -
 function calcAge(dob) {
@@ -176,11 +177,11 @@ export default function PatientSearch() {
             </p>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {field('firstName', 'First name', 'text', 'Kwame')}
-              {field('lastName', 'Last name', 'text', 'Mensah')}
+              {field('firstName', 'First name', 'text', '')}
+              {field('lastName', 'Last name', 'text', '')}
             </div>
 
-            {field('childId', 'Patient ID', 'text', 'GH0007')}
+            {field('childId', 'Patient ID', 'text', 'GH007')}
             {field('community', 'Community', 'text', '')}
             {field('dob', 'Date of birth', 'date')}
 
@@ -222,12 +223,12 @@ export default function PatientSearch() {
                   }
 
                   saveMutation.mutate({
-                    first_name: form.firstName,
-                    last_name: form.lastName,
-                    child_code: form.childId,
+                    first_name: formatPatientName(form.firstName),
+                    last_name: formatPatientName(form.lastName),
+                    child_code: form.childId.toUpperCase().trim(),
                     birthdate: form.dob,
                     gender: form.sex,
-                    community: form.community,
+                    community: formatCommunity(form.community),
                   })
                 }}
                 className="flex-1 py-2 rounded-xl text-sm text-white bg-emerald-500 hover:bg-emerald-600 transition font-medium flex items-center justify-center gap-2 disabled:bg-emerald-300"
