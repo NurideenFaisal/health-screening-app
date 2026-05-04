@@ -47,15 +47,12 @@ function findFieldById(groups, fieldId) {
 }
 
 function evaluateFormula(formula, formData, groups) {
+  const safeFormula = formula.replace(/[^a-zA-Z0-9_\+\-\*\/\(\)\.\s\%]/g, '')
   const variables = {}
   for (const group of groups || []) {
     for (const field of group.fields || []) {
       const val = formData[field.id]
-      // If value is truly empty, skip this variable entirely
-      if (val === undefined || val === '' || val === null) {
-        // Only add to variables if it has a value
-        continue
-      }
+      if (val === undefined || val === '' || val === null) continue
       const varName = (field.label || '').replace(/\s*\([^)]*\)\s*/g, '').trim().replace(/\s+/g, '_')
       if (varName) variables[varName] = Number(val)
     }
@@ -63,12 +60,24 @@ function evaluateFormula(formula, formData, groups) {
   const keys = Object.keys(variables)
   const vals = Object.values(variables)
   if (keys.length === 0) return NaN
-  return (new Function(...keys, `return (${formula})`))(...vals)
+  return (new Function(...keys, `return (${safeFormula})`))(...vals)
 }
 
 export function validateField(fieldConfig, value) {
   const errors = []
 
+  // Checkbox group validation
+  if (fieldConfig.type === 'checkbox' && fieldConfig.options?.length) {
+    if (fieldConfig.required) {
+      const selected = value && typeof value === 'object' 
+        ? Object.values(value).some(v => v === true) 
+        : !!value
+      if (!selected) errors.push('Select at least one option')
+    }
+    return errors
+  }
+
+  // Single checkbox or other types
   if (fieldConfig.required && (value === undefined || value === '' || value === null)) {
     errors.push('This field is required')
   }

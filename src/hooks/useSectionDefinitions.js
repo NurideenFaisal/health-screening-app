@@ -1,9 +1,10 @@
-import { useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMemo, useEffect } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { normalizeSectionOrder } from '../lib/sectionUtils'
 
 export function useSectionDefinitions(sectionOrder = []) {
+  const queryClient = useQueryClient()
   const normalizedOrder = useMemo(() => normalizeSectionOrder(sectionOrder), [JSON.stringify(sectionOrder)])
 
   const query = useQuery({
@@ -26,6 +27,18 @@ export function useSectionDefinitions(sectionOrder = []) {
       return result
     },
   })
+
+useEffect(() => {
+    const channel = supabase
+      .channel('section-defs-updates')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'section_definitions' }, (payload) => {
+        queryClient.invalidateQueries({ queryKey: ['section-definitions'] })
+      })
+      .subscribe((status, err) => {})
+    return () => { 
+      supabase.removeChannel(channel) 
+    }
+  }, [queryClient])
 
   const sectionMap = useMemo(() => new Map((query.data || []).map(s => [s.section_number, s])), [query.data])
 

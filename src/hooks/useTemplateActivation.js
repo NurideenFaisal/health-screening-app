@@ -16,7 +16,7 @@ export function useTemplateActivation(sectionOrder, activeCycle, profile) {
       if (error) throw error
       const publishedOnly = (data || []).filter(t => t.status === 'published')
       setPublishedTemplates(publishedOnly)
-    } catch (err) { console.error(`Failed to load templates: ${err.message}`) } 
+    } catch (err) { console.error(`Failed to load templates: ${err.message}`) }
     finally { setLoadingTemplatePanel(false) }
   }, [activeCycle?.id, profile?.clinic_id])
 
@@ -39,11 +39,27 @@ export function useTemplateActivation(sectionOrder, activeCycle, profile) {
       if (error) throw error
       await fetchTemplateAssignments()
       return { success: `Template activated for section ${sectionNumber}` }
-    } catch (err) { return { error: `Failed to activate template: ${err.message}` } } 
+    } catch (err) { return { error: `Failed to activate template: ${err.message}` } }
     finally { setActivatingSection(null) }
   }, [templateSelections, profile?.clinic_id, activeCycle?.id, fetchTemplateAssignments])
 
   useEffect(() => { fetchTemplateCatalog(); fetchTemplateAssignments() }, [activeCycle?.id, profile?.clinic_id, fetchTemplateCatalog, fetchTemplateAssignments])
+
+useEffect(() => {
+    if (!profile?.clinic_id || !activeCycle?.id) return
+    const channel = supabase
+      .channel('template-updates')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'form_templates' }, (payload) => {
+        fetchTemplateCatalog()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'clinic_templates', filter: `clinic_id=eq.${profile.clinic_id}` }, (payload) => {
+        fetchTemplateAssignments()
+      })
+      .subscribe((status, err) => {})
+    return () => { 
+      supabase.removeChannel(channel) 
+    }
+  }, [profile?.clinic_id, activeCycle?.id])
 
   return { publishedTemplates, templateAssignments, templateSelections, setTemplateSelections, loadingTemplatePanel, activatingSection, fetchTemplateCatalog, fetchTemplateAssignments, handleActivateTemplate }
 }

@@ -38,6 +38,19 @@ export default function ClinicRegistry() {
     return () => window.clearTimeout(timeoutId)
   }, [location.pathname, location.state, navigate])
 
+useEffect(() => {
+    const channel = supabase
+      .channel('clinic-updates')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'clinics' }, async (payload) => {
+        const { data } = await supabase.from('clinics').select('*').order('created_at', { ascending: false })
+        if (data) setClinics(data)
+      })
+      .subscribe((status, err) => {})
+    return () => { 
+      supabase.removeChannel(channel) 
+    }
+  }, [])
+
   async function fetchClinics() {
     try {
       setLoading(true)

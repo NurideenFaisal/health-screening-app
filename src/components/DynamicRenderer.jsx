@@ -32,12 +32,34 @@ const SelectInput = ({ options = [], value, onChange, placeholder }) => (
   </select>
 )
 
-const CheckboxInput = ({ label, checked, onChange }) => (
-  <label className="flex min-h-[42px] cursor-pointer items-center gap-3 rounded-xl bg-gray-100 px-3 py-2 transition hover:bg-gray-200">
-    <input type="checkbox" checked={!!checked} onChange={e => onChange(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
-    <span className="text-sm font-medium text-slate-700">{label}</span>
-  </label>
-)
+const CheckboxGroup = ({ options = [], value = {}, onChange, label, required }) => {
+  const selected = value || {}
+  const toggle = (optKey) => {
+    onChange({ ...selected, [optKey]: !selected[optKey] })
+  }
+  if (!options.length) {
+    // Single checkbox (legacy/no options)
+    return (
+      <label className="flex min-h-[42px] cursor-pointer items-center gap-3 rounded-xl bg-gray-100 px-3 py-2 transition hover:bg-gray-200">
+        <input type="checkbox" checked={!!value} onChange={e => onChange(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
+        <span className="text-sm font-medium text-slate-700">{label}</span>
+      </label>
+    )
+  }
+  return (
+    <div>
+      <FieldLabel label={label} required={required} />
+      <div className="mt-1 space-y-1.5">
+        {options.map(opt => (
+          <label key={opt.v} className="flex min-h-[42px] cursor-pointer items-center gap-3 rounded-xl bg-gray-100 px-3 py-2 transition hover:bg-gray-200">
+            <input type="checkbox" checked={!!selected[opt.v]} onChange={() => toggle(opt.v)} className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
+            <span className="text-sm text-slate-700">{opt.l}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 const TextAreaInput = ({ value, onChange, placeholder, rows = 1, presets = [] }) => (
   <div>
@@ -141,7 +163,7 @@ function DynamicField({ field, schema, formData, onChange, errors }) {
   return (
     <div className={isFullWidth ? 'md:col-span-2' : ''}>
       {field.type === 'checkbox' ? (
-        <CheckboxInput label={field.label} checked={value} onChange={handleChange} />
+        <CheckboxGroup label={field.label} options={field.options} value={value} onChange={handleChange} required={field.required} />
       ) : field.type === 'radio' ? (
         <div><FieldLabel label={field.label} required={field.required} /><RadioGroup options={field.options} value={value} onChange={handleChange} /></div>
       ) : field.type === 'dropdown' || field.type === 'select' ? (

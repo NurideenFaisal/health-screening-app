@@ -14,7 +14,6 @@ export default function ClinicianDashboard() {
   const [banner, setBanner] = useState({ show: false, pending: 0, syncing: false, synced: false, storageFull: false })
 
   useEffect(() => {
-    console.log('Preload check:', { clinicId: profile?.clinic_id, online: navigator.onLine, cycleId: activeCycle?.id, assignedSections: profile?.assigned_sections })
     if (!profile?.clinic_id || !navigator.onLine || !activeCycle?.id) return
     const preloadKey = `preload_complete_${profile.clinic_id}_${activeCycle.id}`
     if (localStorage.getItem(preloadKey) === 'true') return

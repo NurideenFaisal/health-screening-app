@@ -6,10 +6,10 @@ import { supabase } from '../lib/supabase'
 const ENROLLMENT_QUEUE_KEY = 'patient_enrollment_queue'
 const getEnrollmentQueue = () => { try { return JSON.parse(localStorage.getItem(ENROLLMENT_QUEUE_KEY) || '[]') } catch { return [] } }
 const queueIdFor = (item) => item.id || item.child_code
-const addToEnrollmentQueue = (item) => {
+const addToEnrollmentQueue = (item, userId) => {
   const id = queueIdFor(item)
   const q = getEnrollmentQueue().filter(i => queueIdFor(i) !== id)
-  q.push(item)
+  q.push({ ...item, _userId: userId })
   localStorage.setItem(ENROLLMENT_QUEUE_KEY, JSON.stringify(q))
 }
 const removeFromEnrollmentQueue = (id) => {
@@ -31,14 +31,14 @@ const cachePatient = (clinicId, patient) => {
   } catch {}
 }
 
-async function syncPatient(item) {
-  const { id, clinic_id, created_by, ...payload } = item
+async function syncPatient(item, userId) {
+  const { id, clinic_id, created_by, _userId, ...payload } = item
   if (id && !String(id).startsWith('local_')) {
-    const { error } = await supabase.from('children').update(payload).eq('id', id)
+    const { error } = await supabase.from('children').update({ ...payload, updated_by: userId }).eq('id', id)
     if (error) throw error
     return
   }
-  const { error } = await supabase.from('children').insert({ ...payload, created_by, clinic_id })
+  const { error } = await supabase.from('children').insert({ ...payload, created_by: created_by || userId, clinic_id })
   if (error) throw error
 }
 
@@ -46,12 +46,11 @@ async function processEnrollmentQueue() {
   if (!navigator.onLine) return
   for (const item of getEnrollmentQueue()) {
     const id = queueIdFor(item)
+    const userId = item._userId
     try {
-      await syncPatient(item)
+      await syncPatient(item, userId)
       removeFromEnrollmentQueue(id)
-    } catch {
-      break
-    }
+    } catch { break }
   }
 }
 
@@ -72,15 +71,15 @@ export function usePatientEnrollment({ profile }) {
       cachePatient(profile?.clinic_id, item)
       setSyncStatus('pending')
       if (!navigator.onLine) {
-        addToEnrollmentQueue(item)
+        addToEnrollmentQueue(item, profile?.id)
         return null
       }
       try {
-        await syncPatient(item)
+        await syncPatient(item, profile?.id)
         setSyncStatus('synced')
         return item
       } catch {
-        addToEnrollmentQueue(item)
+        addToEnrollmentQueue(item, profile?.id)
         return null
       }
     },

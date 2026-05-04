@@ -252,7 +252,7 @@ function ConfigPanel({ groups, selectedFieldId, onUpdateField, onDeleteField }) 
           </section>
         )}
 
-        {['dropdown', 'radio'].includes(field.type) && (
+        {['dropdown', 'radio', 'checkbox'].includes(field.type) && (
           <section>
             <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2.5">Options</p>
             <div className="space-y-1.5">
@@ -361,7 +361,18 @@ function PreviewModal({ groups, onClose }) {
                     {f.help && <p className="text-[11px] text-gray-400 mb-1">{f.help}</p>}
                     {f.type === 'textarea' && <textarea rows={2} value={formData[f.id] || ''} onChange={e => setValue(f.id, e.target.value)} className="w-full px-3 py-2 text-[13px] border border-gray-200 rounded-lg bg-gray-50 resize-none outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all" />}
                     {f.type === 'radio' && <div className="flex flex-wrap gap-3">{f.options.map(o => (<label key={o.v} className="flex items-center gap-1.5 text-[13px] cursor-pointer"><input type="radio" name={f.id} value={o.v} checked={formData[f.id] === o.v} onChange={() => setValue(f.id, o.v)} className="text-emerald-600" />{o.l}</label>))}</div>}
-                    {f.type === 'checkbox' && <label className="flex items-center gap-2 text-[13px] cursor-pointer"><input type="checkbox" checked={!!formData[f.id]} onChange={e => setValue(f.id, e.target.checked)} className="w-4 h-4 text-emerald-600" />{f.label}</label>}
+                    {f.type === 'checkbox' && (f.options?.length ? (
+                      <div className="space-y-1.5">
+                        {f.options.map(o => (
+                          <label key={o.v} className="flex items-center gap-2 text-[13px] cursor-pointer">
+                            <input type="checkbox" checked={!!(formData[f.id] && formData[f.id][o.v])} onChange={e => setValue(f.id, { ...(formData[f.id] || {}), [o.v]: e.target.checked })} className="w-4 h-4 text-emerald-600" />
+                            {o.l}
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <label className="flex items-center gap-2 text-[13px] cursor-pointer"><input type="checkbox" checked={!!formData[f.id]} onChange={e => setValue(f.id, e.target.checked)} className="w-4 h-4 text-emerald-600" />{f.label}</label>
+                    ))}
                     {f.type === 'dropdown' && <select value={formData[f.id] || ''} onChange={e => setValue(f.id, e.target.value)} className="w-full px-3 py-2 text-[13px] border border-gray-200 rounded-lg bg-gray-50 outline-none focus:border-emerald-400 transition-all"><option value="">Select...</option>{f.options.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}</select>}
                     {f.type === 'computed' && <input readOnly value={computedVal !== null ? computedVal : '(auto)'} className="w-full px-3 py-2 text-[13px] border border-purple-200 rounded-lg bg-purple-50 text-purple-700 font-mono" />}
                     {['text', 'number', 'date'].includes(f.type) && <input type={f.type} value={formData[f.id] || ''} onChange={e => setValue(f.id, e.target.value)} step={f.step || undefined} min={f.min || undefined} max={f.max || undefined} placeholder={f.help || ''} className="w-full px-3 py-2 text-[13px] border border-gray-200 rounded-lg bg-gray-50 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all" />}
@@ -483,7 +494,7 @@ export default function App() {
   const updateGroup = (gid, patch) => { setGroups(g => g.map(x => x.id === gid ? { ...x, ...patch } : x)); setIsDirty(true) }
   const addField = (gid, type) => {
     const fid = genId('f')
-    setGroups(g => g.map(x => x.id === gid ? { ...x, fields: [...x.fields, { id: fid, type, label: '', required: false, help: '', step: type === 'number' ? '1' : '', min: '', max: '', options: ['dropdown', 'radio'].includes(type) ? [{ v: 'option_1', l: 'Option 1' }] : [], presets: type === 'textarea' ? [] : undefined, formula: '', conditions: [] }] } : x))
+    setGroups(g => g.map(x => x.id === gid ? { ...x, fields: [...x.fields, { id: fid, type, label: '', required: false, help: '', step: type === 'number' ? '1' : '', min: '', max: '', options: ['dropdown', 'radio', 'checkbox'].includes(type) ? [{ v: 'option_1', l: 'Option 1' }] : [], presets: type === 'textarea' ? [] : undefined, formula: '', conditions: [] }] } : x))
     setSelectedFieldId(fid); setIsDirty(true)
   }
   const deleteField = (fid) => {
