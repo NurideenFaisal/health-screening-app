@@ -5,8 +5,17 @@ import { toast } from 'sonner'
 
 const SYNC_QUEUE_KEY = 'screening_sync_queue'
 const getSyncQueue = () => { try { return JSON.parse(localStorage.getItem(SYNC_QUEUE_KEY) || '[]') } catch { return [] } }
-const addToSyncQueue = (item) => { const q = getSyncQueue(); q.push(item); localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(q)) }
-const removeFromSyncQueue = (id) => { const q = getSyncQueue().filter(i => i.id !== id); localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(q)) }
+const addToSyncQueue = (item) => {
+  const q = getSyncQueue().filter(i => i.id !== item.id)
+  q.push(item)
+  localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(q))
+}
+const removeFromSyncQueue = (id) => {
+  const q = getSyncQueue()
+  const idx = q.findIndex(i => i.id === id)
+  if (idx > -1) q.splice(idx, 1)
+  localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(q))
+}
 const saveLocally = (key, data) => { try { localStorage.setItem(key, JSON.stringify(data)) } catch { } }
 const loadLocally = (key) => { try { const d = localStorage.getItem(key); return d ? JSON.parse(d) : null } catch { return null } }
 

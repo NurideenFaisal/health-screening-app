@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { AlertCircle, ChevronLeft, RefreshCw } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
@@ -9,7 +9,7 @@ import { normalizeSectionOrder } from '../../lib/sectionUtils'
 import { formatPatientName } from '../../lib/textFormat'
 import { Button, EmptyState, PageLoader, SectionPill } from '../../components/ui/primitives'
 
-const DynamicRenderer = lazy(() => import('../../components/DynamicRenderer'))
+import DynamicRenderer from '../../components/DynamicRenderer'
 
 export default function ClinicianScreeningForm() {
   const { id } = useParams()
@@ -139,9 +139,7 @@ export default function ClinicianScreeningForm() {
                 </div>
               </div>
             ) : (
-              <Suspense fallback={null}>
-                <DynamicRenderer sectionNumber={activeSection} patientId={id} cycleId={cycleId} clinicId={profile?.clinic_id} assignedSections={assignedSections} onSectionSwitch={setActiveSection} />
-              </Suspense>
+              <DynamicRenderer sectionNumber={activeSection} patientId={id} cycleId={cycleId} clinicId={profile?.clinic_id} assignedSections={assignedSections} onSectionSwitch={setActiveSection} />
             )}
           </div>
         </div>

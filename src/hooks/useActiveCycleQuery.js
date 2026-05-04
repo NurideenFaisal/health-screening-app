@@ -3,26 +3,27 @@ import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../store/authStore'
 
 export function useActiveCycleQuery() {
-  const profile = useAuthStore(state => state.profile)
+  const { profile } = useAuthStore()
+  const clinicId = profile?.clinic_id
 
   return useQuery({
-    queryKey: ['active-cycle', profile?.clinic_id ?? 'global'],
+    queryKey: ['active-cycle', clinicId],
     enabled: !!profile,
-    staleTime: 1000 * 60 * 5,
     queryFn: async () => {
-      let query = supabase
+      if (!clinicId) return null
+      const { data, error } = await supabase
         .from('cycles')
-        .select('id, name, is_active, clinic_id, section_order, section_config')
+        .select('*')
+        .eq('clinic_id', clinicId)
         .eq('is_active', true)
-      
-      if (profile?.clinic_id) {
-        query = query.eq('clinic_id', profile.clinic_id)
-      }
-      
-      const { data, error } = await query.maybeSingle()
-
+        .single()
       if (error) throw error
+      if (data) localStorage.setItem('active_cycle', JSON.stringify(data))
       return data
     },
+    placeholderData: () => {
+      try { return JSON.parse(localStorage.getItem('active_cycle') || 'null') } catch { return null }
+    },
+    staleTime: 60000,
   })
 }

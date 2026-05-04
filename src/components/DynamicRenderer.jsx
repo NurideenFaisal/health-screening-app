@@ -169,6 +169,7 @@ export default function DynamicRenderer({ sectionNumber, patientId, cycleId, cli
   const [loading, setLoading] = useState(true)
   const [formData, setFormData] = useState({})
   const [errors, setErrors] = useState({})
+  const [pendingSyncCount, setPendingSyncCount] = useState(0)
 
   const { sectionData, save, isSaving, syncStatus } = useScreeningSection({ childId: patientId, cycleId, sectionNumber })
 
@@ -176,17 +177,68 @@ export default function DynamicRenderer({ sectionNumber, patientId, cycleId, cli
   useEffect(() => {
     if (!patientId || !cycleId || !sectionNumber) return
     const key = `screening_${patientId}_${cycleId}_${sectionNumber}`
-    try { localStorage.setItem(key, JSON.stringify({ section_data: formData, is_complete: false, updated_at: new Date().toISOString() })) } catch {}
+    try { localStorage.setItem(key, JSON.stringify({ section_data: formData, is_complete: false, updated_at: new Date().toISOString() })) } catch { }
   }, [formData, patientId, cycleId, sectionNumber])
+
+  useEffect(() => {
+    const check = () => {
+      try {
+        const queue = JSON.parse(localStorage.getItem('screening_sync_queue') || '[]')
+        setPendingSyncCount(queue.length)
+      } catch {
+        setPendingSyncCount(0)
+      }
+    }
+
+    check()
+    window.addEventListener('online', check)
+    window.addEventListener('offline', check)
+    const interval = window.setInterval(check, 3000)
+    return () => {
+      window.clearInterval(interval)
+      window.removeEventListener('online', check)
+      window.removeEventListener('offline', check)
+    }
+  }, [])
 
   // Load template
   useEffect(() => {
     if (!clinicId || !cycleId) return
     setLoading(true)
+    const cacheKeys = [
+      `template_${clinicId}_${cycleId}_${sectionNumber}`,
+      `template_${clinicId}_${sectionNumber}`,
+    ]
+
+    for (const key of cacheKeys) {
+      const cachedTemplate = localStorage.getItem(key)
+      if (cachedTemplate) {
+        try {
+          const cachedSchema = JSON.parse(cachedTemplate)
+          if (cachedSchema?.groups) {
+            setSchema(cachedSchema)
+            if (sectionData) {
+              const flat = {}
+              for (const g of cachedSchema.groups) for (const f of g.fields || []) flat[f.id] = sectionData[f.id] ?? ''
+              setFormData(flat)
+            }
+            setLoading(false)
+            return
+          }
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
     supabase.rpc('get_clinic_template', { p_clinic_id: clinicId, p_cycle_id: cycleId, p_section_number: sectionNumber })
       .then(({ data, error }) => {
         if (error || !data?.fieldSchema?.groups) { setSchema(null); return }
         setSchema(data.fieldSchema)
+        try {
+          localStorage.setItem(`template_${clinicId}_${cycleId}_${sectionNumber}`, JSON.stringify(data.fieldSchema))
+          localStorage.setItem(`template_${clinicId}_${sectionNumber}`, JSON.stringify(data.fieldSchema))
+        } catch { }
         if (sectionData) {
           const flat = {}
           for (const g of data.fieldSchema.groups) for (const f of g.fields || []) flat[f.id] = sectionData[f.id] ?? ''
@@ -218,8 +270,32 @@ export default function DynamicRenderer({ sectionNumber, patientId, cycleId, cli
 
   const doSave = () => {
     if (!cycleId || !patientId) return
+    try { localStorage.setItem('__storage_test__', '1'); localStorage.removeItem('__storage_test__') }
+    catch { window.dispatchEvent(new CustomEvent('storage-full')); return }
+
     const done = isLast || !hasMulti
     save({ sectionData: { ...formData, updated_at: new Date().toISOString() }, isComplete: done })
+
+    // Only update the patient list cache when the section is truly complete
+    if (done) {
+      const queueKey = `clinician-queue-${clinicId || 'all'}-${sectionNumber}-${cycleId}`
+      try {
+        const cached = JSON.parse(localStorage.getItem(queueKey) || 'null')
+        if (cached?.patients) {
+          const updated = {
+            ...cached,
+            patients: cached.patients.map(p => {
+              if (p.db_id === patientId || p.id === patientId || p.child_id === patientId) {
+                return { ...p, section_data: { ...(p.section_data || {}), [`s${sectionNumber}`]: true } }
+              }
+              return p
+            })
+          }
+          localStorage.setItem(queueKey, JSON.stringify(updated))
+        }
+      } catch { }
+    }
+
     if (done) window.history.back()
     else onSectionSwitch?.(assignedSections[curIdx + 1])
   }
@@ -231,9 +307,14 @@ export default function DynamicRenderer({ sectionNumber, patientId, cycleId, cli
     <div className="mx-auto max-w-2xl">
       {schema.groups?.map(group => <DynamicFieldGroup key={group.id} group={group} schema={schema} formData={formData} onChange={handleChange} errors={errors} />)}
       <div className="sticky bottom-0 -mx-4 mt-6 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:flex sm:justify-center sm:bg-transparent sm:px-0 sm:pt-4">
-        <Button onClick={doSave} disabled={isSaving} variant="primary" className="w-full sm:w-auto sm:min-w-44">
+        <Button onClick={doSave} disabled={isSaving} variant="primary" className="relative w-full sm:w-auto sm:min-w-44">
           {isSaving ? <Loader2 size={14} className="animate-spin" /> : isLast || !hasMulti ? 'Save & Finish' : 'Save & Next'}
           {syncStatus === 'pending' && <StatusBadge status="pending">Pending</StatusBadge>}
+          {pendingSyncCount > 0 && (
+            <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-400 px-1.5 text-[10px] font-bold text-white">
+              {pendingSyncCount}
+            </span>
+          )}
         </Button>
       </div>
     </div>

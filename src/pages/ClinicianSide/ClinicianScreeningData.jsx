@@ -56,6 +56,17 @@ export default function ClinicianScreeningData() {
     }
   }, [queueCacheKey])
 
+  const cachedPatientQueueData = useMemo(() => {
+    try {
+      const raw = localStorage.getItem(`patients_${clinicId}`)
+      if (!raw) return undefined
+      const patients = JSON.parse(raw).map(row => mapRpcPatient(row, mySection, sectionOrder))
+      return { cycle: activeCycle, patients }
+    } catch {
+      return undefined
+    }
+  }, [activeCycle, clinicId, mySection, sectionOrder])
+
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       setDebouncedQuery(query.trim())
@@ -114,7 +125,7 @@ export default function ClinicianScreeningData() {
   const { data: queueData, isLoading, isFetching, error: queryError } = useQuery({
     queryKey: ['screening-queue', clinicId, mySection, activeCycleId],
     enabled: !activeCycleQuery.isLoading,
-    initialData: cachedQueueData,
+    initialData: cachedQueueData ?? cachedPatientQueueData,
     queryFn: async () => {
       if (!activeCycle) return { cycle: null, patients: [] }
 
@@ -126,6 +137,7 @@ export default function ClinicianScreeningData() {
 
       if (error) throw error
 
+      try { localStorage.setItem(`patients_${clinicId}`, JSON.stringify(data ?? [])) } catch {}
       const patients = (data ?? []).map(row => mapRpcPatient(row, mySection, sectionOrder))
       return { cycle: activeCycle, patients }
     },

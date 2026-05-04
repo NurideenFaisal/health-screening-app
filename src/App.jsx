@@ -23,7 +23,7 @@ const ClinicianDashboard = lazy(() => import('./pages/ClinicianSide/ClinicianDas
 const ClinicianDashboardStats = lazy(() => import('./pages/ClinicianSide/ClinicianDashboardStats'))
 const ClinicianPatientData = lazy(() => import('./pages/ClinicianSide/ClinicianPatientData'))
 const ClinicianScreeningData = lazy(() => import('./pages/ClinicianSide/ClinicianScreeningData'))
-const ClinicianScreeningForm = lazy(() => import('./pages/ClinicianSide/ClinicianScreeningForm'))
+import ClinicianScreeningForm from './pages/ClinicianSide/ClinicianScreeningForm'
 
 // --- Super Admin ---
 const SuperAdminDashboard = lazy(() => import('./pages/SuperAdminSide/SuperAdminDashboard'))

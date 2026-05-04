@@ -1,10 +1,11 @@
-// PatientSearch.jsx
 import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../store/authStore'
-import { Search, Plus, X, Pencil, Trash2, Loader2 } from 'lucide-react'
+import { Search, Plus, X, Pencil, Trash2, Loader2, ClipboardList } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { formatCommunity, formatPatientName } from '../../lib/textFormat'
+import { usePatientEnrollment } from '../../hooks/usePatientEnrollment'
 
 // - Utilities -
 function calcAge(dob) {
@@ -22,6 +23,8 @@ const EMPTY_FORM = { firstName: '', lastName: '', community: '', dob: '', childI
 export default function PatientSearch() {
   const { profile } = useAuthStore()
   const queryClient = useQueryClient()
+  const { saveEnrollment } = usePatientEnrollment({ profile })
+  const navigate = useNavigate()
 
   // ── UI State ──
   const [query, setQuery] = useState('')
@@ -49,28 +52,6 @@ export default function PatientSearch() {
   })
 
   // ── TanStack Mutation: Save (Enroll or Update) ──
-  const saveMutation = useMutation({
-    mutationFn: async (payload) => {
-      if (form.id) {
-        const { error } = await supabase
-          .from('children')
-          .update(payload)
-          .eq('id', form.id)
-        if (error) throw error
-      } else {
-        const { error } = await supabase
-          .from('children')
-          .insert({ ...payload, created_by: profile?.id, clinic_id: profile?.clinic_id })
-        if (error) throw error
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['children'] })
-      cancelEnroll()
-    },
-    onError: (err) => alert('Save failed: ' + err.message)
-  })
-
   // ── TanStack Mutation: Delete ──
   const deleteMutation = useMutation({
     mutationFn: async (id) => {
@@ -209,31 +190,33 @@ export default function PatientSearch() {
               </button>
 
               <button
-                disabled={saveMutation.isPending}
+                disabled={saveEnrollment.isPending}
                 onClick={async () => {
-                  if (saveMutation.isPending) return
+                  if (saveEnrollment.isPending) return
 
                   const e = validate(form);
                   setErrors(e)
                   if (Object.keys(e).length) return
 
-                  if (!form.id && patients.some(p => p.child_code === form.childId)) {
+                  const nextChildCode = form.childId.toUpperCase().trim()
+                  if (!form.id && patients.some(p => p.child_code?.toUpperCase().trim() === nextChildCode)) {
                     alert('Patient ID already exists!')
                     return
                   }
 
-                  saveMutation.mutate({
+                  saveEnrollment.mutate({
+                    id: form.id,
                     first_name: formatPatientName(form.firstName),
                     last_name: formatPatientName(form.lastName),
-                    child_code: form.childId.toUpperCase().trim(),
+                    child_code: nextChildCode,
                     birthdate: form.dob,
                     gender: form.sex,
                     community: formatCommunity(form.community),
-                  })
+                  }, { onSuccess: cancelEnroll })
                 }}
                 className="flex-1 py-2 rounded-xl text-sm text-white bg-emerald-500 hover:bg-emerald-600 transition font-medium flex items-center justify-center gap-2 disabled:bg-emerald-300"
               >
-                {saveMutation.isPending && <Loader2 size={14} className="animate-spin" />}
+                {saveEnrollment.isPending && <Loader2 size={14} className="animate-spin" />}
                 {form.id ? 'Update' : 'Enroll'}
               </button>
             </div>
@@ -275,9 +258,28 @@ export default function PatientSearch() {
                         <Loader2 size={16} className="animate-spin text-gray-300 mx-2" />
                       ) : (
                         <>
+                          <button
+                            onClick={() => navigate(`/clinician/patient/${p.id}`, {
+                              state: {
+                                patient: {
+                                  id: p.id,
+                                  first_name: p.first_name,
+                                  last_name: p.last_name,
+                                  child_code: p.child_code,
+                                  community: p.community,
+                                  birthdate: p.birthdate,
+                                  gender: p.gender
+                                }
+                              }
+                            })}
+                            className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg transition"
+                            title="Screen patient"
+                          >
+                            <ClipboardList size={16} />
+                          </button>
                           {p.created_by === profile?.id && (
                             <>
-                              <button onClick={() => startEdit(p)} className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg transition">
+                              <button onClick={() => startEdit(p)} className="p-1.5 text-emerald-400 hover:bg-emerald-50 rounded-lg transition">
                                 <Pencil size={16} />
                               </button>
                               <button

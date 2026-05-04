@@ -17,13 +17,13 @@ export function usePatientRegistry() {
         .from('children')
         .select('*, screenings(count)')
         .order('created_at', { ascending: false })
-      
+
       // Filter by clinic_id only if NOT super-admin
       // Super-admin (clinic_id = NULL) sees ALL children
       if (!isSuperAdmin && profile?.clinic_id) {
         query = query.eq('clinic_id', profile.clinic_id)
       }
-      
+
       const { data, error } = await query
       if (error) throw error
       return data.map(c => ({
@@ -65,10 +65,10 @@ export function usePatientRegistry() {
   const addPatient = useMutation({
     mutationFn: async (newPatient) => {
       // Automatically assign clinic_id for non-super-admin users
-      const patientData = isSuperAdmin 
-        ? newPatient 
+      const patientData = isSuperAdmin
+        ? newPatient
         : { ...newPatient, clinic_id: profile?.clinic_id }
-      
+
       const { error } = await supabase.from('children').insert(patientData)
       if (error) throw error
     },
@@ -83,19 +83,22 @@ export function usePatientRegistry() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['patients'] }),
   })
 
-  const bulkAddPatients = useMutation({
-    mutationFn: async (rows) => {
-      const patientRows = rows.map(row => ({
-        ...row,
+  async function bulkAddPatients(rows) {
+    const batchSize = 50
+    for (let i = 0; i < rows.length; i += batchSize) {
+      const batch = rows.slice(i, i + batchSize).map(r => ({
+        child_code: normalizeId(r.child_code),
+        first_name: toTitleCase(r.first_name),
+        last_name: toTitleCase(r.last_name),
+        community: toTitleCase(r.community),
+        birthdate: normalizeDate(r.birthdate),
+        gender: normalizeSex(r.gender),
         clinic_id: profile?.clinic_id,
-        created_by: profile?.id,
       }))
-
-      const { error } = await supabase.from('children').insert(patientRows)
+      const { error } = await supabase.from('children').upsert(batch, { onConflict: 'child_code' })
       if (error) throw error
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['patients'] }),
-  })
+    }
+  }
 
   const deletePatients = useMutation({
     mutationFn: async (ids) => {
