@@ -87,7 +87,7 @@ export default function ClinicianDashboard() {
           <div className="mx-auto w-full max-w-[1600px]">
             {banner.show && (
               <div className={`sticky top-0 z-30 mb-3 py-2 text-center text-xs text-white ${banner.storageFull ? 'bg-red-500' : banner.syncing || banner.synced ? 'bg-emerald-500' : 'bg-amber-500'}`}>
-                {banner.storageFull ? 'Storage full · Cannot save offline' : banner.synced ? 'All synced' : banne r.syncing ? `Syncing ${banner.pending} items...` : `Offline · ${banner.pending} pending`}
+                {banner.storageFull ? 'Storage full · Cannot save offline' : banner.synced ? 'All synced' : banner.syncing ? `Syncing ${banner.pending} items...` : `Offline · ${banner.pending} pending`}
               </div>
             )}
             <Outlet />
